@@ -507,8 +507,8 @@ export function SubjectsPage() {
                                 value={formData.semester}
                                 onChange={e => setFormData({...formData, semester: parseInt(e.target.value)})}
                             >
-                                {pensum.map(s => (
-                                    <option key={s.number} value={s.number}>Semestre {s.number}</option>
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                    <option key={n} value={n}>Semestre {n}</option>
                                 ))}
                             </select>
                         </div>
