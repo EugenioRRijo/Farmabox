@@ -1,42 +1,26 @@
 /**
- * CloudStorageService — Proxy de almacenamiento offline-first con sync a Supabase.
+ * CloudStorageService — Almacenamiento offline-first con sync a Supabase.
  *
  * Modelo automático (sin UI de sincronización):
  *   - Lecturas/escrituras inmediatas a local (cero latencia, funciona sin internet).
  *   - Cada save SELLA los ítems (updatedAt / deletedAt), guarda local y AGENDA un
- *     auto-guardado a Supabase (app_data, con debounce). Ver pushDataOnly()/flush().
- *   - RECIBIR (pull+merge) es automático al abrir: syncFromCloud().
+ *     auto-guardado a Supabase (debounced). Ver pushDataOnly()/flush().
+ *   - RECIBIR (pull + merge por fila, newest-wins) es automático al abrir: syncFromCloud().
  *
- * El merge por ítem (newest-wins + tombstones, ver sync/merge.ts con tests) evita
- * perder datos al combinar lo de varias PCs.
- *
- * pushSession()/getVersionHistory()/restoreVersion() (historial en la tabla
- * app_versions) quedan en el código pero NO se usan desde la UI: la sincronización
- * manual con historial se retiró por no estar la tabla creada.
+ * La nube usa un ESQUEMA RELACIONAL NORMALIZADO (ver docs/supabase-schema.sql):
+ *   professors, subjects, professor_subjects (M:N), academic_load, schedule_blocks, logs.
+ * Cada tabla tiene updated_at / deleted_at (borrado lógico) → el merge por ítem
+ * (sync/merge.ts, con tests) evita perder datos al combinar lo de varias PCs.
  *
  * Implementa IStorageService → sustituye a StorageService en el grafo de servicios.
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import log from 'electron-log';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import * as https from 'https';
 import { ENV } from '../config/env';
 import { mergeRaw, mergeMaps, type Stamped } from '../sync/merge';
-import { diffKeyed, totalChanges, describeDiff } from '../sync/diff';
 import type { IStorageService } from './IStorageService';
 import type { Professor, Semester, PensumSubject } from '@scheduler/shared';
-import type {
-  AcademicLoad,
-  ScheduleBlockData,
-  LogEntry,
-  AppSnapshot,
-  PendingDiff,
-  SyncStatus,
-  VersionMeta,
-  SyncState,
-} from '../types';
+import type { AcademicLoad, ScheduleBlockData, LogEntry } from '../types';
 
 type SProfessor = Professor & Stamped;
 type SBlock = ScheduleBlockData & Stamped;
@@ -51,6 +35,63 @@ interface RawDatasets {
   scheduleBlocks: SBlock[];
   academicLoad: Record<string, SLoadVal>;
   logs: SLog[];
+}
+
+// ── Filas tal como vienen/van a Postgres ───────────────────────────────────
+interface ProfRow {
+  id: string;
+  full_name: string;
+  title: string;
+  email: string | null;
+  cedula: string | null;
+  type: string;
+  updated_at: string | null;
+  deleted_at: string | null;
+}
+interface SubjRow {
+  code: string;
+  name: string;
+  credits: number;
+  has_lab: boolean;
+  hours_theory: number;
+  hours_lab: number;
+  semester: number;
+  lab_number: string | null;
+  prerequisites: string[] | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+}
+interface LinkRow {
+  professor_id: string;
+  subject_code: string;
+}
+interface LoadRow {
+  subject_code: string;
+  professor_id: string;
+  role: string;
+  updated_at: string | null;
+}
+interface BlockRow {
+  id: string;
+  subject_code: string | null;
+  day: number;
+  start_hour: number;
+  duration: number;
+  color: string | null;
+  type: string | null;
+  professor_id: string | null;
+  section: string | null;
+  lab_group_id: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+}
+interface LogRow {
+  id: string;
+  action: string;
+  details: string | null;
+  timestamp: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
 }
 
 /** JSON estable (orden de claves) ignorando la metadata de sync. */
@@ -140,7 +181,7 @@ export class CloudStorageService implements IStorageService {
     return arr.filter((i) => !i.deletedAt);
   }
 
-  // ── Persistencia (offline-first, SIN subir solo) ─────────────────────────
+  // ── Persistencia (offline-first; agenda auto-guardado a la nube) ─────────
   loadProfessors(): Professor[] {
     return this.live(this.local.loadProfessors() as SProfessor[]);
   }
@@ -260,7 +301,6 @@ export class CloudStorageService implements IStorageService {
     return [...bySem.entries()].sort((a, b) => a[0] - b[0]).map(([number, subjects]) => ({ number, subjects }));
   }
 
-  // ── Estado / diff de pendientes ──────────────────────────────────────────
   private localRaw(): RawDatasets {
     return {
       professors: this.local.loadProfessors() as SProfessor[],
@@ -271,138 +311,7 @@ export class CloudStorageService implements IStorageService {
     };
   }
 
-  private hashContent(item: unknown): string {
-    const s = stableStringify(item);
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
-    return (h >>> 0).toString(36);
-  }
-
-  private hashMapsFromRaw(raw: RawDatasets): SyncState['hashes'] {
-    const arrH = <T extends Stamped>(items: T[], keyOf: (i: T) => string): Record<string, string> => {
-      const m: Record<string, string> = {};
-      for (const it of items) if (!it.deletedAt) m[keyOf(it)] = this.hashContent(it);
-      return m;
-    };
-    const subjects: Record<string, string> = {};
-    for (const s of raw.pensum) for (const sub of s.subjects) if (!sub.deletedAt) subjects[sub.code] = this.hashContent(sub);
-    const academicLoad: Record<string, string> = {};
-    for (const [k, v] of Object.entries(raw.academicLoad)) if (!v.deletedAt) academicLoad[k] = this.hashContent(v);
-    return {
-      professors: arrH(raw.professors, (p) => p.id),
-      scheduleBlocks: arrH(raw.scheduleBlocks, (b) => b.id),
-      subjects,
-      academicLoad,
-      logs: arrH(raw.logs, (l) => l.id),
-    };
-  }
-
-  private syncStatePath(): string {
-    return path.join(this.local.getDataDir(), 'sync-state.json');
-  }
-  private readSyncState(): SyncState | null {
-    try {
-      return JSON.parse(fs.readFileSync(this.syncStatePath(), 'utf-8')) as SyncState;
-    } catch {
-      return null;
-    }
-  }
-  private writeSyncState(state: SyncState): void {
-    try {
-      fs.writeFileSync(this.syncStatePath(), JSON.stringify(state, null, 2), 'utf-8');
-    } catch (e) {
-      log.error('[Cloud] No se pudo guardar sync-state:', e);
-    }
-  }
-
-  getPendingDiff(): PendingDiff {
-    const cur = this.hashMapsFromRaw(this.localRaw());
-    const empty: Record<string, string> = {};
-    const last = this.readSyncState()?.hashes ?? {
-      professors: empty,
-      scheduleBlocks: empty,
-      subjects: empty,
-      academicLoad: empty,
-      logs: empty,
-    };
-    const datasets = {
-      professors: diffKeyed(cur.professors, last.professors ?? {}),
-      scheduleBlocks: diffKeyed(cur.scheduleBlocks, last.scheduleBlocks ?? {}),
-      subjects: diffKeyed(cur.subjects, last.subjects ?? {}),
-      academicLoad: diffKeyed(cur.academicLoad, last.academicLoad ?? {}),
-      logs: diffKeyed(cur.logs, last.logs ?? {}),
-    };
-    const total = Object.values(datasets).reduce((a, d) => a + totalChanges(d), 0);
-    const labels: [keyof typeof datasets, string][] = [
-      ['scheduleBlocks', 'Horarios'],
-      ['professors', 'Profesores'],
-      ['subjects', 'Materias'],
-      ['academicLoad', 'Carga'],
-      ['logs', 'Registros'],
-    ];
-    const summary = labels
-      .filter(([k]) => totalChanges(datasets[k]) > 0)
-      .map(([k, label]) => `${label}: ${describeDiff(datasets[k])}`)
-      .join(' · ');
-    return { datasets, total, summary };
-  }
-
-  private device(): string {
-    try {
-      return os.hostname() || 'PC';
-    } catch {
-      return 'PC';
-    }
-  }
-
-  private checkOnline(): Promise<boolean> {
-    return new Promise((resolve) => {
-      try {
-        const u = new URL('/rest/v1/', ENV.SUPABASE_URL);
-        const req = https.request(
-          {
-            hostname: u.hostname,
-            path: u.pathname,
-            method: 'HEAD',
-            headers: { apikey: ENV.SUPABASE_ANON_KEY },
-            timeout: 3500,
-          },
-          (res) => {
-            res.resume();
-            resolve((res.statusCode ?? 0) < 500);
-          },
-        );
-        req.on('timeout', () => {
-          req.destroy();
-          resolve(false);
-        });
-        req.on('error', () => resolve(false));
-        req.end();
-      } catch {
-        resolve(false);
-      }
-    });
-  }
-
-  async getSyncStatus(): Promise<SyncStatus> {
-    const configured = this.isCloudEnabled();
-    const state = this.readSyncState();
-    const pendingCount = this.getPendingDiff().total;
-    const online = configured ? await this.checkOnline() : false;
-    return { configured, online, lastSyncAt: state?.lastSyncAt ?? null, pendingCount };
-  }
-
-  private liveSnapshot(): AppSnapshot {
-    return {
-      professors: this.loadProfessors(),
-      pensum: this.loadPensum(),
-      scheduleBlocks: this.loadScheduleBlocks(),
-      academicLoad: this.loadAcademicLoad(),
-      logs: this.loadLogs(),
-    };
-  }
-
-  // ── Guardado automático a la nube (app_data, SIN historial) ──────────────
+  // ── Guardado automático a la nube (tablas relacionales) ──────────────────
   /** Programa un guardado a Supabase tras un pequeño debounce (coalesce de ráfagas). */
   private scheduleAutoPush(): void {
     if (!this.client) return;
@@ -411,29 +320,6 @@ export class CloudStorageService implements IStorageService {
       this.autoPushTimer = null;
       void this.pushDataOnly();
     }, 2000);
-  }
-
-  /** Sube los 5 datasets a app_data (upsert). No toca app_versions. */
-  async pushDataOnly(): Promise<{ ok: boolean; error?: string }> {
-    if (!this.client) return { ok: false, error: 'Nube no configurada' };
-    try {
-      const rows = [
-        { id: 'professors', data: this.local.loadProfessors() },
-        { id: 'pensum', data: this.local.loadPensum() },
-        { id: 'schedule-blocks', data: this.local.loadScheduleBlocks() },
-        { id: 'academic-load', data: this.local.loadAcademicLoad() },
-        { id: 'logs', data: this.local.loadLogs() },
-      ].map((r) => ({ ...r, updated_at: this.now() }));
-      const { error } = await this.client.from('app_data').upsert(rows);
-      if (error) throw error;
-      this.writeSyncState({ lastSyncAt: this.now(), hashes: this.hashMapsFromRaw(this.localRaw()) });
-      log.info('[Cloud] Auto-guardado en la nube OK.');
-      return { ok: true };
-    } catch (e) {
-      const error = e instanceof Error ? e.message : 'Error al guardar en la nube';
-      log.error('[Cloud] Auto-guardado FALLÓ (se mantiene local):', error);
-      return { ok: false, error };
-    }
   }
 
   /** Fuerza un guardado pendiente inmediato (p. ej. al cerrar la app). */
@@ -445,149 +331,261 @@ export class CloudStorageService implements IStorageService {
     if (this.client) await this.pushDataOnly();
   }
 
-  // ── Subir (manual, con versión) ──────────────────────────────────────────
-  async pushSession(label?: string): Promise<{ ok: boolean; summary: string; error?: string }> {
-    if (!this.client) return { ok: false, summary: '', error: 'Nube no configurada' };
-    try {
-      const diff = this.getPendingDiff();
-      // 1. Upsert de los 5 datasets crudos (con stamps/tombstones → preserva el merge).
-      const rows = [
-        { id: 'professors', data: this.local.loadProfessors() },
-        { id: 'pensum', data: this.local.loadPensum() },
-        { id: 'schedule-blocks', data: this.local.loadScheduleBlocks() },
-        { id: 'academic-load', data: this.local.loadAcademicLoad() },
-        { id: 'logs', data: this.local.loadLogs() },
-      ].map((r) => ({ ...r, updated_at: this.now() }));
-      const { error: upErr } = await this.client.from('app_data').upsert(rows);
-      if (upErr) throw upErr;
-
-      // 2. Guardar una versión (snapshot limpio = "commit").
-      const { error: vErr } = await this.client.from('app_versions').insert({
-        device: this.device(),
-        label: label ?? null,
-        summary: diff.summary || 'Sin cambios',
-        snapshot: this.liveSnapshot(),
-      });
-      if (vErr) throw vErr;
-
-      // 3. Podar historial a las últimas 50.
-      await this.pruneVersions(50);
-
-      // 4. Actualizar el estado sincronizado (pending vuelve a 0).
-      this.writeSyncState({ lastSyncAt: this.now(), hashes: this.hashMapsFromRaw(this.localRaw()) });
-      log.info('[Cloud] pushSession OK:', diff.summary || 'sin cambios');
-      return { ok: true, summary: diff.summary };
-    } catch (e) {
-      const error = e instanceof Error ? e.message : 'Error al subir';
-      log.error('[Cloud] pushSession FALLÓ:', error);
-      return { ok: false, summary: '', error };
-    }
-  }
-
-  private async pruneVersions(keep: number): Promise<void> {
-    if (!this.client) return;
-    const { data } = await this.client
-      .from('app_versions')
-      .select('id')
-      .order('created_at', { ascending: false })
-      .range(keep, keep + 500);
-    const ids = (data ?? []).map((r) => (r as { id: number }).id);
-    if (ids.length) await this.client.from('app_versions').delete().in('id', ids);
-  }
-
-  async getVersionHistory(): Promise<VersionMeta[]> {
-    if (!this.client) return [];
-    const { data, error } = await this.client
-      .from('app_versions')
-      .select('id, created_at, device, label, summary')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (error) {
-      log.error('[Cloud] getVersionHistory FALLÓ:', error.message);
-      return [];
-    }
-    return (data ?? []) as VersionMeta[];
-  }
-
-  async restoreVersion(id: number): Promise<{ ok: boolean; error?: string }> {
+  /** Escribe el estado local completo (incluidos tombstones) a las tablas relacionales. */
+  async pushDataOnly(): Promise<{ ok: boolean; error?: string }> {
     if (!this.client) return { ok: false, error: 'Nube no configurada' };
     try {
-      const { data, error } = await this.client
-        .from('app_versions')
-        .select('snapshot')
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      const snap = (data as { snapshot: AppSnapshot }).snapshot;
-      // Aplicar el snapshot al local (los save* sellan: todo a now, lo que falta se tombstonea).
-      if (snap.professors) this.saveProfessors(snap.professors);
-      if (snap.pensum) this.savePensum(snap.pensum);
-      if (snap.scheduleBlocks) this.saveScheduleBlocks(snap.scheduleBlocks);
-      if (snap.academicLoad) this.saveAcademicLoad(snap.academicLoad);
-      if (snap.logs) this.saveLogs(snap.logs);
-      // Subir como versión nueva (no borra las intermedias).
-      const res = await this.pushSession(`Restauración de versión #${id}`);
-      return { ok: res.ok, error: res.error };
+      const raw = this.localRaw();
+      const profs = raw.professors;
+      const subsFlat: SSubject[] = raw.pensum.flatMap((s) =>
+        s.subjects.map((sub) => ({ ...sub, _sem: s.number })),
+      );
+      const allProfIds = new Set(profs.map((p) => p.id));
+      const allSubjCodes = new Set(subsFlat.map((s) => s.code));
+
+      // 1. Profesores (incluye tombstoned, con deleted_at).
+      const profRows: ProfRow[] = profs.map((p) => ({
+        id: p.id,
+        full_name: p.fullName,
+        title: p.title,
+        email: p.email ?? null,
+        cedula: p.cedula ?? null,
+        type: p.type,
+        updated_at: p.updatedAt ?? this.now(),
+        deleted_at: p.deletedAt ?? null,
+      }));
+      if (profRows.length) {
+        const { error } = await this.client.from('professors').upsert(profRows);
+        if (error) throw error;
+      }
+
+      // 2. Materias (incluye tombstoned).
+      const subjRows: SubjRow[] = subsFlat.map((s) => ({
+        code: s.code,
+        name: s.name,
+        credits: s.credits ?? 0,
+        has_lab: !!s.hasLab,
+        hours_theory: s.hoursTheory ?? 0,
+        hours_lab: s.hoursLab ?? 0,
+        semester: s._sem ?? 1,
+        lab_number: s.labNumber ?? null,
+        prerequisites: s.prerequisites ?? [],
+        updated_at: s.updatedAt ?? this.now(),
+        deleted_at: s.deletedAt ?? null,
+      }));
+      if (subjRows.length) {
+        const { error } = await this.client.from('subjects').upsert(subjRows);
+        if (error) throw error;
+      }
+
+      // 3. professor_subjects: reconstruir desde la unión de ambos lados (solo vivos).
+      const linkSet = new Set<string>();
+      const links: LinkRow[] = [];
+      const addLink = (pid: string, code: string): void => {
+        if (!allProfIds.has(pid) || !allSubjCodes.has(code)) return; // respeta las FKs
+        const key = `${pid} ${code}`;
+        if (linkSet.has(key)) return;
+        linkSet.add(key);
+        links.push({ professor_id: pid, subject_code: code });
+      };
+      for (const p of this.live(profs)) for (const code of p.subjects ?? []) addLink(p.id, code);
+      for (const s of subsFlat) {
+        if (s.deletedAt) continue;
+        for (const pid of s.professors ?? []) addLink(pid, s.code);
+      }
+      await this.client.from('professor_subjects').delete().not('professor_id', 'is', null);
+      if (links.length) {
+        const { error } = await this.client.from('professor_subjects').insert(links);
+        if (error) throw error;
+      }
+
+      // 4. academic_load: reemplazar por las asignaciones vivas.
+      const loadInsert: LoadRow[] = [];
+      for (const [code, v] of Object.entries(raw.academicLoad)) {
+        if (v.deletedAt || !allSubjCodes.has(code)) continue;
+        const ts = v.updatedAt ?? this.now();
+        for (const pid of v.theory ?? [])
+          if (allProfIds.has(pid)) loadInsert.push({ subject_code: code, professor_id: pid, role: 'theory', updated_at: ts });
+        for (const pid of v.lab ?? [])
+          if (allProfIds.has(pid)) loadInsert.push({ subject_code: code, professor_id: pid, role: 'lab', updated_at: ts });
+      }
+      await this.client.from('academic_load').delete().not('subject_code', 'is', null);
+      if (loadInsert.length) {
+        const { error } = await this.client.from('academic_load').insert(loadInsert);
+        if (error) throw error;
+      }
+
+      // 5. Bloques de horario (incluye tombstoned).
+      const blockRows: BlockRow[] = raw.scheduleBlocks.map((b) => ({
+        id: b.id,
+        subject_code: b.subjectCode ?? null,
+        day: b.day,
+        start_hour: b.startHour,
+        duration: b.duration,
+        color: b.color ?? null,
+        type: b.type ?? null,
+        professor_id: b.professorId ?? null,
+        section: b.section ?? null,
+        lab_group_id: b.labGroupId ?? null,
+        updated_at: b.updatedAt ?? this.now(),
+        deleted_at: b.deletedAt ?? null,
+      }));
+      if (blockRows.length) {
+        const { error } = await this.client.from('schedule_blocks').upsert(blockRows);
+        if (error) throw error;
+      }
+
+      // 6. Logs (incluye tombstoned).
+      const logRows: LogRow[] = raw.logs.map((l) => ({
+        id: l.id,
+        action: l.action,
+        details: l.details ?? null,
+        timestamp: l.timestamp ?? this.now(),
+        updated_at: l.updatedAt ?? this.now(),
+        deleted_at: l.deletedAt ?? null,
+      }));
+      if (logRows.length) {
+        const { error } = await this.client.from('logs').upsert(logRows);
+        if (error) throw error;
+      }
+
+      log.info('[Cloud] Auto-guardado en la nube OK.');
+      return { ok: true };
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'Error al restaurar';
-      log.error('[Cloud] restoreVersion FALLÓ:', error);
+      const error = e instanceof Error ? e.message : 'Error al guardar en la nube';
+      log.error('[Cloud] Auto-guardado FALLÓ (se mantiene local):', error);
       return { ok: false, error };
     }
   }
 
-  async pullNow(): Promise<{ ok: boolean; merged: string[] }> {
-    return this.syncFromCloud();
-  }
-
-  // ── Recibir (pull + merge, automático al abrir) ──────────────────────────
+  // ── Recibir (pull + merge por fila, automático al abrir) ─────────────────
   async syncFromCloud(): Promise<{ ok: boolean; merged: string[] }> {
     if (!this.client) return { ok: false, merged: [] };
     const done: string[] = [];
     try {
-      const { data: rows, error } = await this.client.from('app_data').select('id, data');
-      if (error) throw error;
-      const remote = new Map<string, unknown>((rows ?? []).map((r) => [r.id as string, r.data]));
-
-      const remoteRaw: RawDatasets = {
-        professors: (remote.get('professors') as SProfessor[]) ?? [],
-        pensum: (remote.get('pensum') as SSemester[]) ?? [],
-        scheduleBlocks: (remote.get('schedule-blocks') as SBlock[]) ?? [],
-        academicLoad: (remote.get('academic-load') as Record<string, SLoadVal>) ?? {},
-        logs: (remote.get('logs') as SLog[]) ?? [],
-      };
+      const remote = await this.cloudReadAll();
 
       this.local.saveProfessors(
-        mergeRaw(this.local.loadProfessors() as SProfessor[], remoteRaw.professors, (p) => p.id),
+        mergeRaw(this.local.loadProfessors() as SProfessor[], remote.professors, (p) => p.id),
       );
       done.push('professors');
       this.local.saveScheduleBlocks(
-        mergeRaw(this.local.loadScheduleBlocks() as SBlock[], remoteRaw.scheduleBlocks, (b) => b.id),
+        mergeRaw(this.local.loadScheduleBlocks() as SBlock[], remote.scheduleBlocks, (b) => b.id),
       );
       done.push('schedule-blocks');
-      this.local.saveLogs(
-        mergeRaw(this.local.loadLogs() as SLog[], remoteRaw.logs, (l) => l.id),
-      );
+      this.local.saveLogs(mergeRaw(this.local.loadLogs() as SLog[], remote.logs, (l) => l.id));
       done.push('logs');
       this.local.saveAcademicLoad(
         mergeMaps(
           this.local.loadAcademicLoad() as Record<string, SLoadVal>,
-          remoteRaw.academicLoad,
+          remote.academicLoad,
           (v) => v.updatedAt ?? v.deletedAt ?? '',
         ),
       );
       done.push('academic-load');
-      this.local.savePensum(
-        this.mergePensum(this.local.loadPensum() as SSemester[], remoteRaw.pensum),
-      );
+      this.local.savePensum(this.mergePensum(this.local.loadPensum() as SSemester[], remote.pensum));
       done.push('pensum');
 
-      // El estado sincronizado refleja lo que hay EN LA NUBE → pending = cambios locales no subidos.
-      this.writeSyncState({ lastSyncAt: this.now(), hashes: this.hashMapsFromRaw(remoteRaw) });
       log.info('[Cloud] syncFromCloud OK:', done.join(', '));
       return { ok: true, merged: done };
     } catch (e) {
       log.error('[Cloud] syncFromCloud FALLÓ (se mantiene local):', e);
       return { ok: false, merged: done };
     }
+  }
+
+  /** Lee todas las tablas relacionales y reconstruye los datasets sellados. */
+  private async cloudReadAll(): Promise<RawDatasets> {
+    if (!this.client) throw new Error('Nube no configurada');
+    const [profsRes, subjsRes, linksRes, loadRes, blocksRes, logsRes] = await Promise.all([
+      this.client.from('professors').select('*'),
+      this.client.from('subjects').select('*'),
+      this.client.from('professor_subjects').select('*'),
+      this.client.from('academic_load').select('*'),
+      this.client.from('schedule_blocks').select('*'),
+      this.client.from('logs').select('*'),
+    ]);
+    for (const r of [profsRes, subjsRes, linksRes, loadRes, blocksRes, logsRes]) {
+      if (r.error) throw r.error;
+    }
+    const links = (linksRes.data ?? []) as LinkRow[];
+    const subjectsByProf = new Map<string, string[]>();
+    const profsBySubject = new Map<string, string[]>();
+    for (const l of links) {
+      if (!subjectsByProf.has(l.professor_id)) subjectsByProf.set(l.professor_id, []);
+      subjectsByProf.get(l.professor_id)!.push(l.subject_code);
+      if (!profsBySubject.has(l.subject_code)) profsBySubject.set(l.subject_code, []);
+      profsBySubject.get(l.subject_code)!.push(l.professor_id);
+    }
+
+    const professors: SProfessor[] = ((profsRes.data ?? []) as ProfRow[]).map((r) => ({
+      id: r.id,
+      fullName: r.full_name,
+      title: r.title as Professor['title'],
+      email: r.email ?? undefined,
+      cedula: r.cedula ?? undefined,
+      type: r.type as Professor['type'],
+      subjects: subjectsByProf.get(r.id) ?? [],
+      updatedAt: r.updated_at ?? undefined,
+      deletedAt: r.deleted_at ?? undefined,
+    }));
+
+    const bySem = new Map<number, SSubject[]>();
+    for (const r of (subjsRes.data ?? []) as SubjRow[]) {
+      const sub: SSubject = {
+        code: r.code,
+        name: r.name,
+        credits: r.credits ?? 0,
+        hasLab: !!r.has_lab,
+        hoursTheory: r.hours_theory ?? 0,
+        hoursLab: r.hours_lab ?? 0,
+        prerequisites: r.prerequisites ?? [],
+        professors: profsBySubject.get(r.code) ?? [],
+        labNumber: r.lab_number ?? undefined,
+        updatedAt: r.updated_at ?? undefined,
+        deletedAt: r.deleted_at ?? undefined,
+      };
+      const n = r.semester ?? 1;
+      if (!bySem.has(n)) bySem.set(n, []);
+      bySem.get(n)!.push(sub);
+    }
+    const pensum: SSemester[] = [...bySem.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([number, subjects]) => ({ number, subjects }));
+
+    const academicLoad: Record<string, SLoadVal> = {};
+    for (const r of (loadRes.data ?? []) as LoadRow[]) {
+      if (!academicLoad[r.subject_code]) academicLoad[r.subject_code] = { theory: [], lab: [] };
+      const entry = academicLoad[r.subject_code];
+      if (r.role === 'lab') entry.lab!.push(r.professor_id);
+      else entry.theory!.push(r.professor_id);
+      if (r.updated_at && (!entry.updatedAt || r.updated_at > entry.updatedAt)) entry.updatedAt = r.updated_at;
+    }
+
+    const scheduleBlocks: SBlock[] = ((blocksRes.data ?? []) as BlockRow[]).map((r) => ({
+      id: r.id,
+      subjectCode: r.subject_code ?? '',
+      day: r.day,
+      startHour: r.start_hour,
+      duration: r.duration,
+      color: r.color ?? '',
+      type: (r.type as SBlock['type']) ?? undefined,
+      professorId: r.professor_id ?? undefined,
+      section: r.section ?? undefined,
+      labGroupId: r.lab_group_id ?? undefined,
+      updatedAt: r.updated_at ?? undefined,
+      deletedAt: r.deleted_at ?? undefined,
+    }));
+
+    const logs: SLog[] = ((logsRes.data ?? []) as LogRow[]).map((r) => ({
+      id: r.id,
+      action: r.action,
+      details: r.details ?? '',
+      timestamp: r.timestamp ?? this.now(),
+      updatedAt: r.updated_at ?? undefined,
+      deletedAt: r.deleted_at ?? undefined,
+    }));
+
+    return { professors, pensum, scheduleBlocks, academicLoad, logs };
   }
 }
