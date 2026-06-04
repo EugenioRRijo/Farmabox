@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProfessorsPage } from '@/components/professors/ProfessorsPage';
@@ -196,7 +196,7 @@ function MotionWrapper({ children }: { children: ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <SettingsProvider>
         <MotionWrapper>
           <AppDataProvider>
@@ -204,7 +204,7 @@ function App() {
           </AppDataProvider>
         </MotionWrapper>
       </SettingsProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
