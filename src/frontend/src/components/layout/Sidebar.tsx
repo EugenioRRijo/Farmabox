@@ -7,8 +7,7 @@ import {
   Settings,
   FileText,
   Home,
-  Eye,
-  RefreshCw
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
@@ -33,7 +32,6 @@ const sidebarItems: SidebarItem[] = [
   { id: '/subjects', label: 'Materias', icon: <BookOpen className="w-5 h-5" /> },
   { id: '/professors', label: 'Profesores', icon: <Users className="w-5 h-5" /> },
   { id: '/reports', label: 'Reportes', icon: <FileText className="w-5 h-5" /> },
-  { id: '/sync', label: 'Sincronización', icon: <RefreshCw className="w-5 h-5" /> },
   { id: '/settings', label: 'Configuración', icon: <Settings className="w-5 h-5" /> },
 ];
 

@@ -5,8 +5,8 @@
  * Cada handler usa ipcMain.handle (respuesta Promise) y devuelve la envoltura
  * { data } | { error }. Llamar una sola vez desde main.ts.
  *
- * NOTA: los canales de sincronización en la nube (supabase:*) se añadirán en la
- * Fase 2 junto con CloudStorageService/SupabaseKeepaliveService.
+ * NOTA: la sincronización con Supabase es automática (CloudStorageService guarda
+ * tras cada cambio y al cerrar). No hay canales IPC de sync.
  */
 import { ipcMain, app } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
@@ -40,7 +40,7 @@ type SubjectCreateInput = Partial<PensumSubject> & {
 };
 
 export function registerIpcHandlers(services: AppServices): void {
-  const { professorService, subjectService, scheduleService, logService, storageService, cloud } = services;
+  const { professorService, subjectService, scheduleService, logService, storageService } = services;
   const gemini = new GeminiService();
 
   // ── App ────────────────────────────────────────────────────────────────
@@ -241,59 +241,8 @@ export function registerIpcHandlers(services: AppServices): void {
     }
   });
 
-  // ── Sincronización / Historial de versiones ──────────────────────────────
-  ipcMain.handle('sync:status', async () => {
-    try {
-      return { data: await cloud.getSyncStatus() };
-    } catch (err) {
-      log.error('[IPC sync:status]', err);
-      return { error: 'Error obteniendo estado de sincronización' };
-    }
-  });
-  ipcMain.handle('sync:diff', () => {
-    try {
-      return { data: cloud.getPendingDiff() };
-    } catch (err) {
-      log.error('[IPC sync:diff]', err);
-      return { error: 'Error calculando cambios pendientes' };
-    }
-  });
-  ipcMain.handle('sync:push', async (_e: IpcMainInvokeEvent, label?: string) => {
-    try {
-      const r = await cloud.pushSession(typeof label === 'string' ? label : undefined);
-      if (!r.ok) return { error: r.error ?? 'Error al subir' };
-      return { data: { summary: r.summary } };
-    } catch (err) {
-      log.error('[IPC sync:push]', err);
-      return { error: 'Error al subir cambios' };
-    }
-  });
-  ipcMain.handle('sync:pull', async () => {
-    try {
-      return { data: await cloud.pullNow() };
-    } catch (err) {
-      log.error('[IPC sync:pull]', err);
-      return { error: 'Error al buscar cambios' };
-    }
-  });
-  ipcMain.handle('sync:history', async () => {
-    try {
-      return { data: await cloud.getVersionHistory() };
-    } catch (err) {
-      log.error('[IPC sync:history]', err);
-      return { error: 'Error obteniendo el historial' };
-    }
-  });
-  ipcMain.handle('sync:restore', async (_e: IpcMainInvokeEvent, id: number) => {
-    try {
-      const r = await cloud.restoreVersion(Number(id));
-      if (!r.ok) return { error: r.error ?? 'Error al restaurar' };
-      return { data: { success: true } };
-    } catch (err) {
-      log.error('[IPC sync:restore]', err);
-      return { error: 'Error al restaurar la versión' };
-    }
-  });
+  // La sincronización ahora es automática e invisible (CloudStorageService guarda
+  // en Supabase tras cada cambio y al cerrar). No hay canales IPC de sync.
 
   log.info('[ipcHandlers] All IPC channels registered successfully.');
 }

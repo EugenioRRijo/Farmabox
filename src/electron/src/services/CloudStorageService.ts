@@ -1,15 +1,18 @@
 /**
  * CloudStorageService — Proxy de almacenamiento offline-first con sync a Supabase.
  *
- * Modelo "mini-git":
+ * Modelo automático (sin UI de sincronización):
  *   - Lecturas/escrituras inmediatas a local (cero latencia, funciona sin internet).
- *   - Cada save SELLA los ítems (updatedAt / deletedAt) y guarda local. NO sube solo.
+ *   - Cada save SELLA los ítems (updatedAt / deletedAt), guarda local y AGENDA un
+ *     auto-guardado a Supabase (app_data, con debounce). Ver pushDataOnly()/flush().
  *   - RECIBIR (pull+merge) es automático al abrir: syncFromCloud().
- *   - SUBIR es manual y con confirmación: pushSession() → upsert + nueva versión.
- *   - HISTORIAL: cada push guarda un snapshot completo (tabla app_versions) → restaurable.
  *
  * El merge por ítem (newest-wins + tombstones, ver sync/merge.ts con tests) evita
- * pérdida; el historial es la red de seguridad (siempre se puede restaurar).
+ * perder datos al combinar lo de varias PCs.
+ *
+ * pushSession()/getVersionHistory()/restoreVersion() (historial en la tabla
+ * app_versions) quedan en el código pero NO se usan desde la UI: la sincronización
+ * manual con historial se retiró por no estar la tabla creada.
  *
  * Implementa IStorageService → sustituye a StorageService en el grafo de servicios.
  */
@@ -80,6 +83,7 @@ function ensureWebSocket(): void {
 
 export class CloudStorageService implements IStorageService {
   private client: SupabaseClient | null = null;
+  private autoPushTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly local: IStorageService) {
     if (!ENV.SUPABASE_URL || !ENV.SUPABASE_ANON_KEY) {
@@ -147,6 +151,7 @@ export class CloudStorageService implements IStorageService {
       (p) => p.id,
     );
     this.local.saveProfessors(stamped);
+    this.scheduleAutoPush();
   }
 
   loadScheduleBlocks(): ScheduleBlockData[] {
@@ -159,6 +164,7 @@ export class CloudStorageService implements IStorageService {
       (b) => b.id,
     );
     this.local.saveScheduleBlocks(stamped);
+    this.scheduleAutoPush();
   }
 
   loadLogs(): LogEntry[] {
@@ -171,6 +177,7 @@ export class CloudStorageService implements IStorageService {
       (l) => l.id,
     );
     this.local.saveLogs(stamped);
+    this.scheduleAutoPush();
   }
 
   loadAcademicLoad(): AcademicLoad {
@@ -195,6 +202,7 @@ export class CloudStorageService implements IStorageService {
       out[k] = p.deletedAt ? p : { ...p, deletedAt: ts };
     }
     this.local.saveAcademicLoad(out);
+    this.scheduleAutoPush();
   }
 
   loadPensum(): Semester[] {
@@ -228,6 +236,7 @@ export class CloudStorageService implements IStorageService {
     }
     stamped.sort((a, b) => a.number - b.number);
     this.local.savePensum(stamped);
+    this.scheduleAutoPush();
   }
   private stripPensum(sems: SSemester[]): Semester[] {
     return sems
@@ -391,6 +400,49 @@ export class CloudStorageService implements IStorageService {
       academicLoad: this.loadAcademicLoad(),
       logs: this.loadLogs(),
     };
+  }
+
+  // ── Guardado automático a la nube (app_data, SIN historial) ──────────────
+  /** Programa un guardado a Supabase tras un pequeño debounce (coalesce de ráfagas). */
+  private scheduleAutoPush(): void {
+    if (!this.client) return;
+    if (this.autoPushTimer) clearTimeout(this.autoPushTimer);
+    this.autoPushTimer = setTimeout(() => {
+      this.autoPushTimer = null;
+      void this.pushDataOnly();
+    }, 2000);
+  }
+
+  /** Sube los 5 datasets a app_data (upsert). No toca app_versions. */
+  async pushDataOnly(): Promise<{ ok: boolean; error?: string }> {
+    if (!this.client) return { ok: false, error: 'Nube no configurada' };
+    try {
+      const rows = [
+        { id: 'professors', data: this.local.loadProfessors() },
+        { id: 'pensum', data: this.local.loadPensum() },
+        { id: 'schedule-blocks', data: this.local.loadScheduleBlocks() },
+        { id: 'academic-load', data: this.local.loadAcademicLoad() },
+        { id: 'logs', data: this.local.loadLogs() },
+      ].map((r) => ({ ...r, updated_at: this.now() }));
+      const { error } = await this.client.from('app_data').upsert(rows);
+      if (error) throw error;
+      this.writeSyncState({ lastSyncAt: this.now(), hashes: this.hashMapsFromRaw(this.localRaw()) });
+      log.info('[Cloud] Auto-guardado en la nube OK.');
+      return { ok: true };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'Error al guardar en la nube';
+      log.error('[Cloud] Auto-guardado FALLÓ (se mantiene local):', error);
+      return { ok: false, error };
+    }
+  }
+
+  /** Fuerza un guardado pendiente inmediato (p. ej. al cerrar la app). */
+  async flush(): Promise<void> {
+    if (this.autoPushTimer) {
+      clearTimeout(this.autoPushTimer);
+      this.autoPushTimer = null;
+    }
+    if (this.client) await this.pushDataOnly();
   }
 
   // ── Subir (manual, con versión) ──────────────────────────────────────────

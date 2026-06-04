@@ -188,43 +188,16 @@ app.whenReady().then(async () => {
   });
 });
 
-// ── Cierre de sesión: si hay cambios sin subir, preguntar antes de salir ────
+// ── Cierre de sesión: guardar en la nube lo último pendiente (silencioso) ───
 app.on('before-quit', async (e) => {
   if (isQuitting || !cloud || !cloud.isCloudEnabled()) return;
-
-  let pending = 0;
-  let summary = '';
-  try {
-    const diff = cloud.getPendingDiff();
-    pending = diff.total;
-    summary = diff.summary;
-  } catch {
-    pending = 0;
-  }
-  if (pending <= 0) return; // nada que subir → salir normal
-
   e.preventDefault();
-  const choice = dialog.showMessageBoxSync({
-    type: 'question',
-    buttons: ['Subir y salir', 'Salir sin subir', 'Cancelar'],
-    defaultId: 0,
-    cancelId: 2,
-    title: 'Cambios sin subir',
-    message: `Tenés ${pending} cambio${pending === 1 ? '' : 's'} sin subir.`,
-    detail: summary
-      ? `${summary}\n\n¿Querés subirlos a la nube antes de salir?`
-      : '¿Querés subirlos a la nube antes de salir?',
-  });
-
-  if (choice === 2) return; // Cancelar → no salir
   isQuitting = true;
-  if (choice === 0) {
-    log.info('[Cloud] Subiendo cambios antes de salir...');
-    try {
-      await cloud.pushSession('Cierre de sesión');
-    } catch (err) {
-      log.error('[Cloud] Push de cierre falló:', err);
-    }
+  try {
+    log.info('[Cloud] Guardando en la nube antes de salir...');
+    await cloud.flush();
+  } catch (err) {
+    log.error('[Cloud] Guardado de cierre falló:', err);
   }
   app.quit();
 });

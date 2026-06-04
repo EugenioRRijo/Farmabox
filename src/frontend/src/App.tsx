@@ -9,7 +9,6 @@ import { ScheduleVisualization } from '@/components/visualization/ScheduleVisual
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { HomePage } from '@/components/home/HomePage';
 import { SettingsPage } from '@/components/settings/SettingsPage';
-import { SyncPage } from '@/components/sync/SyncPage';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { Toaster } from 'react-hot-toast';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
@@ -173,7 +172,6 @@ function AppContent() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/collisions" element={<ReportsPage initialTab="collisions" />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/sync" element={<SyncPage />} />
         <Route path="*" element={
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-gray-400 mb-2">404</h2>
