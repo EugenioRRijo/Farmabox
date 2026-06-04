@@ -14,6 +14,9 @@ import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
+import { SharedFolderStorageService } from './services/SharedFolderStorageService';
+import type { SyncStorageBase } from './services/SyncStorageBase';
+import { getSharedDir } from './config/appConfig';
 import { ProfessorService } from './services/ProfessorService';
 import { SubjectService } from './services/SubjectService';
 import { ScheduleService } from './services/ScheduleService';
@@ -27,7 +30,7 @@ log.info('Application starting...');
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
-let cloud: CloudStorageService | null = null;
+let store: SyncStorageBase | null = null;
 let isQuitting = false;
 const IS_DEV = !app.isPackaged || process.env.NODE_ENV === 'development';
 const VITE_DEV_URL = 'http://localhost:5173';
@@ -37,12 +40,24 @@ const LOGO_PATH = path.join(__dirname, '..', 'assets', 'logo.png');
 const SPLASH_PATH = path.join(__dirname, '..', 'splash.html');
 
 // ── Composición de servicios (DI manual) ───────────────────────────────────
-function buildServices(storage: CloudStorageService): AppServices {
+function buildServices(storage: SyncStorageBase): AppServices {
   const professorService = new ProfessorService(storage);
   const subjectService = new SubjectService(storage, storage);
   const scheduleService = new ScheduleService(storage);
   const logService = new LogService(storage);
-  return { storageService: storage, cloud: storage, professorService, subjectService, scheduleService, logService };
+  return { storageService: storage, professorService, subjectService, scheduleService, logService };
+}
+
+/** Elige el backend de sincronización: carpeta compartida si está configurada, si no Supabase. */
+function buildStorage(): SyncStorageBase {
+  const local = new StorageService();
+  const sharedDir = getSharedDir();
+  if (sharedDir) {
+    log.info('[Storage] Modo carpeta compartida →', sharedDir);
+    return new SharedFolderStorageService(local, sharedDir);
+  }
+  log.info('[Storage] Modo nube (Supabase) / solo local.');
+  return new CloudStorageService(local);
 }
 
 // ── Splash screen ───────────────────────────────────────────────────────────
@@ -164,16 +179,15 @@ function setupAutoUpdater(): void {
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
-  const localStore = new StorageService();
-  cloud = new CloudStorageService(localStore);
-  const services = buildServices(cloud);
+  store = buildStorage();
+  const services = buildServices(store);
   registerIpcHandlers(services);
   log.info('[IPC] All handlers registered.');
 
   // Sincronizar (pull + merge) al iniciar, antes de mostrar la UI.
-  if (cloud.isCloudEnabled()) {
-    log.info('[Cloud] Sincronizando al iniciar...');
-    await cloud.syncFromCloud();
+  if (store.isRemoteEnabled()) {
+    log.info('[Sync] Sincronizando al iniciar...');
+    await store.syncNow();
   }
 
   createWindow();
@@ -188,16 +202,16 @@ app.whenReady().then(async () => {
   });
 });
 
-// ── Cierre de sesión: guardar en la nube lo último pendiente (silencioso) ───
+// ── Cierre de sesión: guardar lo último pendiente al remoto (silencioso) ────
 app.on('before-quit', async (e) => {
-  if (isQuitting || !cloud || !cloud.isCloudEnabled()) return;
+  if (isQuitting || !store || !store.isRemoteEnabled()) return;
   e.preventDefault();
   isQuitting = true;
   try {
-    log.info('[Cloud] Guardando en la nube antes de salir...');
-    await cloud.flush();
+    log.info('[Sync] Guardando antes de salir...');
+    await store.flush();
   } catch (err) {
-    log.error('[Cloud] Guardado de cierre falló:', err);
+    log.error('[Sync] Guardado de cierre falló:', err);
   }
   app.quit();
 });

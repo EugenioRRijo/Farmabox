@@ -216,61 +216,29 @@ export async function restoreData(data: BackupData): Promise<void> {
   await request('/admin/restore', { method: 'POST', body: JSON.stringify(data) });
 }
 
-// ── Sincronización / Historial de versiones (solo escritorio/IPC) ──────────
-export interface SyncStatus {
-  configured: boolean;
-  online: boolean;
-  lastSyncAt: string | null;
-  pendingCount: number;
-}
-export interface DatasetDiff {
-  added: number;
-  modified: number;
-  removed: number;
-}
-export interface PendingDiff {
-  datasets: {
-    professors: DatasetDiff;
-    scheduleBlocks: DatasetDiff;
-    subjects: DatasetDiff;
-    academicLoad: DatasetDiff;
-    logs: DatasetDiff;
-  };
-  total: number;
-  summary: string;
-}
-export interface VersionMeta {
-  id: number;
-  created_at: string;
-  device: string | null;
-  label: string | null;
-  summary: string | null;
+// ── Configuración de almacenamiento (solo escritorio/IPC) ──────────────────
+export interface StorageInfo {
+  mode: 'cloud' | 'shared';
+  sharedDir: string | null;
 }
 
-/** La sincronización es una feature de escritorio (Electron). En web no aplica. */
-export function isSyncAvailable(): boolean {
+/** La configuración de almacenamiento es una feature de escritorio (Electron). */
+export function isStorageConfigAvailable(): boolean {
   return !!ipc;
 }
-function syncApi() {
-  if (!ipc) throw new Error('La sincronización solo está disponible en la app de escritorio.');
-  return ipc.sync;
+function configApi() {
+  if (!ipc) throw new Error('La configuración solo está disponible en la app de escritorio.');
+  return ipc.config;
 }
 
-export async function getSyncStatus(): Promise<SyncStatus> {
-  return unwrap(syncApi().status());
+export async function getStorageInfo(): Promise<StorageInfo> {
+  return unwrap(configApi().getStorage());
 }
-export async function getSyncDiff(): Promise<PendingDiff> {
-  return unwrap(syncApi().diff());
+export async function setSharedDir(
+  dir: string | null,
+): Promise<{ ok: boolean; sharedDir: string | null }> {
+  return unwrap(configApi().setSharedDir(dir));
 }
-export async function pushSession(label?: string): Promise<{ summary: string }> {
-  return unwrap(syncApi().push(label));
-}
-export async function pullNow(): Promise<{ ok: boolean; merged: string[] }> {
-  return unwrap(syncApi().pull());
-}
-export async function getVersionHistory(): Promise<VersionMeta[]> {
-  return unwrap(syncApi().history());
-}
-export async function restoreVersion(id: number): Promise<void> {
-  await unwrap(syncApi().restore(id));
+export async function pickSharedFolder(): Promise<{ path: string | null }> {
+  return unwrap(configApi().pickFolder());
 }

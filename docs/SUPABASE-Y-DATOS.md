@@ -60,7 +60,25 @@ Para probarlo sin esperar: pestaña **Actions** → *Supabase keep-alive* → **
 
 ---
 
-## 3. ¿Por qué cambió el esquema?
+## 3. Dos modos de almacenamiento (elegís en Configuración)
+
+En **Configuración → Almacenamiento** podés elegir dónde se guardan/comparten los datos:
+
+- **Nube (Supabase)** — por defecto. Las PCs se sincronizan por internet (sirve estén
+  donde estén). Necesita el esquema de arriba + el keep-alive.
+- **Carpeta compartida (red local)** — elegís una carpeta compartida de Windows
+  (`\\PC\Farmabox`) o una unidad de red (`Z:\`). La app guarda ahí los datos en JSON con
+  el mismo merge por ítem (no se pierde nada entre PCs). **No necesita internet ni Supabase**,
+  solo que la carpeta esté accesible en la red local. Ideal para la facultad.
+
+El cambio se aplica al **reiniciar** la app. Si la carpeta compartida está configurada,
+la app la usa; si no, usa Supabase.
+
+> Nota: la carpeta compartida usa archivos JSON con escritura atómica y read-merge-write,
+> así que es robusta para uso normal. Si dos PCs guardan el **mismo** ítem en el mismo
+> instante, puede ganar una; para concurrencia intensa, la base de datos (Supabase) es lo más sólido.
+
+## 4. ¿Por qué cambió el esquema?
 
 El diseño anterior guardaba los 5 datasets como **5 filas con todo el array metido
 en una columna `jsonb`** (`app_data`). Eso no es relacional: no se puede consultar

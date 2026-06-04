@@ -11,9 +11,7 @@ import type {
   ScheduleBlockData,
   LogEntry,
   BackupData,
-  SyncStatus,
-  PendingDiff,
-  VersionMeta,
+  StorageInfo,
 } from '../services/BackendService';
 
 type Envelope<T> = { data: T } | { error: string };
@@ -62,13 +60,10 @@ export interface ElectronAPI {
     ): Promise<Envelope<{ reply: string; offline: boolean }>>;
   };
 
-  sync: {
-    status(): Promise<Envelope<SyncStatus>>;
-    diff(): Promise<Envelope<PendingDiff>>;
-    push(label?: string): Promise<Envelope<{ summary: string }>>;
-    pull(): Promise<Envelope<{ ok: boolean; merged: string[] }>>;
-    history(): Promise<Envelope<VersionMeta[]>>;
-    restore(id: number): Promise<Envelope<Ok>>;
+  config: {
+    getStorage(): Promise<Envelope<StorageInfo>>;
+    setSharedDir(dir: string | null): Promise<Envelope<{ ok: boolean; sharedDir: string | null }>>;
+    pickFolder(): Promise<Envelope<{ path: string | null }>>;
   };
 }
 
