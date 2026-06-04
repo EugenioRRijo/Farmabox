@@ -1,0 +1,256 @@
+[
+  {
+    "id": "i0ov064gq",
+    "subjectCode": "3307011101",
+    "day": 0,
+    "startHour": 0,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "professorId": "prof-004",
+    "section": "b"
+  },
+  {
+    "id": "p5c3fxuc6",
+    "subjectCode": "3307011101",
+    "day": 0,
+    "startHour": 1,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "professorId": "prof-004",
+    "section": "b"
+  },
+  {
+    "id": "nhly350k7",
+    "subjectCode": "3307011103",
+    "day": 0,
+    "startHour": 2,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "p",
+    "section": "b"
+  },
+  {
+    "id": "hlku74osa",
+    "subjectCode": "3307011103",
+    "day": 0,
+    "startHour": 3,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "professorId": "p",
+    "section": "b"
+  },
+  {
+    "id": "s46tlj71g",
+    "subjectCode": "3307011103",
+    "day": 0,
+    "startHour": 4,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "professorId": "p",
+    "section": "b"
+  },
+  {
+    "id": "nqjfktuax",
+    "subjectCode": "3307011103",
+    "day": 0,
+    "startHour": 0,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-032",
+    "section": "A"
+  },
+  {
+    "id": "ryu2qz82c",
+    "subjectCode": "3307011103",
+    "day": 0,
+    "startHour": 1,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-032",
+    "section": "A"
+  },
+  {
+    "id": "e8b13w0tu",
+    "subjectCode": "3307011108",
+    "day": 0,
+    "startHour": 2,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-003",
+    "section": "A"
+  },
+  {
+    "id": "mhpul7iv9",
+    "subjectCode": "3307011108",
+    "day": 0,
+    "startHour": 3,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-003",
+    "section": "A"
+  },
+  {
+    "id": "db21o7xbj",
+    "subjectCode": "3307012101",
+    "day": 1,
+    "startHour": 2,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-005",
+    "section": "A"
+  },
+  {
+    "id": "0z61v20q7",
+    "subjectCode": "3307012101",
+    "day": 1,
+    "startHour": 3,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-005",
+    "section": "A"
+  },
+  {
+    "id": "mjnr8vcod",
+    "subjectCode": "3307012101",
+    "day": 1,
+    "startHour": 4,
+    "duration": 1,
+    "color": "default",
+    "type": "LAB",
+    "professorId": "prof-005",
+    "section": "A"
+  },
+  {
+    "id": "89y3wabnp",
+    "subjectCode": "3307011101",
+    "day": 0,
+    "startHour": 4,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "6iv9l346o",
+    "subjectCode": "3307011101",
+    "day": 0,
+    "startHour": 5,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "yp2zt6p7t",
+    "subjectCode": "3307013501",
+    "day": 0,
+    "startHour": 0,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "vqfzaup9q",
+    "subjectCode": "3307013501",
+    "day": 0,
+    "startHour": 1,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "u3x9esam8",
+    "subjectCode": "3307013501",
+    "day": 0,
+    "startHour": 2,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "t2ffyil7h",
+    "subjectCode": "3307013501",
+    "day": 0,
+    "startHour": 1,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "8beqwg3td",
+    "subjectCode": "3307013601",
+    "day": 0,
+    "startHour": 2,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "8jv65jnre",
+    "subjectCode": "3307013601",
+    "day": 0,
+    "startHour": 1,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "3t3ckde6m",
+    "subjectCode": "3307013701",
+    "day": 0,
+    "startHour": 1,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "professorId": "prof-001",
+    "section": "A"
+  },
+  {
+    "id": "jdr54z1wh",
+    "subjectCode": "3307013701",
+    "day": 0,
+    "startHour": 0,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "professorId": "prof-001",
+    "section": "A"
+  },
+  {
+    "id": "0n6xywc6z",
+    "subjectCode": "3307011702",
+    "day": 1,
+    "startHour": 3,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  },
+  {
+    "id": "ni3sc93ma",
+    "subjectCode": "3307011702",
+    "day": 1,
+    "startHour": 2,
+    "duration": 1,
+    "color": "default",
+    "type": "THEORY",
+    "section": "A"
+  }
+]

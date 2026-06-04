@@ -1,0 +1,535 @@
+﻿=== EXTRACTED SUBJECT DATA FROM HORARIOS 2026-01.docx ===
+
+--- Semester Table ---
+CODE: 3307011103
+  Subject: F├¡sica Aplicada I
+  Theory: Prof. ├üngel Guti├®rrez
+  Practice: Prof. ├üngel Guti├®rrez
+  Lab#: # 104
+
+CODE: 3307011105
+  Subject: Matem├ítica Aplicada I
+  Theory: Prof. Zoraida Jim├®nez
+
+CODE: 3307011108
+  Subject: Biolog├¡a I
+  Theory: Prof. Dail├¡n Ruiz
+  Practice: Prof. Dail├¡n Ruiz
+  Lab#: # 101
+
+CODE: 3307011101
+  Subject: Orientaci├│n Farmac├®utica I
+  Theory: Dr. Carlos Brito
+
+CODE: 3307012101
+  Subject: Qu├¡mica B├ísica I
+  Theory: Prof. Marla Mendoza
+  Practice: Prof. Marla Mendoza
+  Lab#: # 300
+
+CODE: 3307014213
+  Subject: Bot├ínica Aplicada I
+  Theory: Dra. Mayra Garc├¡a
+
+--- Semester Table ---
+CODE: 3307011103
+  Subject: F├¡sica Aplicada I
+  Theory: Prof. ├üngel Guti├®rrez
+  Practice: Prof. ├üngel Guti├®rrez
+  Lab#: # 104
+
+CODE: 3307011105
+  Subject: Matem├ítica Aplicada I
+  Theory: Prof. Zoraida Jim├®nez
+
+CODE: 3307011108
+  Subject: Biolog├¡a I
+  Theory: Prof. Dail├¡n Ruiz
+  Practice: Prof. Dail├¡n Ruiz
+  Lab#: # 101
+
+CODE: 3307011101
+  Subject: Orientaci├│n Farmac├®utica I
+  Theory: Dr. Carlos Brito
+
+CODE: 3307012101
+  Subject: Qu├¡mica B├ísica I
+  Theory: Prof. Marla Mendoza
+  Practice: Prof. Marla Mendoza
+  Lab#: # 300
+
+CODE: 3307014213
+  Subject: Bot├ínica Aplicada I
+  Theory: Dra. Mayra Garc├¡a
+
+--- Semester Table ---
+CODE: 3307021104
+  Subject: F├¡sica Aplicada II
+  Theory: Prof. Mayerling Gonz├ílez
+  Practice: Prof. Mayerling Gonz├ílez
+  Lab#: # 104
+  Prereq: 3307011103
+
+CODE: 3307021106
+  Subject: Matem├ítica Aplicada II
+  Theory: Prof. Zoraida Jimenez
+  Prereq: 3307011105
+
+CODE: 3307021109
+  Subject: Biolog├¡a II
+  Theory: Prof. Dail├¡n Ruiz
+  Practice: Prof. Dail├¡n Ruiz
+  Lab#: # 101
+  Prereq: 3307011108
+
+CODE: 3307021102
+  Subject: Orientaci├│n Farmac├®utica II
+  Theory: Dr. Carlos Brito
+  Prereq: 3307011101
+
+CODE: 3307022102
+  Subject: Qu├¡mica B├ísica II
+  Theory: Prof. Marla Mendoza
+  Practice: Prof. Marla Mendoza
+  Lab#: # 300
+  Prereq: 3307012101
+
+CODE: 3307024214
+  Subject: Bot├ínica Aplicada II
+  Theory: Dra. Mayra Garc├¡a
+  Prereq: 3307014213
+
+--- Semester Table ---
+CODE: 3307032211
+  Subject: An├ílisis Qu├¡mico I
+  Theory: Prof. Alexander Campos
+  Practice: Prof. Alexander Campos
+  Lab#: # 300
+  Prereq: 3307022102
+
+CODE: 3307037101
+  Subject: Estad├¡stica I
+  Theory: Prof. Ridsser Chirinos
+  Prereq: 3307021106
+
+CODE: 3307038107
+  Subject: Atenci├│n Farmac├®utica I
+  Theory: Prof. Gianfranco Giuttari
+  Prereq: 3307021102
+
+CODE: 3307032213
+  Subject: Fisicoqu├¡mica I
+  Theory: Prof. Ana Ferrer
+  Practice: Prof.  Ana Ferrer
+  Lab#: # 104
+  Prereq: 3307021104
+
+CODE: 3307033101
+  Subject: Fisiolog├¡a y Anatom├¡a I
+  Theory: Prof. Gregory Le├│n
+  Practice: Prof. Gregory Le├│n
+  Lab#: # 101
+  Prereq: 3307021109
+
+CODE: 3307033211
+  Subject: Parasitolog├¡a
+  Theory: Prof.  Ridsser Chirinos
+  Prereq: 3307021109
+
+CODE: 3307032103
+  Subject: Qu├¡mica Inorg├ínica I
+  Theory: Prof. Irene Henriquez
+  Practice: Prof. Khelly Marchena
+  Lab#: # 302
+  Prereq: 3307022102
+
+CODE: 3307032107
+  Subject: Qu├¡mica Org├ínica I
+  Theory: Prof. Mayerling Gonz├ílez
+  Practice: Prof. Irene Henriquez
+  Lab#: # 401
+  Prereq: 3307022102
+
+CODE: 3307031107
+  Subject: Estudio y Comprensi├│n del Hombre
+  Theory: Prof. Nibsy Pachano
+
+--- Semester Table ---
+CODE: 3307042212
+  Subject: An├ílisis Qu├¡mico II
+  Theory: Prof. Alexander Campos
+  Practice: Prof. Alexander Campos
+  Lab#: # 300
+  Prereq: 3307032211
+
+CODE: 3307047102
+  Subject: Estad├¡stica II
+  Theory: Prof. Ridsser Chirinos
+  Prereq: 3307037101
+
+CODE: 3307048108
+  Subject: Atenci├│n Farmac├®utica II
+  Theory: Prof. Gianfranco Giuttari
+  Prereq: 3307038107
+
+CODE: 3307042214
+  Subject: Fisicoqu├¡mica II
+  Theory: Prof.  Ana Ferrer
+  Practice: Prof.  Ana Ferrer
+  Lab#: # 104
+  Prereq: 3307032213
+
+CODE: 3307043102
+  Subject: Fisiolog├¡a y Anatom├¡a II
+  Theory: Prof. Gregory Le├│n
+  Practice: Prof. Gregory Le├│n
+  Lab#: # 101
+  Prereq: 3307033101
+
+CODE: 3307047105
+  Subject: Metodolog├¡a de la Investigaci├│n
+  Theory: Dr. Omar Alvi├írez
+  Prereq: 3307037101
+
+CODE: 3307042104
+  Subject: Qu├¡mica Inorg├ínica II
+  Theory: Prof. Irene Henriquez
+  Practice: Prof. Khelly Marchena
+  Lab#: # 302
+  Prereq: 3307032103
+
+CODE: 3307042108
+  Subject: Qu├¡mica Org├ínica II
+  Theory: Prof. Mayerling Gonz├ílez
+  Practice: Prof. Irene Henriquez
+  Lab#: # 401
+  Prereq: 3307032107
+
+--- Semester Table ---
+CODE: 3307052209
+  Subject: An├ílisis Instrumental I
+  Theory: Prof. Carlos Vallejo
+  Practice: Prof. Carlos Vallejo
+  Lab#: # 200
+  Prereq: 3307042212
+
+CODE: 3307054101
+  Subject: Bioqu├¡mica I
+  Theory: Prof. Carlos Roque
+  Practice: Prof. Carlos Roque
+  Lab#: # 101
+  Prereq: 3307042214
+
+CODE: 3307055105
+  Subject: Farmacotecnia I
+  Theory: Prof. Luz Do Nascimiento
+  Practice: Prof. Jennifer Lucero
+  Lab#: # 105
+  Prereq: 3307048108
+
+CODE: 3307053103
+  Subject: Fisiopatolog├¡a I
+  Theory: Dr. Gilberto Perdomo
+  Prereq: 3307043102
+
+CODE: 3307056107
+  Subject: Legislaci├│n Farmac├®utica I
+  Theory: Prof. Juan Carlos Gonz├ílez
+
+CODE: 3307057103
+  Subject: Dise├▒o de Proyectos I
+  Theory: Dr. Omar Alvi├írez
+  Prereq: 3307047102
+
+CODE: 3307052105
+  Subject: Qu├¡mica Medicinal I
+  Theory: Prof. Khelly Marchena
+  Practice: Prof. Glenmary Linares
+  Lab#: # 401
+  Prereq: 3307042108
+
+CODE: 3307053205
+  Subject: Salud P├║blica I
+  Theory: Prof. Emilia Esp├│sito
+  Prereq: 3307033211
+
+--- Semester Table ---
+CODE: 3307062210
+  Subject: An├ílisis Instrumental II
+  Theory: Prof. Carlos Vallejo
+  Practice: Prof. Carlos Vallejo
+  Lab#: # 406
+  Prereq: 3307052209
+
+CODE: 3307064102
+  Subject: Bioqu├¡mica II
+  Theory: Prof. Carlos Roque
+  Practice: Prof. Carlos Roque
+  Lab#: # 101
+  Prereq: 3307054101
+
+CODE: 3307065106
+  Subject: Farmacotecnia II
+  Theory: Prof. Luz Do Nascimiento
+  Practice: Prof. Jennifer Lucero
+  Lab#: # 107
+  Prereq: 3307055105
+
+CODE: 3307063104
+  Subject: Fisiopatolog├¡a II
+  Theory: Dr. Gilberto Perdomo
+  Prereq: 3307053103
+
+CODE: 3307066108
+  Subject: Legislaci├│n Farmac├®utica II
+  Theory: Prof. Juan Carlos Gonz├ílez
+  Prereq: 3307056107
+
+CODE: 3307067104
+  Subject: Dise├▒o de Proyectos II
+  Theory: Prof. Mar├¡n Marilis
+  Prereq: 3307057103
+
+CODE: 3307062106
+  Subject: Qu├¡mica Medicinal II
+  Theory: Prof. Khelly Marchena
+  Practice: Prof. Glenmarys Linares
+  Lab#: # 401
+  Prereq: 3307052105
+
+CODE: 3307063206
+  Subject: Salud P├║blica II
+  Theory: Prof. Emilia Esp├│sito
+  Prereq: 3307053205
+
+--- Semester Table ---
+CODE: 3307074209
+  Subject: Biofarmacia I
+  Theory: Prof. Eleana Serrano
+  Practice: Prof. Eneida Useche
+  Lab#: # 200
+  Prereq: 3307062210
+
+CODE: 3307076101
+  Subject: Econom├¡a Aplicada
+  Theory: Dr. Nello Collevecchio
+
+CODE: 3307074107
+  Subject: Farmacognosia I
+  Theory: Prof. Ninfa Cordero
+  Practice: Prof. Ninfa Cordero
+  Lab#: # 304
+  Prereq: 3307062106
+
+CODE: 3307074103
+  Subject: Farmacolog├¡a I
+  Theory: Prof. Leandro Goncalves
+  Practice: Prof. Leandro Goncalves
+  Lab#: # 302
+  Prereq: 3307063104
+
+CODE: 3307073207
+  Subject: Microbiolog├¡a I
+  Theory: Prof. Oriana Coronado
+  Practice: Prof. Andre├¡na M├®ndez
+  Lab#: # 204
+  Prereq: 3307063206
+
+CODE: 3307075103
+  Subject: Procesos Unitarios I
+  Theory: Prof. ├üngel Guti├®rrez
+  Prereq: 3307062210
+
+CODE: 3307075109
+  Subject: Higiene y Seguridad Industrial I
+  Theory: Prof. Behzaida Tr├¡as
+
+CODE: 3307074105
+  Subject: Toxicolog├¡a I
+  Theory: Prof. Christina Zoghbi- Prof. Gladys Venegas
+  Practice: Prof. Mar├¡a Miranda
+  Lab#: # 406
+  Prereq: 3307064102
+
+CODE: 3307078101
+  Subject: Orientaci├│n Pasant├¡as Oficina de Farmacia
+  Theory: Prof. Gianfranco Giuttari
+  Prereq: 3307065106
+
+--- Semester Table ---
+CODE: 3307084210
+  Subject: Biofarmacia II
+  Theory: Prof. Eleana Serrano
+  Practice: Prof. Eneida Useche
+  Lab#: # 200
+  Prereq: 3307084209
+
+CODE: 3307086102
+  Subject: Administraci├│n Aplicada
+  Theory: Dr. Nello Collevecchio
+  Prereq: 3307076101
+
+CODE: 3307084108
+  Subject: Farmacognosia II
+  Theory: Dra.  Ninfa Cordero
+  Practice: Prof. Ninfa Cordero
+  Lab#: # 304
+  Prereq: 3307074107
+
+CODE: 3307084104
+  Subject: Farmacolog├¡a II
+  Theory: Prof. Leandro Goncalves
+  Practice: Prof. Leandro Goncalves
+  Lab#: # 302
+  Prereq: 3307074103
+
+CODE: 3307083208
+  Subject: Microbiolog├¡a II
+  Theory: Prof. Oriana Coronado
+  Practice: Prof. Andre├¡na M├®ndez
+  Lab#: # 204
+  Prereq: 3307073207
+
+CODE: 3307085104
+  Subject: Procesos Unitarios II
+  Theory: Prof. ├üngel Guti├®rrez
+  Prereq: 3307075103
+
+CODE: 3307085110
+  Subject: Seguridad e Higiene Industrial II
+  Theory: Prof. Behzaida Tr├¡as
+  Prereq: 3307075109
+
+CODE: 3307084106
+  Subject: Toxicolog├¡a II
+  Theory: Prof. Christina Zoghbi- Prof. Gladys Venegas
+  Practice: Prof. Mar├¡a Miranda
+  Lab#: # 406
+  Prereq: 3307074105
+
+CODE: 3307088102
+  Subject: Pasant├¡as I Ofic. de Farmacia.
+  Theory: Prof. Gianfranco Giuttari
+  Prereq: 3307078101
+
+--- Semester Table ---
+CODE: 3307095101
+  Subject: Bromatolog├¡a I
+  Theory: Prof. Luxz Paulo
+  Practice: Dra. Romily Figuera
+  Lab#: #409
+  Prereq: 3307083208
+
+CODE: 3307095107
+  Subject: Farmacotecnia III
+  Theory: Dr. Carlos Brito
+  Practice: Prof. Andre├¡na M├®ndez
+  Lab#: #105
+  Prereq: 3307085104
+
+CODE: 3307094211
+  Subject: Farmacoterap├®utica I
+  Theory: Prof. Emilia Esp├│sito
+  Prereq: 3307084104
+
+CODE: 3307096103
+  Subject: Mercadotecnia I
+  Theory: Prof. Nairobys Fernandes
+
+CODE: 3307098103
+  Subject: Orientaci├│n Pasant├¡as Industriales-Empresas
+  Theory: Prof. Mar├¡a Miranda
+  Prereq: 3307088102
+
+CODE: 3307093209
+  Subject: Primeros Auxilios I
+  Theory: Prof. Felix Sierralta
+  Practice: Prof. Felix Sierralta
+  Prereq: 3307084106
+
+CODE: 3307096105
+  Subject: T├®cnicas Gerenciales I
+  Theory: Prof. Elisabeth Davila
+  Prereq: 3307086102
+
+CODE: 3307098105
+  Subject: Farmacia Hospitalaria I
+  Theory: Prof. Edith Graffe
+  Prereq: 3307084104
+
+CODE: 3307095111
+  Subject: Dermocosm├®tica I
+  Theory: Prof. Giovanna Gonz├ílez
+  Practice: Prof. Naireth Villar
+  Lab#: #203
+  Prereq: 3307084108
+
+CODE: 3307097106
+  Subject: Seminario Trabajo Especial de Grado I
+  Theory: Prof. Behzaida Tr├¡as
+  Prereq: 3307067104
+
+--- Semester Table ---
+CODE: 3307105102
+  Subject: Bromatolog├¡a II
+  Theory: Prof. Luxz Paulo
+  Practice: Dra. Romily Figuera
+  Lab#: # 409
+  Prereq: 3307095101
+
+CODE: 3307105108
+  Subject: Farmacotecnia IV
+  Theory: Dr. Carlos Brito
+  Practice: Prof. Andre├¡na M├®ndez
+  Lab#: # 105
+  Prereq: 3307095107
+
+CODE: 3307104212
+  Subject: Farmacoterap├®utica II
+  Theory: Prof. Emilia Esp├│sito
+  Prereq: 3307094211
+
+CODE: 3307106104
+  Subject: Mercadotecnia II
+  Theory: Prof. Nairobys Fernandes
+  Prereq: 3307096103
+
+CODE: 3307108104
+  Subject: Pasant├¡as II Industriales-Empresas
+  Theory: Prof. Behzaida Tr├¡as
+  Prereq: 3307098103
+
+CODE: 3307103210
+  Subject: Primeros Auxilios II
+  Theory: Prof. Felix Sierralta
+  Practice: Prof. Felix Sierralta
+  Prereq: 3307093209
+
+CODE: 3307106106
+  Subject: T├®cnicas Gerenciales II
+  Theory: Prof. Elisabeth Davila
+  Prereq: 3307096105
+
+CODE: 3307108106
+  Subject: Farmacia Hospitalaria II
+  Theory: Prof. Edith Graffe
+  Prereq: 3307098105
+
+CODE: 3307105112
+  Subject: Dermocosm├®tica II
+  Theory: Prof. Giovanna Gonz├ílez
+  Practice: Prof. Naireth Villar
+  Lab#: #203
+  Prereq: 3307095111
+
+CODE: 3307107107
+  Subject: Seminario Trabajo Especial de Grado II
+  Theory: Prof. Gianfranco Giuttari
+  Prereq: 3307097106
+
+CODE: 3307107108
+  Subject: Trabajo Especial de Grado
+  Prereq: 3307107107
+
+
+Total subjects found: 90

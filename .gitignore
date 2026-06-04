@@ -1,0 +1,20 @@
+**/node_modules/
+**/dist/
+dist-installer/
+*.log
+.DS_Store
+**/coverage/
+.env
+.env.local
+USM-Scheduler-Portable/
+
+# Artefactos de build / staging (se regeneran)
+src/electron/frontend/
+*.tsbuildinfo
+
+# Secretos: NUNCA se commitean (ni el plano ni el cifrado).
+# El .exe distribuido ya los lleva embebidos. Para reconstruir:
+#   1) crear secrets.plain.json (desde secrets.plain.example.json) con las keys reales
+#   2) node scripts/encrypt-secrets.cjs   → genera secrets.enc
+**/secrets.plain.json
+**/secrets.enc

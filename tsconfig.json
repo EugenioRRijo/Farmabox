@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./src/frontend" },
+    { "path": "./src/shared" },
+    { "path": "./src/electron" }
+  ]
+}

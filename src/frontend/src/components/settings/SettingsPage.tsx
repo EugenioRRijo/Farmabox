@@ -1,0 +1,288 @@
+import { useState, useRef } from 'react';
+import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2 } from 'lucide-react';
+import * as BackendService from '../../services/BackendService';
+import { useSettings } from '@/context/SettingsContext';
+
+type Tab = 'general' | 'data';
+
+export function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<Tab>('general');
+  const [isResetting, setIsResetting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { theme, toggleTheme, compact, setCompact, academicPeriod, setAcademicPeriod } = useSettings();
+
+  // ── Handlers ─────────────────────────────────────────
+
+  const handleResetProfessors = async () => {
+    if (!window.confirm('¿Estás seguro de que deseas restablecer la lista de profesores? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+      await BackendService.resetProfessors();
+      alert('Profesores restablecidos correctamente. Por favor recarga la página.');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error resetting professors:', error);
+      alert('Error al restablecer profesores.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    try {
+      const [profs, subs, load, blocks] = await Promise.all([
+        BackendService.getProfessors(),
+        BackendService.getSubjects(),
+        BackendService.getAcademicLoad(),
+        BackendService.getScheduleBlocks(),
+      ]);
+
+      const backupData: BackendService.BackupData = {
+        professors: profs,
+        pensum: subs,
+        academicLoad: load,
+        scheduleBlocks: blocks,
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup_horarios_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting backup:', error);
+      alert('Error al crear copia de seguridad.');
+    }
+  };
+
+  const handleRestoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm('ADVERTENCIA: Esta acción SOBREESCRIBIRÁ todos los datos actuales (Profesores, Materias, Horarios). ¿Estás seguro de continuar?')) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        setIsRestoring(true);
+        const data = JSON.parse(e.target?.result as string);
+        await BackendService.restoreData(data);
+        alert('Sistema restaurado correctamente. La página se recargará.');
+        window.location.reload();
+      } catch (error) {
+        console.error('Error restoring backup:', error);
+        alert('Error al restaurar el sistema. Verifica que el archivo sea válido.');
+      } finally {
+        setIsRestoring(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // ── Render Helpers ───────────────────────────────────
+
+  const TabButton = ({ id, label, icon: Icon }: { id: Tab; label: string; icon: React.ElementType }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+        activeTab === id
+          ? 'bg-blue-50 text-blue-700'
+          : 'text-gray-600 hover:bg-gray-50'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
+        <p className="text-gray-600 mt-2">Personaliza la aplicación y gestiona tus datos.</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 pb-2">
+        <TabButton id="general" label="General" icon={Monitor} />
+        <TabButton id="data" label="Gestión de Datos" icon={Database} />
+      </div>
+
+      {/* Content */}
+      <div className="grid gap-6">
+        
+        {/* GENERAL TAB */}
+        {activeTab === 'general' && (
+          <div className="space-y-6">
+            {/* Apariencia */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Monitor className="w-5 h-5 text-gray-500" />
+                Apariencia
+              </h2>
+
+              <div className="flex items-center justify-between py-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  {theme === 'dark' ? (
+                    <Moon className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <Sun className="w-5 h-5 text-amber-500" />
+                  )}
+                  <div>
+                    <p className="font-medium text-gray-900">Tema {theme === 'dark' ? 'oscuro' : 'claro'}</p>
+                    <p className="text-sm text-gray-500">Cambia entre modo claro y oscuro.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={toggleTheme}
+                  role="switch"
+                  aria-checked={theme === 'dark'}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-3">
+                  <Minimize2 className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium text-gray-900">Modo compacto</p>
+                    <p className="text-sm text-gray-500">Reduce espaciados para ver más en pantalla.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCompact(!compact)}
+                  role="switch"
+                  aria-checked={compact}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    compact ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      compact ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Período académico */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                Período académico
+              </h2>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium text-gray-900">Período activo</p>
+                  <p className="text-sm text-gray-500">Etiqueta del semestre en curso (ej. 2026-01).</p>
+                </div>
+                <input
+                  value={academicPeriod}
+                  onChange={(e) => setAcademicPeriod(e.target.value)}
+                  placeholder="2026-01"
+                  className="w-32 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* DATA TAB */}
+        {activeTab === 'data' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-gray-500" />
+                    Copias de Seguridad
+                </h2>
+                
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between py-4 border-b border-gray-100">
+                        <div>
+                            <p className="font-medium text-gray-900">Exportar Copia de Seguridad</p>
+                            <p className="text-sm text-gray-500">Descarga todos los datos (Profesores, Materias, Horarios) en un archivo JSON.</p>
+                        </div>
+                        <button
+                            onClick={handleExportBackup}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                        >
+                            <Save className="w-4 h-4" />
+                            Exportar Datos
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between py-4">
+                        <div>
+                            <p className="font-medium text-gray-900">Restaurar Copia de Seguridad</p>
+                            <p className="text-sm text-gray-500">Sube un archivo de respaldo para restaurar el sistema completo.</p>
+                        </div>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleRestoreBackup}
+                                accept=".json"
+                                className="hidden"
+                            />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isRestoring}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                <Upload className="w-4 h-4" />
+                                {isRestoring ? 'Restaurando...' : 'Importar Datos'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-red-100 shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-red-700 mb-4 flex items-center gap-2">
+                    <ShieldAlert className="w-5 h-5" />
+                    Zona de Peligro
+                </h2>
+                
+                <div className="flex items-center justify-between py-4">
+                    <div>
+                        <p className="font-medium text-gray-900">Restablecer Profesores</p>
+                        <p className="text-sm text-gray-500">Vuelve a la lista original de profesores predeterminados.</p>
+                    </div>
+                    <button
+                        onClick={handleResetProfessors}
+                        disabled={isResetting}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        {isResetting ? 'Restableciendo...' : 'Restablecer Fábrica'}
+                    </button>
+                </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

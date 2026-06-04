@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded hover:bg-gray-400;
+  }
+}
+
+/* ── Modo oscuro (retrofit global) ─────────────────────────────────────────
+   La app usa clases Tailwind claras sin variantes dark:. Para un modo oscuro
+   real sin barrer cada componente, remapeamos las utilidades más comunes bajo
+   .dark. (Migrar a dark: por componente es una mejora futura más fina.) */
+.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+.dark .bg-white { background-color: #1e293b !important; }
+.dark .bg-gray-50 { background-color: #0f172a !important; }
+.dark .bg-gray-100 { background-color: #1e293b !important; }
+.dark .bg-gray-200 { background-color: #334155 !important; }
+.dark .text-gray-900 { color: #f1f5f9 !important; }
+.dark .text-gray-800 { color: #e2e8f0 !important; }
+.dark .text-gray-700 { color: #cbd5e1 !important; }
+.dark .text-gray-600 { color: #94a3b8 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .border-gray-200 { border-color: #334155 !important; }
+.dark .border-gray-300 { border-color: #475569 !important; }
+.dark .border-gray-100 { border-color: #243044 !important; }
+.dark .hover\:bg-gray-50:hover { background-color: #334155 !important; }
+.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #243044 !important; }
+.dark .shadow-sm,
+.dark .shadow,
+.dark .shadow-md,
+.dark .shadow-lg {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ── Modo compacto ──────────────────────────────────────────────────────── */
+.compact .p-6 { padding: 1rem !important; }
+.compact .p-4 { padding: 0.625rem !important; }
+.compact .py-4 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+.compact .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }

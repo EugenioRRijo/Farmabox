@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciando Farmabox</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      /* Azul institucional USM (Farmacia) */
+      background: linear-gradient(135deg, #002549 0%, #001224 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-app-region: drag; /* Allows moving the frameless window */
+    }
+
+    .logo-container {
+      width: 140px;
+      height: 140px;
+      margin-bottom: 30px;
+      position: relative;
+      background: transparent;
+      border-radius: 30px;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: white;
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+      letter-spacing: -0.5px;
+    }
+
+    p {
+      color: #93c5fd;
+      font-size: 14px;
+      margin: 0 0 24px 0;
+      font-weight: 500;
+    }
+
+    /* Modern Loader */
+    .loader {
+      width: 180px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loader-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 40%;
+      /* Azul → Ámbar → Azul (acento de marca) */
+      background: linear-gradient(90deg, #0077EA, #F59E0B, #0077EA);
+      background-size: 200% 100%;
+      border-radius: 4px;
+      animation: loading 1.5s ease-in-out infinite, gradient 2s linear infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes loading {
+      0% { left: -40%; width: 40%; }
+      50% { left: 40%; width: 60%; }
+      100% { left: 100%; width: 40%; }
+    }
+
+    @keyframes gradient {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-container">
+    <img id="logo" src="../assets/logo.png" alt="USM Horarios">
+  </div>
+
+  <div class="loading-container">
+    <h1>Farmabox</h1>
+    <p>Iniciando módulos y servicios...</p>
+    <div class="loader">
+      <div class="loader-bar"></div>
+    </div>
+  </div>
+
+  <script>
+    // Permitir inyectar la ruta correcta del logo vía query param (desde main.ts)
+    const params = new URLSearchParams(window.location.search);
+    const logoPath = params.get('logo');
+    if (logoPath) {
+      document.getElementById('logo').src = logoPath;
+    }
+  </script>
+</body>
+</html>

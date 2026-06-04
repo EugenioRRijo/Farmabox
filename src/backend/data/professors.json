@@ -1,0 +1,509 @@
+[
+  {
+    "id": "prof-001",
+    "fullName": "Ángel Gutiérrez",
+    "title": "Prof.",
+    "subjects": [
+      "3307013701",
+      "3307013801",
+      "3307011103"
+    ],
+    "email": "agutierrez@usm.edu.ve",
+    "type": "both"
+  },
+  {
+    "id": "prof-002",
+    "fullName": "Zoraida Jiménez",
+    "title": "Prof.",
+    "subjects": [
+      "3307011105",
+      "3307011204"
+    ],
+    "email": "zjimenez@usm.edu.ve",
+    "type": "both"
+  },
+  {
+    "id": "prof-003",
+    "fullName": "Dailín Ruiz",
+    "title": "Prof.",
+    "subjects": [
+      "3307011108",
+      "3307011206"
+    ],
+    "email": "druiz@usm.edu.ve",
+    "type": "both"
+  },
+  {
+    "id": "prof-004",
+    "fullName": "Carlos Brito",
+    "title": "Dr.",
+    "subjects": [
+      "3307011101",
+      "3307011201",
+      "3307095107",
+      "3307105108"
+    ],
+    "email": "cbrito@usm.edu.ve",
+    "type": "both"
+  },
+  {
+    "id": "prof-005",
+    "fullName": "Marla Mendoza",
+    "title": "Prof.",
+    "subjects": [
+      "3307012101",
+      "3307012201"
+    ],
+    "email": "mmendoza@usm.edu.ve",
+    "type": "both"
+  },
+  {
+    "id": "prof-006",
+    "fullName": "Mayra García",
+    "title": "Dra.",
+    "subjects": [
+      "3307014213",
+      "3307014214"
+    ],
+    "email": "mgarcia@usm.edu.ve",
+    "type": "both"
+  },
+  {
+    "id": "prof-007",
+    "fullName": "Mayerling González",
+    "title": "Prof.",
+    "subjects": [
+      "3307011203",
+      "3307012301",
+      "3307012401"
+    ],
+    "type": "both",
+    "email": "mgonzalez@usm.edu.ve"
+  },
+  {
+    "id": "prof-008",
+    "fullName": "Alexander Campos",
+    "title": "Prof.",
+    "subjects": [
+      "3307012302",
+      "3307012402"
+    ],
+    "type": "both",
+    "email": "acampos@usm.edu.ve"
+  },
+  {
+    "id": "prof-009",
+    "fullName": "Ridsser Chirinos",
+    "title": "Prof.",
+    "subjects": [
+      "3307037101",
+      "3307047102",
+      "3307011503"
+    ],
+    "type": "both",
+    "email": "rchirinos@usm.edu.ve"
+  },
+  {
+    "id": "prof-010",
+    "fullName": "Ana Ferrer",
+    "title": "Prof.",
+    "subjects": [
+      "3307011305",
+      "3307011402"
+    ],
+    "type": "both",
+    "email": "aferrer@usm.edu.ve"
+  },
+  {
+    "id": "prof-011",
+    "fullName": "Gregory León",
+    "title": "Prof.",
+    "subjects": [
+      "3307011302",
+      "3307011401"
+    ],
+    "type": "both",
+    "email": "gleon@usm.edu.ve"
+  },
+  {
+    "id": "prof-012",
+    "fullName": "Irene Henriquez",
+    "title": "Prof.",
+    "subjects": [
+      "3307032103",
+      "3307042104",
+      "3307012301",
+      "3307012401"
+    ],
+    "type": "both",
+    "email": "ihenriquez@usm.edu.ve"
+  },
+  {
+    "id": "prof-013",
+    "fullName": "Khelly Marchena",
+    "title": "Prof.",
+    "subjects": [
+      "3307032103",
+      "3307042104",
+      "3307052105",
+      "3307062106"
+    ],
+    "type": "both",
+    "email": "kmarchena@usm.edu.ve"
+  },
+  {
+    "id": "prof-014",
+    "fullName": "Nibsy Pachano",
+    "title": "Prof.",
+    "subjects": [
+      "3307031107"
+    ],
+    "type": "theory",
+    "email": "npachano@usm.edu.ve"
+  },
+  {
+    "id": "prof-015",
+    "fullName": "Omar Alviárez",
+    "title": "Dr.",
+    "subjects": [
+      "3307047105",
+      "3307057103"
+    ],
+    "type": "theory",
+    "email": "oalviarez@usm.edu.ve"
+  },
+  {
+    "id": "prof-016",
+    "fullName": "Gianfranco Giuttari",
+    "title": "Prof.",
+    "subjects": [
+      "3307038107",
+      "3307048108",
+      "3307078101",
+      "3307088102",
+      "3307011001",
+      "3307107107"
+    ],
+    "type": "both",
+    "email": "ggiuttari@usm.edu.ve"
+  },
+  {
+    "id": "prof-017",
+    "fullName": "Carlos Vallejo",
+    "title": "Prof.",
+    "subjects": [
+      "3307012601",
+      "3307012701",
+      "3307012801"
+    ],
+    "type": "both",
+    "email": "cvallejo@usm.edu.ve"
+  },
+  {
+    "id": "prof-018",
+    "fullName": "Carlos Roque",
+    "title": "Prof.",
+    "subjects": [
+      "3307011403",
+      "3307011501"
+    ],
+    "type": "both",
+    "email": "croque@usm.edu.ve"
+  },
+  {
+    "id": "prof-019",
+    "fullName": "Luz Do Nascimiento",
+    "title": "Prof.",
+    "subjects": [
+      "3307013502",
+      "3307013602"
+    ],
+    "type": "theory",
+    "email": "lnascimiento@usm.edu.ve"
+  },
+  {
+    "id": "prof-020",
+    "fullName": "Jennifer Lucero",
+    "title": "Prof.",
+    "subjects": [
+      "3307013502",
+      "3307013602"
+    ],
+    "type": "practice",
+    "email": "jlucero@usm.edu.ve"
+  },
+  {
+    "id": "prof-021",
+    "fullName": "Gilberto Perdomo",
+    "title": "Dr.",
+    "subjects": [
+      "3307053103",
+      "3307063104"
+    ],
+    "type": "both",
+    "email": "gperdomo@usm.edu.ve"
+  },
+  {
+    "id": "prof-022",
+    "fullName": "Juan Carlos González",
+    "title": "Prof.",
+    "subjects": [
+      "3307056107",
+      "3307066108"
+    ],
+    "type": "theory",
+    "email": "jgonzalez@usm.edu.ve"
+  },
+  {
+    "id": "prof-023",
+    "fullName": "Glenmary Linares",
+    "title": "Prof.",
+    "subjects": [
+      "3307052105",
+      "3307062106"
+    ],
+    "type": "practice",
+    "email": "glinares@usm.edu.ve"
+  },
+  {
+    "id": "prof-024",
+    "fullName": "Emilia Espósito",
+    "title": "Prof.",
+    "subjects": [
+      "3307053205",
+      "3307063206",
+      "3307094211",
+      "3307104212"
+    ],
+    "type": "both",
+    "email": "eesposito@usm.edu.ve"
+  },
+  {
+    "id": "prof-025",
+    "fullName": "Marín Marilis",
+    "title": "Prof.",
+    "subjects": [
+      "3307067104"
+    ],
+    "type": "theory",
+    "email": "mmarilis@usm.edu.ve"
+  },
+  {
+    "id": "prof-026",
+    "fullName": "Eleana Serrano",
+    "title": "Prof.",
+    "subjects": [
+      "3307013802"
+    ],
+    "type": "theory",
+    "email": "eserrano@usm.edu.ve"
+  },
+  {
+    "id": "prof-027",
+    "fullName": "Eneida Useche",
+    "title": "Prof.",
+    "subjects": [
+      "3307013802"
+    ],
+    "type": "practice",
+    "email": "euseche@usm.edu.ve"
+  },
+  {
+    "id": "prof-028",
+    "fullName": "Nello Collevecchio",
+    "title": "Dr.",
+    "subjects": [
+      "3307076101",
+      "3307086102"
+    ],
+    "type": "theory",
+    "email": "ncollevecchio@usm.edu.ve"
+  },
+  {
+    "id": "prof-029",
+    "fullName": "Ninfa Cordero",
+    "title": "Dra.",
+    "subjects": [
+      "3307013501",
+      "3307013601"
+    ],
+    "type": "both",
+    "email": "ncordero@usm.edu.ve"
+  },
+  {
+    "id": "prof-030",
+    "fullName": "Leandro Goncalves",
+    "title": "Prof.",
+    "subjects": [
+      "3307011601",
+      "3307011701",
+      "3307011801"
+    ],
+    "type": "both",
+    "email": "lgoncalves@usm.edu.ve"
+  },
+  {
+    "id": "prof-031",
+    "fullName": "Oriana Coronado",
+    "title": "Prof.",
+    "subjects": [
+      "3307011502"
+    ],
+    "type": "theory",
+    "email": "ocoronado@usm.edu.ve"
+  },
+  {
+    "id": "prof-032",
+    "fullName": "Andreína Méndez",
+    "title": "Prof.",
+    "subjects": [
+      "3307011502",
+      "3307095107",
+      "3307105108",
+      "3307011103"
+    ],
+    "type": "practice",
+    "email": "amendez@usm.edu.ve"
+  },
+  {
+    "id": "prof-033",
+    "fullName": "Behzaida Trías",
+    "title": "Prof.",
+    "subjects": [
+      "3307075109",
+      "3307085110",
+      "3307097106"
+    ],
+    "type": "both",
+    "email": "btrias@usm.edu.ve"
+  },
+  {
+    "id": "prof-034",
+    "fullName": "Christina Zoghbi",
+    "title": "Prof.",
+    "subjects": [
+      "3307011702",
+      "3307011802"
+    ],
+    "type": "theory",
+    "email": "czoghbi@usm.edu.ve"
+  },
+  {
+    "id": "prof-035",
+    "fullName": "Gladys Venegas",
+    "title": "Prof.",
+    "subjects": [
+      "3307011702",
+      "3307011802"
+    ],
+    "type": "theory",
+    "email": "gvenegas@usm.edu.ve"
+  },
+  {
+    "id": "prof-036",
+    "fullName": "María Miranda",
+    "title": "Prof.",
+    "subjects": [
+      "3307011702",
+      "3307011802",
+      "3307098103"
+    ],
+    "type": "both",
+    "email": "mmiranda@usm.edu.ve"
+  },
+  {
+    "id": "prof-037",
+    "fullName": "Luxz Paulo",
+    "title": "Prof.",
+    "subjects": [
+      "3307011703"
+    ],
+    "type": "theory",
+    "email": "lpaulo@usm.edu.ve"
+  },
+  {
+    "id": "prof-038",
+    "fullName": "Romily Figuera",
+    "title": "Dra.",
+    "subjects": [
+      "3307011703"
+    ],
+    "type": "practice",
+    "email": "rfiguera@usm.edu.ve"
+  },
+  {
+    "id": "prof-039",
+    "fullName": "Nairobys Fernandes",
+    "title": "Prof.",
+    "subjects": [
+      "3307096103",
+      "3307106104"
+    ],
+    "type": "both",
+    "email": "nfernandes@usm.edu.ve"
+  },
+  {
+    "id": "prof-040",
+    "fullName": "Felix Sierralta",
+    "title": "Prof.",
+    "subjects": [
+      "3307093209",
+      "3307103210"
+    ],
+    "type": "both",
+    "email": "fsierralta@usm.edu.ve"
+  },
+  {
+    "id": "prof-041",
+    "fullName": "Elisabeth Davila",
+    "title": "Prof.",
+    "subjects": [
+      "3307096105",
+      "3307106106"
+    ],
+    "type": "both",
+    "email": "edavila@usm.edu.ve"
+  },
+  {
+    "id": "prof-042",
+    "fullName": "Edith Graffe",
+    "title": "Prof.",
+    "subjects": [
+      "3307011903"
+    ],
+    "type": "both",
+    "email": "egraffe@usm.edu.ve"
+  },
+  {
+    "id": "prof-043",
+    "fullName": "Giovanna González",
+    "title": "Prof.",
+    "subjects": [
+      "3307095111",
+      "3307105112"
+    ],
+    "type": "theory",
+    "email": "ggonzalez@usm.edu.ve"
+  },
+  {
+    "id": "prof-044",
+    "fullName": "Naireth Villar",
+    "title": "Prof.",
+    "subjects": [
+      "3307095111",
+      "3307105112"
+    ],
+    "type": "practice",
+    "email": "nvillar@usm.edu.ve"
+  },
+  {
+    "id": "prof-1773250616422",
+    "fullName": "Eugenio Rijo",
+    "title": "Prof.",
+    "email": "yo@gmail.com",
+    "subjects": [
+      "123456"
+    ],
+    "type": "both"
+  }
+]

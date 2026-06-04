@@ -1,0 +1,51 @@
+{
+  "name": "servicio-comunitario-scheduler",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sistema de Gestión de Horarios Académicos - Offline First",
+  "author": "Eugenio Rijo (Servicio Comunitario USM)",
+  "workspaces": [
+    "src/frontend",
+    "src/electron",
+    "src/shared",
+    "src/backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n back,front -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm run dev --workspace=src/frontend",
+    "dev:backend": "npm run dev --workspace=src/backend",
+    "dev:electron": "npm run dev --workspace=src/electron",
+    "build": "npm run build --workspaces",
+    "test": "vitest",
+    "coverage": "vitest --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "adm-zip": "^0.5.16",
+    "concurrently": "^9.2.1",
+    "eslint": "^8.50.0",
+    "eslint-config-airbnb-typescript": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.0.0",
+    "wait-on": "^9.0.4"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}

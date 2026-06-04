@@ -1,0 +1,1196 @@
+[
+  {
+    "id": "log-1774381162687",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 24 bloques totales",
+    "timestamp": "2026-03-24T19:39:22.687Z"
+  },
+  {
+    "id": "log-1774381157619",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Toxicología I el día MARTES a las 8:30",
+    "timestamp": "2026-03-24T19:39:17.619Z"
+  },
+  {
+    "id": "log-1774381157174",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Toxicología I el día MARTES a las 9:15",
+    "timestamp": "2026-03-24T19:39:17.174Z"
+  },
+  {
+    "id": "log-1774381153939",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 22 bloques totales",
+    "timestamp": "2026-03-24T19:39:13.939Z"
+  },
+  {
+    "id": "log-1774381148863",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Tecnología Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:39:08.863Z"
+  },
+  {
+    "id": "log-1774381148289",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Tecnología Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:39:08.289Z"
+  },
+  {
+    "id": "log-1774381143093",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 20 bloques totales",
+    "timestamp": "2026-03-24T19:39:03.093Z"
+  },
+  {
+    "id": "log-1774381138026",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacognosia II el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:38:58.026Z"
+  },
+  {
+    "id": "log-1774381137328",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacognosia II el día LUNES a las 8:30",
+    "timestamp": "2026-03-24T19:38:57.328Z"
+  },
+  {
+    "id": "log-1774381135057",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacognosia I el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:38:55.057Z"
+  },
+  {
+    "id": "log-1774381134274",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacognosia I el día LUNES a las 8:30",
+    "timestamp": "2026-03-24T19:38:54.274Z"
+  },
+  {
+    "id": "log-1774381129922",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacognosia I el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:38:49.922Z"
+  },
+  {
+    "id": "log-1774381128857",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacognosia I el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:38:48.857Z"
+  },
+  {
+    "id": "log-1774380593467",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 14 bloques totales",
+    "timestamp": "2026-03-24T19:29:53.467Z"
+  },
+  {
+    "id": "log-1774380588369",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 10 sección A",
+    "timestamp": "2026-03-24T19:29:48.369Z"
+  },
+  {
+    "id": "log-1774380580414",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 19 bloques totales",
+    "timestamp": "2026-03-24T19:29:40.414Z"
+  },
+  {
+    "id": "log-1774380575322",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacotecnia IV el día MARTES a las 8:30",
+    "timestamp": "2026-03-24T19:29:35.322Z"
+  },
+  {
+    "id": "log-1774380574892",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacotecnia IV el día MARTES a las 7:45",
+    "timestamp": "2026-03-24T19:29:34.892Z"
+  },
+  {
+    "id": "log-1774380574368",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Farmacotecnia IV el día MARTES a las 7:00",
+    "timestamp": "2026-03-24T19:29:34.368Z"
+  },
+  {
+    "id": "log-1774380572737",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Dermocosmética II el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:29:32.737Z"
+  },
+  {
+    "id": "log-1774380570538",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Dermocosmética II el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:29:30.538Z"
+  },
+  {
+    "id": "log-1774380568527",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Dermocosmética II el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:29:28.527Z"
+  },
+  {
+    "id": "log-1774380567883",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Dermocosmética II el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:29:27.883Z"
+  },
+  {
+    "id": "log-1774380560364",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 14 bloques totales",
+    "timestamp": "2026-03-24T19:29:20.364Z"
+  },
+  {
+    "id": "log-1774380555301",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 8:30",
+    "timestamp": "2026-03-24T19:29:15.301Z"
+  },
+  {
+    "id": "log-1774380554622",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:29:14.622Z"
+  },
+  {
+    "id": "log-1774380554301",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:29:14.301Z"
+  },
+  {
+    "id": "log-1774380553777",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:29:13.777Z"
+  },
+  {
+    "id": "log-1774380552928",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:29:12.928Z"
+  },
+  {
+    "id": "log-1774380552541",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 9:15",
+    "timestamp": "2026-03-24T19:29:12.542Z"
+  },
+  {
+    "id": "log-1774380552181",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 10:00",
+    "timestamp": "2026-03-24T19:29:12.181Z"
+  },
+  {
+    "id": "log-1774380551788",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Pasantías el día LUNES a las 10:45",
+    "timestamp": "2026-03-24T19:29:11.788Z"
+  },
+  {
+    "id": "log-1774380547157",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 10:45",
+    "timestamp": "2026-03-24T19:29:07.157Z"
+  },
+  {
+    "id": "log-1774380546632",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 10:00",
+    "timestamp": "2026-03-24T19:29:06.632Z"
+  },
+  {
+    "id": "log-1774380546008",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 9:15",
+    "timestamp": "2026-03-24T19:29:06.008Z"
+  },
+  {
+    "id": "log-1774380545405",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 8:30",
+    "timestamp": "2026-03-24T19:29:05.405Z"
+  },
+  {
+    "id": "log-1774380544973",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:29:04.973Z"
+  },
+  {
+    "id": "log-1774380544511",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Pasantías el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:29:04.511Z"
+  },
+  {
+    "id": "log-1774380307665",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 14 bloques totales",
+    "timestamp": "2026-03-24T19:25:07.665Z"
+  },
+  {
+    "id": "log-1774380302607",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 10:45",
+    "timestamp": "2026-03-24T19:25:02.607Z"
+  },
+  {
+    "id": "log-1774380301628",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 10:00",
+    "timestamp": "2026-03-24T19:25:01.628Z"
+  },
+  {
+    "id": "log-1774380297553",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día MARTES a las 10:00",
+    "timestamp": "2026-03-24T19:24:57.553Z"
+  },
+  {
+    "id": "log-1774380296865",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Química Básica I el día MARTES a las 10:45",
+    "timestamp": "2026-03-24T19:24:56.865Z"
+  },
+  {
+    "id": "log-1774380296095",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día MARTES a las 10:45",
+    "timestamp": "2026-03-24T19:24:56.095Z"
+  },
+  {
+    "id": "log-1774380294459",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día MARTES a las 9:15",
+    "timestamp": "2026-03-24T19:24:54.459Z"
+  },
+  {
+    "id": "log-1774380294268",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Biología I el día LUNES a las 9:15",
+    "timestamp": "2026-03-24T19:24:54.268Z"
+  },
+  {
+    "id": "log-1774380294200",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día MARTES a las 8:30",
+    "timestamp": "2026-03-24T19:24:54.200Z"
+  },
+  {
+    "id": "log-1774380294132",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Biología I el día LUNES a las 8:30",
+    "timestamp": "2026-03-24T19:24:54.132Z"
+  },
+  {
+    "id": "log-1774380289439",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:24:49.439Z"
+  },
+  {
+    "id": "log-1774380288789",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:24:48.789Z"
+  },
+  {
+    "id": "log-1774380284554",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 5 bloques totales",
+    "timestamp": "2026-03-24T19:24:44.554Z"
+  },
+  {
+    "id": "log-1774380279479",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día LUNES a las 7:00",
+    "timestamp": "2026-03-24T19:24:39.479Z"
+  },
+  {
+    "id": "log-1774380278065",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día LUNES a las 7:45",
+    "timestamp": "2026-03-24T19:24:38.065Z"
+  },
+  {
+    "id": "log-1774054960342",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 7 bloques totales",
+    "timestamp": "2026-03-21T01:02:40.342Z"
+  },
+  {
+    "id": "log-1774054955304",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T01:02:35.304Z"
+  },
+  {
+    "id": "log-1774054954692",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T01:02:34.692Z"
+  },
+  {
+    "id": "log-1774054580102",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 5 bloques totales",
+    "timestamp": "2026-03-21T00:56:20.102Z"
+  },
+  {
+    "id": "log-1774054575068",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 1 sección A",
+    "timestamp": "2026-03-21T00:56:15.068Z"
+  },
+  {
+    "id": "log-1774054562448",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 5 bloques totales",
+    "timestamp": "2026-03-21T00:56:02.448Z"
+  },
+  {
+    "id": "log-1774054557415",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 10:00",
+    "timestamp": "2026-03-21T00:55:57.415Z"
+  },
+  {
+    "id": "log-1774054556860",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 9:15",
+    "timestamp": "2026-03-21T00:55:56.860Z"
+  },
+  {
+    "id": "log-1774054556345",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día LUNES a las 9:15",
+    "timestamp": "2026-03-21T00:55:56.345Z"
+  },
+  {
+    "id": "log-1774054553319",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 9:15",
+    "timestamp": "2026-03-21T00:55:53.319Z"
+  },
+  {
+    "id": "log-1774054552515",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 8:30",
+    "timestamp": "2026-03-21T00:55:52.515Z"
+  },
+  {
+    "id": "log-1774054550646",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día LUNES a las 9:15",
+    "timestamp": "2026-03-21T00:55:50.646Z"
+  },
+  {
+    "id": "log-1774054550144",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día LUNES a las 8:30",
+    "timestamp": "2026-03-21T00:55:50.144Z"
+  },
+  {
+    "id": "log-1774054547028",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 9:15",
+    "timestamp": "2026-03-21T00:55:47.028Z"
+  },
+  {
+    "id": "log-1774054546575",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 8:30",
+    "timestamp": "2026-03-21T00:55:46.575Z"
+  },
+  {
+    "id": "log-1774054545828",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 2 bloques totales",
+    "timestamp": "2026-03-21T00:55:45.828Z"
+  },
+  {
+    "id": "log-1774054540782",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:55:40.782Z"
+  },
+  {
+    "id": "log-1774054540147",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:55:40.147Z"
+  },
+  {
+    "id": "log-1774052581130",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 0 bloques totales",
+    "timestamp": "2026-03-21T00:23:01.131Z"
+  },
+  {
+    "id": "log-1774052576001",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 1 sección b",
+    "timestamp": "2026-03-21T00:22:56.001Z"
+  },
+  {
+    "id": "log-1774052567834",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 2 bloques totales",
+    "timestamp": "2026-03-21T00:22:47.834Z"
+  },
+  {
+    "id": "log-1774052562715",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 1 sección a",
+    "timestamp": "2026-03-21T00:22:42.715Z"
+  },
+  {
+    "id": "log-1774052545728",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 9 bloques totales",
+    "timestamp": "2026-03-21T00:22:25.728Z"
+  },
+  {
+    "id": "log-1774052540665",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 10 sección A",
+    "timestamp": "2026-03-21T00:22:20.665Z"
+  },
+  {
+    "id": "log-1774052527167",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 21 bloques totales",
+    "timestamp": "2026-03-21T00:22:07.167Z"
+  },
+  {
+    "id": "log-1774052522124",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 2 sección A",
+    "timestamp": "2026-03-21T00:22:02.124Z"
+  },
+  {
+    "id": "log-1774052519961",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 23 bloques totales",
+    "timestamp": "2026-03-21T00:21:59.961Z"
+  },
+  {
+    "id": "log-1774052514921",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 3 sección A",
+    "timestamp": "2026-03-21T00:21:54.921Z"
+  },
+  {
+    "id": "log-1774052510064",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 25 bloques totales",
+    "timestamp": "2026-03-21T00:21:50.064Z"
+  },
+  {
+    "id": "log-1774052505028",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 1 sección A",
+    "timestamp": "2026-03-21T00:21:45.028Z"
+  },
+  {
+    "id": "log-1774052324173",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 29 bloques totales",
+    "timestamp": "2026-03-21T00:18:44.173Z"
+  },
+  {
+    "id": "log-1774052319135",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 9:15",
+    "timestamp": "2026-03-21T00:18:39.135Z"
+  },
+  {
+    "id": "log-1774052318584",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 8:30",
+    "timestamp": "2026-03-21T00:18:38.584Z"
+  },
+  {
+    "id": "log-1774052313989",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 27 bloques totales",
+    "timestamp": "2026-03-21T00:18:33.989Z"
+  },
+  {
+    "id": "log-1774052308952",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:18:28.952Z"
+  },
+  {
+    "id": "log-1774052308100",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:18:28.100Z"
+  },
+  {
+    "id": "log-1774052305581",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Orientación Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:18:25.581Z"
+  },
+  {
+    "id": "log-1774052305083",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Orientación Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:18:25.083Z"
+  },
+  {
+    "id": "log-1774052303634",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 27 bloques totales",
+    "timestamp": "2026-03-21T00:18:23.634Z"
+  },
+  {
+    "id": "log-1774052298582",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica II el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:18:18.582Z"
+  },
+  {
+    "id": "log-1774052297671",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica II el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:18:17.671Z"
+  },
+  {
+    "id": "log-1774051991140",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 25 bloques totales",
+    "timestamp": "2026-03-21T00:13:11.140Z"
+  },
+  {
+    "id": "log-1774051985985",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 2 sección A",
+    "timestamp": "2026-03-21T00:13:05.985Z"
+  },
+  {
+    "id": "log-1774051985764",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 45 bloques totales",
+    "timestamp": "2026-03-21T00:13:05.764Z"
+  },
+  {
+    "id": "log-1774051980718",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica II el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:13:00.718Z"
+  },
+  {
+    "id": "log-1774051980189",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica II el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:13:00.189Z"
+  },
+  {
+    "id": "log-1774051979027",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Orientación Farmacéutica II el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:12:59.027Z"
+  },
+  {
+    "id": "log-1774051978609",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Orientación Farmacéutica II el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:12:58.609Z"
+  },
+  {
+    "id": "log-1774051974481",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:12:54.481Z"
+  },
+  {
+    "id": "log-1774051973777",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:12:53.777Z"
+  },
+  {
+    "id": "log-1774051972762",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Orientación Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:12:52.762Z"
+  },
+  {
+    "id": "log-1774051972290",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Orientación Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:12:52.290Z"
+  },
+  {
+    "id": "log-1774051947694",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 45 bloques totales",
+    "timestamp": "2026-03-21T00:12:27.694Z"
+  },
+  {
+    "id": "log-1774051942635",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-21T00:12:22.635Z"
+  },
+  {
+    "id": "log-1774051942070",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Orientación Farmacéutica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-21T00:12:22.070Z"
+  },
+  {
+    "id": "log-1774051148520",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 43 bloques totales",
+    "timestamp": "2026-03-20T23:59:08.520Z"
+  },
+  {
+    "id": "log-1774051143472",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día LUNES a las 7:00",
+    "timestamp": "2026-03-20T23:59:03.472Z"
+  },
+  {
+    "id": "log-1774051141543",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Física Aplicada I el día LUNES a las 7:00",
+    "timestamp": "2026-03-20T23:59:01.543Z"
+  },
+  {
+    "id": "log-1774050099652",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 43 bloques totales",
+    "timestamp": "2026-03-20T23:41:39.652Z"
+  },
+  {
+    "id": "log-1774050094585",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Biología I el día LUNES a las 9:15",
+    "timestamp": "2026-03-20T23:41:34.585Z"
+  },
+  {
+    "id": "log-1774050094121",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Química Básica I el día LUNES a las 8:30",
+    "timestamp": "2026-03-20T23:41:34.121Z"
+  },
+  {
+    "id": "log-1774050093690",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Química Básica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-20T23:41:33.690Z"
+  },
+  {
+    "id": "log-1774050093320",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Biología I el día LUNES a las 7:00",
+    "timestamp": "2026-03-20T23:41:33.320Z"
+  },
+  {
+    "id": "log-1774050091409",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Biología I el día LUNES a las 9:15",
+    "timestamp": "2026-03-20T23:41:31.409Z"
+  },
+  {
+    "id": "log-1774050089342",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Biología I el día LUNES a las 7:00",
+    "timestamp": "2026-03-20T23:41:29.342Z"
+  },
+  {
+    "id": "log-1774050088638",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Química Básica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-20T23:41:28.638Z"
+  },
+  {
+    "id": "log-1774050087474",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día LUNES a las 8:30",
+    "timestamp": "2026-03-20T23:41:27.474Z"
+  },
+  {
+    "id": "log-1774050086893",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día LUNES a las 7:45",
+    "timestamp": "2026-03-20T23:41:26.893Z"
+  },
+  {
+    "id": "log-1774050086331",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día LUNES a las 7:00",
+    "timestamp": "2026-03-20T23:41:26.331Z"
+  },
+  {
+    "id": "log-1774050084858",
+    "action": "Limpiar Horario",
+    "details": "Se eliminaron todos los bloques del semestre 1 sección A",
+    "timestamp": "2026-03-20T23:41:24.858Z"
+  },
+  {
+    "id": "log-1774049634484",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 65 bloques totales",
+    "timestamp": "2026-03-20T23:33:54.484Z"
+  },
+  {
+    "id": "log-1774049629417",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día MARTES a las 10:00",
+    "timestamp": "2026-03-20T23:33:49.417Z"
+  },
+  {
+    "id": "log-1774049628926",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día JUEVES a las 10:00",
+    "timestamp": "2026-03-20T23:33:48.926Z"
+  },
+  {
+    "id": "log-1774049628477",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Química Básica I el día MIERCOLES a las 9:15",
+    "timestamp": "2026-03-20T23:33:48.477Z"
+  },
+  {
+    "id": "log-1774049625172",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Biología I el día MIERCOLES a las 10:00",
+    "timestamp": "2026-03-20T23:33:45.172Z"
+  },
+  {
+    "id": "log-1774049624577",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Química Básica I el día MIERCOLES a las 9:15",
+    "timestamp": "2026-03-20T23:33:44.577Z"
+  },
+  {
+    "id": "log-1774049624128",
+    "action": "Agregar Bloque",
+    "details": "Se agregó bloque de Biología I el día MIERCOLES a las 8:30",
+    "timestamp": "2026-03-20T23:33:44.128Z"
+  },
+  {
+    "id": "log-1774049310657",
+    "action": "Asignar Profesores",
+    "details": "Se asignaron los profesores [Andreína Méndez, Ángel Gutiérrez] a la materia Física Aplicada I (3307011103)",
+    "timestamp": "2026-03-20T23:28:30.657Z"
+  },
+  {
+    "id": "log-1774049305666",
+    "action": "Asignar Profesores",
+    "details": "Se asignaron los profesores [Ángel Gutiérrez] a la materia Física Aplicada I (3307011103)",
+    "timestamp": "2026-03-20T23:28:25.666Z"
+  },
+  {
+    "id": "log-1774049293789",
+    "action": "Asignar Profesores",
+    "details": "Se asignaron los profesores [Andreína Méndez, Ángel Gutiérrez] a la materia Física Aplicada I (3307011103)",
+    "timestamp": "2026-03-20T23:28:13.789Z"
+  },
+  {
+    "id": "log-1774049283920",
+    "action": "Guardar Horario Estado",
+    "details": "Se actualizó el estado a 61 bloques totales",
+    "timestamp": "2026-03-20T23:28:03.920Z"
+  },
+  {
+    "id": "log-1774049278891",
+    "action": "Eliminar Bloque",
+    "details": "Se eliminó bloque de Física Aplicada I el día MARTES a las 7:00",
+    "timestamp": "2026-03-20T23:27:58.891Z"
+  },
+  {
+    "id": "log-1774016790269",
+    "action": "Editar Materia",
+    "details": "Se actualizaron las horas de la materia 3307011206",
+    "timestamp": "2026-03-20T14:26:30.269Z"
+  },
+  {
+    "id": "log-1773251497582",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 62 bloques",
+    "timestamp": "2026-03-11T17:51:37.582Z"
+  },
+  {
+    "id": "log-1773251484883",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 61 bloques",
+    "timestamp": "2026-03-11T17:51:24.883Z"
+  },
+  {
+    "id": "log-1773251471922",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 63 bloques",
+    "timestamp": "2026-03-11T17:51:11.922Z"
+  },
+  {
+    "id": "log-1773251006434",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 60 bloques",
+    "timestamp": "2026-03-11T17:43:26.434Z"
+  },
+  {
+    "id": "log-1773250997319",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 57 bloques",
+    "timestamp": "2026-03-11T17:43:17.319Z"
+  },
+  {
+    "id": "log-1773250972500",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 55 bloques",
+    "timestamp": "2026-03-11T17:42:52.500Z"
+  },
+  {
+    "id": "log-1773250777653",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 49 bloques",
+    "timestamp": "2026-03-11T17:39:37.653Z"
+  },
+  {
+    "id": "log-1773250757361",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 47 bloques",
+    "timestamp": "2026-03-11T17:39:17.361Z"
+  },
+  {
+    "id": "log-1773250616668",
+    "action": "Crear Profesor",
+    "details": "Se agregó al profesor Prof. Eugenio Rijo",
+    "timestamp": "2026-03-11T17:36:56.668Z"
+  },
+  {
+    "id": "log-1773250528991",
+    "action": "Agregar Materia",
+    "details": "Se agregó la materia Matematica 4",
+    "timestamp": "2026-03-11T17:35:28.991Z"
+  },
+  {
+    "id": "log-1773250468255",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 42 bloques",
+    "timestamp": "2026-03-11T17:34:28.255Z"
+  },
+  {
+    "id": "log-1773250457235",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 36 bloques",
+    "timestamp": "2026-03-11T17:34:17.235Z"
+  },
+  {
+    "id": "log-1773250275153",
+    "action": "Eliminar Profesor",
+    "details": "Se eliminó al profesor Prof. Eugenio",
+    "timestamp": "2026-03-11T17:31:15.153Z"
+  },
+  {
+    "id": "log-1773250072087",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 38 bloques",
+    "timestamp": "2026-03-11T17:27:52.087Z"
+  },
+  {
+    "id": "log-1773250063844",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 36 bloques",
+    "timestamp": "2026-03-11T17:27:43.844Z"
+  },
+  {
+    "id": "log-1773249942994",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 26 bloques",
+    "timestamp": "2026-03-11T17:25:42.994Z"
+  },
+  {
+    "id": "log-1773249908068",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 16 bloques",
+    "timestamp": "2026-03-11T17:25:08.068Z"
+  },
+  {
+    "id": "log-1773249532629",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 10 bloques",
+    "timestamp": "2026-03-11T17:18:52.629Z"
+  },
+  {
+    "id": "log-1773249499904",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 8 bloques",
+    "timestamp": "2026-03-11T17:18:19.904Z"
+  },
+  {
+    "id": "log-1773249491029",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 8 bloques",
+    "timestamp": "2026-03-11T17:18:11.029Z"
+  },
+  {
+    "id": "log-1773249420557",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 6 bloques",
+    "timestamp": "2026-03-11T17:17:00.557Z"
+  },
+  {
+    "id": "log-1773249399112",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 4 bloques",
+    "timestamp": "2026-03-11T17:16:39.112Z"
+  },
+  {
+    "id": "log-1773249377905",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 5 bloques",
+    "timestamp": "2026-03-11T17:16:17.905Z"
+  },
+  {
+    "id": "log-1773248980286",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 4 bloques",
+    "timestamp": "2026-03-11T17:09:40.286Z"
+  },
+  {
+    "id": "log-1773242799020",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 10 bloques",
+    "timestamp": "2026-03-11T15:26:39.020Z"
+  },
+  {
+    "id": "log-1773240110992",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 6 bloques",
+    "timestamp": "2026-03-11T14:41:50.992Z"
+  },
+  {
+    "id": "log-1773240075656",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 4 bloques",
+    "timestamp": "2026-03-11T14:41:15.656Z"
+  },
+  {
+    "id": "log-1773239200069",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 6 bloques",
+    "timestamp": "2026-03-11T14:26:40.069Z"
+  },
+  {
+    "id": "log-1773239178882",
+    "action": "Crear Profesor",
+    "details": "Se agregó al profesor Prof. Eugenio",
+    "timestamp": "2026-03-11T14:26:18.882Z"
+  },
+  {
+    "id": "log-1773239031068",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 6 bloques",
+    "timestamp": "2026-03-11T14:23:51.068Z"
+  },
+  {
+    "id": "log-1773238606038",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 18 bloques",
+    "timestamp": "2026-03-11T14:16:46.038Z"
+  },
+  {
+    "id": "log-1773238420712",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 19 bloques",
+    "timestamp": "2026-03-11T14:13:40.712Z"
+  },
+  {
+    "id": "log-1773238399556",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 18 bloques",
+    "timestamp": "2026-03-11T14:13:19.556Z"
+  },
+  {
+    "id": "log-1773238359835",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 19 bloques",
+    "timestamp": "2026-03-11T14:12:39.835Z"
+  },
+  {
+    "id": "log-1773238323599",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 20 bloques",
+    "timestamp": "2026-03-11T14:12:03.599Z"
+  },
+  {
+    "id": "log-1773105227247",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 20 bloques",
+    "timestamp": "2026-03-10T01:13:47.247Z"
+  },
+  {
+    "id": "log-1773104629881",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 2 bloques",
+    "timestamp": "2026-03-10T01:03:49.881Z"
+  },
+  {
+    "id": "log-1773098550284",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 0 bloques de horario",
+    "timestamp": "2026-03-09T23:22:30.284Z"
+  },
+  {
+    "id": "log-1771363361098",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 10 bloques de horario",
+    "timestamp": "2026-02-17T21:22:41.098Z"
+  },
+  {
+    "id": "log-1771363360877",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 9 bloques de horario",
+    "timestamp": "2026-02-17T21:22:40.877Z"
+  },
+  {
+    "id": "log-1771363358299",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 8 bloques de horario",
+    "timestamp": "2026-02-17T21:22:38.299Z"
+  },
+  {
+    "id": "log-1771363358139",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 7 bloques de horario",
+    "timestamp": "2026-02-17T21:22:38.139Z"
+  },
+  {
+    "id": "log-1771363357018",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 6 bloques de horario",
+    "timestamp": "2026-02-17T21:22:37.018Z"
+  },
+  {
+    "id": "log-1771363356876",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 5 bloques de horario",
+    "timestamp": "2026-02-17T21:22:36.876Z"
+  },
+  {
+    "id": "log-1771363355308",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 4 bloques de horario",
+    "timestamp": "2026-02-17T21:22:35.308Z"
+  },
+  {
+    "id": "log-1771363355135",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 3 bloques de horario",
+    "timestamp": "2026-02-17T21:22:35.135Z"
+  },
+  {
+    "id": "log-1771363351404",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 2 bloques de horario",
+    "timestamp": "2026-02-17T21:22:31.404Z"
+  },
+  {
+    "id": "log-1771363350891",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 1 bloques de horario",
+    "timestamp": "2026-02-17T21:22:30.891Z"
+  },
+  {
+    "id": "log-1771345388526",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 0 bloques de horario",
+    "timestamp": "2026-02-17T16:23:08.526Z"
+  },
+  {
+    "id": "log-1771345388147",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 1 bloques de horario",
+    "timestamp": "2026-02-17T16:23:08.147Z"
+  },
+  {
+    "id": "log-1771345384525",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 2 bloques de horario",
+    "timestamp": "2026-02-17T16:23:04.525Z"
+  },
+  {
+    "id": "log-1771345382533",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 1 bloques de horario",
+    "timestamp": "2026-02-17T16:23:02.533Z"
+  },
+  {
+    "id": "log-1771344068118",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 0 bloques de horario",
+    "timestamp": "2026-02-17T16:01:08.118Z"
+  },
+  {
+    "id": "log-1771344067662",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 1 bloques de horario",
+    "timestamp": "2026-02-17T16:01:07.662Z"
+  },
+  {
+    "id": "log-1771344065937",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 2 bloques de horario",
+    "timestamp": "2026-02-17T16:01:05.937Z"
+  },
+  {
+    "id": "log-1771344065610",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 3 bloques de horario",
+    "timestamp": "2026-02-17T16:01:05.610Z"
+  },
+  {
+    "id": "log-1771344064940",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 4 bloques de horario",
+    "timestamp": "2026-02-17T16:01:04.940Z"
+  },
+  {
+    "id": "log-1771344064681",
+    "action": "Guardar Horario",
+    "details": "Se guardaron 5 bloques de horario",
+    "timestamp": "2026-02-17T16:01:04.682Z"
+  },
+  {
+    "id": "log-cleanup-002",
+    "action": "Limpieza de Datos",
+    "details": "Se eliminaron 43 profesores con nombres falsos (nombres de materias en lugar de nombres reales). Solo se mantuvieron los 6 profesores con nombres y apellidos verificados.",
+    "timestamp": "2026-02-17T15:49:00.000Z"
+  },
+  {
+    "id": "log-cleanup-001",
+    "action": "Limpieza de Datos",
+    "details": "Se eliminaron las referencias huérfanas a la materia 456 (Mate 6) de professors.json y academic-load.json. La materia fue previamente eliminada del pensum pero quedaron referencias residuales.",
+    "timestamp": "2026-02-17T15:49:00.000Z"
+  },
+  {
+    "id": "log-1771343055832",
+    "action": "Eliminar Profesor",
+    "details": "Se eliminó al profesor Prof. Juan perez",
+    "timestamp": "2026-02-17T15:44:15.832Z"
+  },
+  {
+    "id": "log-1771343031332",
+    "action": "Eliminar Profesor",
+    "details": "Se eliminó al profesor Prof. Eugenio Rijo",
+    "timestamp": "2026-02-17T15:43:51.332Z"
+  },
+  {
+    "id": "log-1771287573539",
+    "action": "Agregar Materia",
+    "details": "Se agregó la materia Mate 6 (456) al semestre 1",
+    "timestamp": "2026-02-17T00:19:33.539Z"
+  }
+]
