@@ -8,9 +8,10 @@
  *   4. Splash screen con logo + ventana principal
  *   5. Ciclo de vida + sincronización (inicio y cierre de sesión)
  */
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, dialog } from 'electron';
 import path from 'path';
 import log from 'electron-log';
+import { autoUpdater } from 'electron-updater';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
 import { ProfessorService } from './services/ProfessorService';
@@ -19,7 +20,6 @@ import { ScheduleService } from './services/ScheduleService';
 import { LogService } from './services/LogService';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
 import type { AppServices } from './ipc/ipcHandlers';
-import type { IStorageService } from './services/IStorageService';
 
 // ── Logging ──────────────────────────────────────────────────────────────
 log.transports.file.level = 'info';
@@ -37,12 +37,12 @@ const LOGO_PATH = path.join(__dirname, '..', 'assets', 'logo.png');
 const SPLASH_PATH = path.join(__dirname, '..', 'splash.html');
 
 // ── Composición de servicios (DI manual) ───────────────────────────────────
-function buildServices(storage: IStorageService): AppServices {
+function buildServices(storage: CloudStorageService): AppServices {
   const professorService = new ProfessorService(storage);
   const subjectService = new SubjectService(storage, storage);
   const scheduleService = new ScheduleService(storage);
   const logService = new LogService(storage);
-  return { storageService: storage, professorService, subjectService, scheduleService, logService };
+  return { storageService: storage, cloud: storage, professorService, subjectService, scheduleService, logService };
 }
 
 // ── Splash screen ───────────────────────────────────────────────────────────
@@ -126,6 +126,41 @@ function createWindow(): void {
   });
 }
 
+// ── Auto-actualización (electron-updater + GitHub Releases) ──────────────────
+function setupAutoUpdater(): void {
+  if (IS_DEV) return; // solo en la app instalada (empaquetada)
+  autoUpdater.logger = log;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    log.info('[Updater] Actualización disponible:', info.version);
+  });
+  autoUpdater.on('update-not-available', () => {
+    log.info('[Updater] La app está al día.');
+  });
+  autoUpdater.on('error', (err) => {
+    log.error('[Updater] Error:', err == null ? 'desconocido' : err.message);
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    const choice = dialog.showMessageBoxSync({
+      type: 'info',
+      buttons: ['Reiniciar ahora', 'Más tarde'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Actualización disponible',
+      message: `Farmabox ${info.version} está lista para instalarse.`,
+      detail: 'Se aplicará al reiniciar la aplicación.',
+    });
+    if (choice === 0) {
+      isQuitting = true; // saltea el diálogo de "subir antes de salir"
+      autoUpdater.quitAndInstall();
+    }
+  });
+
+  autoUpdater.checkForUpdates().catch((e) => log.error('[Updater] checkForUpdates falló:', e));
+}
+
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
@@ -143,6 +178,9 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Chequear actualizaciones (solo en la app instalada).
+  setupAutoUpdater();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -150,16 +188,45 @@ app.whenReady().then(async () => {
   });
 });
 
-// ── Sync de cierre de sesión: pull + merge + push final antes de salir ──────
-app.on('before-quit', (e) => {
+// ── Cierre de sesión: si hay cambios sin subir, preguntar antes de salir ────
+app.on('before-quit', async (e) => {
   if (isQuitting || !cloud || !cloud.isCloudEnabled()) return;
+
+  let pending = 0;
+  let summary = '';
+  try {
+    const diff = cloud.getPendingDiff();
+    pending = diff.total;
+    summary = diff.summary;
+  } catch {
+    pending = 0;
+  }
+  if (pending <= 0) return; // nada que subir → salir normal
+
   e.preventDefault();
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Subir y salir', 'Salir sin subir', 'Cancelar'],
+    defaultId: 0,
+    cancelId: 2,
+    title: 'Cambios sin subir',
+    message: `Tenés ${pending} cambio${pending === 1 ? '' : 's'} sin subir.`,
+    detail: summary
+      ? `${summary}\n\n¿Querés subirlos a la nube antes de salir?`
+      : '¿Querés subirlos a la nube antes de salir?',
+  });
+
+  if (choice === 2) return; // Cancelar → no salir
   isQuitting = true;
-  log.info('[Cloud] Sincronización de cierre de sesión...');
-  cloud
-    .syncFromCloud()
-    .catch((err) => log.error('[Cloud] Error en sync de cierre:', err))
-    .finally(() => app.quit());
+  if (choice === 0) {
+    log.info('[Cloud] Subiendo cambios antes de salir...');
+    try {
+      await cloud.pushSession('Cierre de sesión');
+    } catch (err) {
+      log.error('[Cloud] Push de cierre falló:', err);
+    }
+  }
+  app.quit();
 });
 
 app.on('window-all-closed', () => {

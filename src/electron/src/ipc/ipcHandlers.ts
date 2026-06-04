@@ -14,6 +14,7 @@ import log from 'electron-log';
 import type { Professor } from '@scheduler/shared';
 import type { PensumSubject } from '@scheduler/shared';
 import type { IStorageService } from '../services/IStorageService';
+import type { CloudStorageService } from '../services/CloudStorageService';
 import type { ProfessorService } from '../services/ProfessorService';
 import type { SubjectService } from '../services/SubjectService';
 import type { ScheduleService } from '../services/ScheduleService';
@@ -25,6 +26,7 @@ import { buildChatContext, localFallback } from '../chat/context';
 
 export interface AppServices {
   storageService: IStorageService;
+  cloud: CloudStorageService;
   professorService: ProfessorService;
   subjectService: SubjectService;
   scheduleService: ScheduleService;
@@ -38,7 +40,7 @@ type SubjectCreateInput = Partial<PensumSubject> & {
 };
 
 export function registerIpcHandlers(services: AppServices): void {
-  const { professorService, subjectService, scheduleService, logService, storageService } = services;
+  const { professorService, subjectService, scheduleService, logService, storageService, cloud } = services;
   const gemini = new GeminiService();
 
   // ── App ────────────────────────────────────────────────────────────────
@@ -236,6 +238,60 @@ export function registerIpcHandlers(services: AppServices): void {
       log.warn('[IPC chat:send] Gemini no disponible, usando fallback local:', err);
       const reply = localFallback(safeMessages, storageService);
       return { data: { reply, offline: true } };
+    }
+  });
+
+  // ── Sincronización / Historial de versiones ──────────────────────────────
+  ipcMain.handle('sync:status', async () => {
+    try {
+      return { data: await cloud.getSyncStatus() };
+    } catch (err) {
+      log.error('[IPC sync:status]', err);
+      return { error: 'Error obteniendo estado de sincronización' };
+    }
+  });
+  ipcMain.handle('sync:diff', () => {
+    try {
+      return { data: cloud.getPendingDiff() };
+    } catch (err) {
+      log.error('[IPC sync:diff]', err);
+      return { error: 'Error calculando cambios pendientes' };
+    }
+  });
+  ipcMain.handle('sync:push', async (_e: IpcMainInvokeEvent, label?: string) => {
+    try {
+      const r = await cloud.pushSession(typeof label === 'string' ? label : undefined);
+      if (!r.ok) return { error: r.error ?? 'Error al subir' };
+      return { data: { summary: r.summary } };
+    } catch (err) {
+      log.error('[IPC sync:push]', err);
+      return { error: 'Error al subir cambios' };
+    }
+  });
+  ipcMain.handle('sync:pull', async () => {
+    try {
+      return { data: await cloud.pullNow() };
+    } catch (err) {
+      log.error('[IPC sync:pull]', err);
+      return { error: 'Error al buscar cambios' };
+    }
+  });
+  ipcMain.handle('sync:history', async () => {
+    try {
+      return { data: await cloud.getVersionHistory() };
+    } catch (err) {
+      log.error('[IPC sync:history]', err);
+      return { error: 'Error obteniendo el historial' };
+    }
+  });
+  ipcMain.handle('sync:restore', async (_e: IpcMainInvokeEvent, id: number) => {
+    try {
+      const r = await cloud.restoreVersion(Number(id));
+      if (!r.ok) return { error: r.error ?? 'Error al restaurar' };
+      return { data: { success: true } };
+    } catch (err) {
+      log.error('[IPC sync:restore]', err);
+      return { error: 'Error al restaurar la versión' };
     }
   });
 

@@ -13,6 +13,7 @@
     "@scheduler/shared": "*",
     "@supabase/supabase-js": "^2.107.0",
     "electron-log": "^5.0.0",
+    "electron-updater": "^6.8.3",
     "ws": "^8.21.0"
   },
   "devDependencies": {
@@ -25,6 +26,13 @@
     "electronVersion": "28.2.0",
     "appId": "ve.edu.usm.farmabox",
     "productName": "Farmabox",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "EugenioRRijo",
+        "repo": "Farmabox-releases"
+      }
+    ],
     "directories": {
       "output": "dist-installer"
     },

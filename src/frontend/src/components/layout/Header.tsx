@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui';
+import { SyncIndicator } from '@/components/sync/SyncIndicator';
 import { MESSAGES } from '@/constants';
 
 interface HeaderProps {
@@ -45,6 +46,8 @@ export function Header({ onSearch }: HeaderProps) {
             </div>
           </form>
         )}
+
+        <SyncIndicator />
       </div>
     </motion.header>
   );

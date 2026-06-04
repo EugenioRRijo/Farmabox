@@ -60,3 +60,17 @@
 .compact .p-4 { padding: 0.625rem !important; }
 .compact .py-4 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 .compact .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+
+/* ── Tamaño del texto (escala toda la UI; Tailwind usa rem) ──────────────── */
+html.text-scale-large { font-size: 17.5px; }
+html.text-scale-xlarge { font-size: 19.5px; }
+
+/* ── Reducir animaciones (transiciones/animaciones CSS) ─────────────────── */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

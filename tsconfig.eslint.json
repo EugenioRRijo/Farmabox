@@ -4,8 +4,8 @@
     "noEmit": true,
     "allowJs": true,
     "checkJs": false,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "target": "ES2020"
   },
   "include": [

@@ -1,16 +1,28 @@
 import { useState, useRef } from 'react';
-import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2 } from 'lucide-react';
+import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
 import { useSettings } from '@/context/SettingsContext';
 
-type Tab = 'general' | 'data';
+type Tab = 'general' | 'data' | 'contact';
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const [isResetting, setIsResetting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { theme, toggleTheme, compact, setCompact, academicPeriod, setAcademicPeriod } = useSettings();
+  const {
+    theme,
+    toggleTheme,
+    compact,
+    setCompact,
+    academicPeriod,
+    setAcademicPeriod,
+    fontScale,
+    setFontScale,
+    reduceMotion,
+    setReduceMotion,
+    resetSettings,
+  } = useSettings();
 
   // ── Handlers ─────────────────────────────────────────
 
@@ -118,6 +130,7 @@ export function SettingsPage() {
       <div className="flex gap-2 border-b border-gray-200 pb-2">
         <TabButton id="general" label="General" icon={Monitor} />
         <TabButton id="data" label="Gestión de Datos" icon={Database} />
+        <TabButton id="contact" label="Contacto" icon={Mail} />
       </div>
 
       {/* Content */}
@@ -161,7 +174,7 @@ export function SettingsPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between py-4">
+              <div className="flex items-center justify-between py-4 border-b border-gray-100">
                 <div className="flex items-center gap-3">
                   <Minimize2 className="w-5 h-5 text-gray-500" />
                   <div>
@@ -180,6 +193,63 @@ export function SettingsPage() {
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                       compact ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Tamaño del texto */}
+              <div className="flex items-center justify-between py-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <Type className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium text-gray-900">Tamaño del texto</p>
+                    <p className="text-sm text-gray-500">Agranda toda la interfaz para leer más cómodo.</p>
+                  </div>
+                </div>
+                <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                  {(
+                    [
+                      ['normal', 'A'],
+                      ['large', 'A+'],
+                      ['xlarge', 'A++'],
+                    ] as const
+                  ).map(([val, lbl]) => (
+                    <button
+                      key={val}
+                      onClick={() => setFontScale(val)}
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                        fontScale === val
+                          ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reducir animaciones */}
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-3">
+                  <Zap className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium text-gray-900">Reducir animaciones</p>
+                    <p className="text-sm text-gray-500">Menos movimiento; ayuda en equipos lentos.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReduceMotion(!reduceMotion)}
+                  role="switch"
+                  aria-checked={reduceMotion}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    reduceMotion ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      reduceMotion ? 'translate-x-6' : 'translate-x-1'
                     }`}
                   />
                 </button>
@@ -204,6 +274,56 @@ export function SettingsPage() {
                   className="w-32 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Restablecer preferencias */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium text-gray-900">Restablecer preferencias</p>
+                  <p className="text-sm text-gray-500">
+                    Vuelve tema, tamaño del texto, animaciones, modo compacto y período a los valores por defecto.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (window.confirm('¿Restablecer todas las preferencias a los valores por defecto?')) {
+                      resetSettings();
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restablecer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CONTACT TAB */}
+        {activeTab === 'contact' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" />
+                Eugenio Rijo
+              </h2>
+              <p className="text-sm text-gray-600 flex items-center gap-2 mb-5">
+                <GraduationCap className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                Estudiante de Ingeniería de Sistemas — Universidad Santa María (USM)
+              </p>
+              <a
+                href="mailto:eugerijo@gmail.com"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                eugerijo@gmail.com
+              </a>
+              <p className="text-xs text-gray-400 mt-6 border-t border-gray-100 pt-4">
+                Farmabox — Sistema de Gestión de Horarios, desarrollado como Servicio Comunitario para la
+                Facultad de Farmacia, Universidad Santa María.
+              </p>
             </div>
           </div>
         )}

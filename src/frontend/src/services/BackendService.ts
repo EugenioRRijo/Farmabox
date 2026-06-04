@@ -215,3 +215,62 @@ export async function restoreData(data: BackupData): Promise<void> {
   }
   await request('/admin/restore', { method: 'POST', body: JSON.stringify(data) });
 }
+
+// ── Sincronización / Historial de versiones (solo escritorio/IPC) ──────────
+export interface SyncStatus {
+  configured: boolean;
+  online: boolean;
+  lastSyncAt: string | null;
+  pendingCount: number;
+}
+export interface DatasetDiff {
+  added: number;
+  modified: number;
+  removed: number;
+}
+export interface PendingDiff {
+  datasets: {
+    professors: DatasetDiff;
+    scheduleBlocks: DatasetDiff;
+    subjects: DatasetDiff;
+    academicLoad: DatasetDiff;
+    logs: DatasetDiff;
+  };
+  total: number;
+  summary: string;
+}
+export interface VersionMeta {
+  id: number;
+  created_at: string;
+  device: string | null;
+  label: string | null;
+  summary: string | null;
+}
+
+/** La sincronización es una feature de escritorio (Electron). En web no aplica. */
+export function isSyncAvailable(): boolean {
+  return !!ipc;
+}
+function syncApi() {
+  if (!ipc) throw new Error('La sincronización solo está disponible en la app de escritorio.');
+  return ipc.sync;
+}
+
+export async function getSyncStatus(): Promise<SyncStatus> {
+  return unwrap(syncApi().status());
+}
+export async function getSyncDiff(): Promise<PendingDiff> {
+  return unwrap(syncApi().diff());
+}
+export async function pushSession(label?: string): Promise<{ summary: string }> {
+  return unwrap(syncApi().push(label));
+}
+export async function pullNow(): Promise<{ ok: boolean; merged: string[] }> {
+  return unwrap(syncApi().pull());
+}
+export async function getVersionHistory(): Promise<VersionMeta[]> {
+  return unwrap(syncApi().history());
+}
+export async function restoreVersion(id: number): Promise<void> {
+  await unwrap(syncApi().restore(id));
+}

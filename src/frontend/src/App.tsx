@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProfessorsPage } from '@/components/professors/ProfessorsPage';
 import { SubjectsPage } from '@/components/subjects/SubjectsPage';
@@ -8,8 +9,10 @@ import { ScheduleVisualization } from '@/components/visualization/ScheduleVisual
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { HomePage } from '@/components/home/HomePage';
 import { SettingsPage } from '@/components/settings/SettingsPage';
+import { SyncPage } from '@/components/sync/SyncPage';
 import { ChatWidget } from '@/components/chat/ChatWidget';
-import { SettingsProvider } from '@/context/SettingsContext';
+import { Toaster } from 'react-hot-toast';
+import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { AppDataProvider, useAppData } from '@/context/AppDataContext';
 import { Semester } from '../../shared/src/index';
 
@@ -170,6 +173,7 @@ function AppContent() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/collisions" element={<ReportsPage initialTab="collisions" />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/sync" element={<SyncPage />} />
         <Route path="*" element={
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-gray-400 mb-2">404</h2>
@@ -178,7 +182,15 @@ function AppContent() {
         } />
       </Routes>
       <ChatWidget />
+      <Toaster position="top-right" />
     </MainLayout>
+  );
+}
+
+function MotionWrapper({ children }: { children: ReactNode }) {
+  const { reduceMotion } = useSettings();
+  return (
+    <MotionConfig reducedMotion={reduceMotion ? 'always' : 'never'}>{children}</MotionConfig>
   );
 }
 
@@ -186,9 +198,11 @@ function App() {
   return (
     <BrowserRouter>
       <SettingsProvider>
-        <AppDataProvider>
-          <AppContent />
-        </AppDataProvider>
+        <MotionWrapper>
+          <AppDataProvider>
+            <AppContent />
+          </AppDataProvider>
+        </MotionWrapper>
       </SettingsProvider>
     </BrowserRouter>
   );

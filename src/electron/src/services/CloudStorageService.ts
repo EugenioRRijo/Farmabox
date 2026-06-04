@@ -1,24 +1,39 @@
 /**
  * CloudStorageService — Proxy de almacenamiento offline-first con sync a Supabase.
  *
- * Envuelve un IStorageService local (JSON en disco):
+ * Modelo "mini-git":
  *   - Lecturas/escrituras inmediatas a local (cero latencia, funciona sin internet).
- *   - Sella cada ítem con `updatedAt` (y `deletedAt` para borrados) al guardar.
- *   - Push "fire-and-forget" a la nube tras cada guardado.
- *   - syncFromCloud(): pull + MERGE POR ÍTEM (newest-wins) + guardado + push.
+ *   - Cada save SELLA los ítems (updatedAt / deletedAt) y guarda local. NO sube solo.
+ *   - RECIBIR (pull+merge) es automático al abrir: syncFromCloud().
+ *   - SUBIR es manual y con confirmación: pushSession() → upsert + nueva versión.
+ *   - HISTORIAL: cada push guarda un snapshot completo (tabla app_versions) → restaurable.
  *
- * El merge por ítem (no por dataset completo) elimina la pérdida de datos: si dos
- * PC editan offline, sus cambios se UNEN. Ver sync/merge.ts (con tests).
+ * El merge por ítem (newest-wins + tombstones, ver sync/merge.ts con tests) evita
+ * pérdida; el historial es la red de seguridad (siempre se puede restaurar).
  *
- * Implementa IStorageService → es sustituible donde antes iba StorageService.
+ * Implementa IStorageService → sustituye a StorageService en el grafo de servicios.
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import log from 'electron-log';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import * as https from 'https';
 import { ENV } from '../config/env';
 import { mergeRaw, mergeMaps, type Stamped } from '../sync/merge';
+import { diffKeyed, totalChanges, describeDiff } from '../sync/diff';
 import type { IStorageService } from './IStorageService';
 import type { Professor, Semester, PensumSubject } from '@scheduler/shared';
-import type { AcademicLoad, ScheduleBlockData, LogEntry } from '../types';
+import type {
+  AcademicLoad,
+  ScheduleBlockData,
+  LogEntry,
+  AppSnapshot,
+  PendingDiff,
+  SyncStatus,
+  VersionMeta,
+  SyncState,
+} from '../types';
 
 type SProfessor = Professor & Stamped;
 type SBlock = ScheduleBlockData & Stamped;
@@ -26,6 +41,14 @@ type SLog = LogEntry & Stamped;
 type SSubject = PensumSubject & Stamped & { _sem?: number };
 type SLoadVal = AcademicLoad[string] & Stamped;
 type SSemester = { number: number; subjects: SSubject[] };
+
+interface RawDatasets {
+  professors: SProfessor[];
+  pensum: SSemester[];
+  scheduleBlocks: SBlock[];
+  academicLoad: Record<string, SLoadVal>;
+  logs: SLog[];
+}
 
 /** JSON estable (orden de claves) ignorando la metadata de sync. */
 function stableStringify(o: unknown): string {
@@ -113,19 +136,7 @@ export class CloudStorageService implements IStorageService {
     return arr.filter((i) => !i.deletedAt);
   }
 
-  /** Push asíncrono a la nube (no bloquea la UI). */
-  private push(id: string, data: unknown): void {
-    if (!this.client) return;
-    void this.client
-      .from('app_data')
-      .upsert({ id, data, updated_at: this.now() })
-      .then(({ error }) => {
-        if (error) log.error(`[Cloud] push ${id} FAILED:`, error.message);
-        else log.info(`[Cloud] push ${id} OK`);
-      });
-  }
-
-  // ── Professors ───────────────────────────────────────────────────────────
+  // ── Persistencia (offline-first, SIN subir solo) ─────────────────────────
   loadProfessors(): Professor[] {
     return this.live(this.local.loadProfessors() as SProfessor[]);
   }
@@ -136,10 +147,8 @@ export class CloudStorageService implements IStorageService {
       (p) => p.id,
     );
     this.local.saveProfessors(stamped);
-    this.push('professors', stamped);
   }
 
-  // ── Schedule blocks ──────────────────────────────────────────────────────
   loadScheduleBlocks(): ScheduleBlockData[] {
     return this.live(this.local.loadScheduleBlocks() as SBlock[]);
   }
@@ -150,10 +159,8 @@ export class CloudStorageService implements IStorageService {
       (b) => b.id,
     );
     this.local.saveScheduleBlocks(stamped);
-    this.push('schedule-blocks', stamped);
   }
 
-  // ── Logs (append-only, unión por id) ─────────────────────────────────────
   loadLogs(): LogEntry[] {
     return this.live(this.local.loadLogs() as SLog[]);
   }
@@ -164,10 +171,8 @@ export class CloudStorageService implements IStorageService {
       (l) => l.id,
     );
     this.local.saveLogs(stamped);
-    this.push('logs', stamped);
   }
 
-  // ── Academic load (mapa por código de materia) ───────────────────────────
   loadAcademicLoad(): AcademicLoad {
     const raw = this.local.loadAcademicLoad() as Record<string, SLoadVal>;
     const out: AcademicLoad = {};
@@ -190,10 +195,8 @@ export class CloudStorageService implements IStorageService {
       out[k] = p.deletedAt ? p : { ...p, deletedAt: ts };
     }
     this.local.saveAcademicLoad(out);
-    this.push('academic-load', out);
   }
 
-  // ── Pensum (merge a nivel de materia, preservando semestres) ──────────────
   loadPensum(): Semester[] {
     return this.stripPensum(this.local.loadPensum() as SSemester[]);
   }
@@ -225,7 +228,6 @@ export class CloudStorageService implements IStorageService {
     }
     stamped.sort((a, b) => a.number - b.number);
     this.local.savePensum(stamped);
-    this.push('pensum', stamped);
   }
   private stripPensum(sems: SSemester[]): Semester[] {
     return sems
@@ -249,7 +251,243 @@ export class CloudStorageService implements IStorageService {
     return [...bySem.entries()].sort((a, b) => a[0] - b[0]).map(([number, subjects]) => ({ number, subjects }));
   }
 
-  // ── Sincronización (pull + merge + guardado + push) ───────────────────────
+  // ── Estado / diff de pendientes ──────────────────────────────────────────
+  private localRaw(): RawDatasets {
+    return {
+      professors: this.local.loadProfessors() as SProfessor[],
+      pensum: this.local.loadPensum() as SSemester[],
+      scheduleBlocks: this.local.loadScheduleBlocks() as SBlock[],
+      academicLoad: this.local.loadAcademicLoad() as Record<string, SLoadVal>,
+      logs: this.local.loadLogs() as SLog[],
+    };
+  }
+
+  private hashContent(item: unknown): string {
+    const s = stableStringify(item);
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    return (h >>> 0).toString(36);
+  }
+
+  private hashMapsFromRaw(raw: RawDatasets): SyncState['hashes'] {
+    const arrH = <T extends Stamped>(items: T[], keyOf: (i: T) => string): Record<string, string> => {
+      const m: Record<string, string> = {};
+      for (const it of items) if (!it.deletedAt) m[keyOf(it)] = this.hashContent(it);
+      return m;
+    };
+    const subjects: Record<string, string> = {};
+    for (const s of raw.pensum) for (const sub of s.subjects) if (!sub.deletedAt) subjects[sub.code] = this.hashContent(sub);
+    const academicLoad: Record<string, string> = {};
+    for (const [k, v] of Object.entries(raw.academicLoad)) if (!v.deletedAt) academicLoad[k] = this.hashContent(v);
+    return {
+      professors: arrH(raw.professors, (p) => p.id),
+      scheduleBlocks: arrH(raw.scheduleBlocks, (b) => b.id),
+      subjects,
+      academicLoad,
+      logs: arrH(raw.logs, (l) => l.id),
+    };
+  }
+
+  private syncStatePath(): string {
+    return path.join(this.local.getDataDir(), 'sync-state.json');
+  }
+  private readSyncState(): SyncState | null {
+    try {
+      return JSON.parse(fs.readFileSync(this.syncStatePath(), 'utf-8')) as SyncState;
+    } catch {
+      return null;
+    }
+  }
+  private writeSyncState(state: SyncState): void {
+    try {
+      fs.writeFileSync(this.syncStatePath(), JSON.stringify(state, null, 2), 'utf-8');
+    } catch (e) {
+      log.error('[Cloud] No se pudo guardar sync-state:', e);
+    }
+  }
+
+  getPendingDiff(): PendingDiff {
+    const cur = this.hashMapsFromRaw(this.localRaw());
+    const empty: Record<string, string> = {};
+    const last = this.readSyncState()?.hashes ?? {
+      professors: empty,
+      scheduleBlocks: empty,
+      subjects: empty,
+      academicLoad: empty,
+      logs: empty,
+    };
+    const datasets = {
+      professors: diffKeyed(cur.professors, last.professors ?? {}),
+      scheduleBlocks: diffKeyed(cur.scheduleBlocks, last.scheduleBlocks ?? {}),
+      subjects: diffKeyed(cur.subjects, last.subjects ?? {}),
+      academicLoad: diffKeyed(cur.academicLoad, last.academicLoad ?? {}),
+      logs: diffKeyed(cur.logs, last.logs ?? {}),
+    };
+    const total = Object.values(datasets).reduce((a, d) => a + totalChanges(d), 0);
+    const labels: [keyof typeof datasets, string][] = [
+      ['scheduleBlocks', 'Horarios'],
+      ['professors', 'Profesores'],
+      ['subjects', 'Materias'],
+      ['academicLoad', 'Carga'],
+      ['logs', 'Registros'],
+    ];
+    const summary = labels
+      .filter(([k]) => totalChanges(datasets[k]) > 0)
+      .map(([k, label]) => `${label}: ${describeDiff(datasets[k])}`)
+      .join(' · ');
+    return { datasets, total, summary };
+  }
+
+  private device(): string {
+    try {
+      return os.hostname() || 'PC';
+    } catch {
+      return 'PC';
+    }
+  }
+
+  private checkOnline(): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        const u = new URL('/rest/v1/', ENV.SUPABASE_URL);
+        const req = https.request(
+          {
+            hostname: u.hostname,
+            path: u.pathname,
+            method: 'HEAD',
+            headers: { apikey: ENV.SUPABASE_ANON_KEY },
+            timeout: 3500,
+          },
+          (res) => {
+            res.resume();
+            resolve((res.statusCode ?? 0) < 500);
+          },
+        );
+        req.on('timeout', () => {
+          req.destroy();
+          resolve(false);
+        });
+        req.on('error', () => resolve(false));
+        req.end();
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+
+  async getSyncStatus(): Promise<SyncStatus> {
+    const configured = this.isCloudEnabled();
+    const state = this.readSyncState();
+    const pendingCount = this.getPendingDiff().total;
+    const online = configured ? await this.checkOnline() : false;
+    return { configured, online, lastSyncAt: state?.lastSyncAt ?? null, pendingCount };
+  }
+
+  private liveSnapshot(): AppSnapshot {
+    return {
+      professors: this.loadProfessors(),
+      pensum: this.loadPensum(),
+      scheduleBlocks: this.loadScheduleBlocks(),
+      academicLoad: this.loadAcademicLoad(),
+      logs: this.loadLogs(),
+    };
+  }
+
+  // ── Subir (manual, con versión) ──────────────────────────────────────────
+  async pushSession(label?: string): Promise<{ ok: boolean; summary: string; error?: string }> {
+    if (!this.client) return { ok: false, summary: '', error: 'Nube no configurada' };
+    try {
+      const diff = this.getPendingDiff();
+      // 1. Upsert de los 5 datasets crudos (con stamps/tombstones → preserva el merge).
+      const rows = [
+        { id: 'professors', data: this.local.loadProfessors() },
+        { id: 'pensum', data: this.local.loadPensum() },
+        { id: 'schedule-blocks', data: this.local.loadScheduleBlocks() },
+        { id: 'academic-load', data: this.local.loadAcademicLoad() },
+        { id: 'logs', data: this.local.loadLogs() },
+      ].map((r) => ({ ...r, updated_at: this.now() }));
+      const { error: upErr } = await this.client.from('app_data').upsert(rows);
+      if (upErr) throw upErr;
+
+      // 2. Guardar una versión (snapshot limpio = "commit").
+      const { error: vErr } = await this.client.from('app_versions').insert({
+        device: this.device(),
+        label: label ?? null,
+        summary: diff.summary || 'Sin cambios',
+        snapshot: this.liveSnapshot(),
+      });
+      if (vErr) throw vErr;
+
+      // 3. Podar historial a las últimas 50.
+      await this.pruneVersions(50);
+
+      // 4. Actualizar el estado sincronizado (pending vuelve a 0).
+      this.writeSyncState({ lastSyncAt: this.now(), hashes: this.hashMapsFromRaw(this.localRaw()) });
+      log.info('[Cloud] pushSession OK:', diff.summary || 'sin cambios');
+      return { ok: true, summary: diff.summary };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'Error al subir';
+      log.error('[Cloud] pushSession FALLÓ:', error);
+      return { ok: false, summary: '', error };
+    }
+  }
+
+  private async pruneVersions(keep: number): Promise<void> {
+    if (!this.client) return;
+    const { data } = await this.client
+      .from('app_versions')
+      .select('id')
+      .order('created_at', { ascending: false })
+      .range(keep, keep + 500);
+    const ids = (data ?? []).map((r) => (r as { id: number }).id);
+    if (ids.length) await this.client.from('app_versions').delete().in('id', ids);
+  }
+
+  async getVersionHistory(): Promise<VersionMeta[]> {
+    if (!this.client) return [];
+    const { data, error } = await this.client
+      .from('app_versions')
+      .select('id, created_at, device, label, summary')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) {
+      log.error('[Cloud] getVersionHistory FALLÓ:', error.message);
+      return [];
+    }
+    return (data ?? []) as VersionMeta[];
+  }
+
+  async restoreVersion(id: number): Promise<{ ok: boolean; error?: string }> {
+    if (!this.client) return { ok: false, error: 'Nube no configurada' };
+    try {
+      const { data, error } = await this.client
+        .from('app_versions')
+        .select('snapshot')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      const snap = (data as { snapshot: AppSnapshot }).snapshot;
+      // Aplicar el snapshot al local (los save* sellan: todo a now, lo que falta se tombstonea).
+      if (snap.professors) this.saveProfessors(snap.professors);
+      if (snap.pensum) this.savePensum(snap.pensum);
+      if (snap.scheduleBlocks) this.saveScheduleBlocks(snap.scheduleBlocks);
+      if (snap.academicLoad) this.saveAcademicLoad(snap.academicLoad);
+      if (snap.logs) this.saveLogs(snap.logs);
+      // Subir como versión nueva (no borra las intermedias).
+      const res = await this.pushSession(`Restauración de versión #${id}`);
+      return { ok: res.ok, error: res.error };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'Error al restaurar';
+      log.error('[Cloud] restoreVersion FALLÓ:', error);
+      return { ok: false, error };
+    }
+  }
+
+  async pullNow(): Promise<{ ok: boolean; merged: string[] }> {
+    return this.syncFromCloud();
+  }
+
+  // ── Recibir (pull + merge, automático al abrir) ──────────────────────────
   async syncFromCloud(): Promise<{ ok: boolean; merged: string[] }> {
     if (!this.client) return { ok: false, merged: [] };
     const done: string[] = [];
@@ -258,56 +496,41 @@ export class CloudStorageService implements IStorageService {
       if (error) throw error;
       const remote = new Map<string, unknown>((rows ?? []).map((r) => [r.id as string, r.data]));
 
-      {
-        const merged = mergeRaw(
-          this.local.loadProfessors() as SProfessor[],
-          (remote.get('professors') as SProfessor[]) ?? [],
-          (p) => p.id,
-        );
-        this.local.saveProfessors(merged);
-        this.push('professors', merged);
-        done.push('professors');
-      }
-      {
-        const merged = mergeRaw(
-          this.local.loadScheduleBlocks() as SBlock[],
-          (remote.get('schedule-blocks') as SBlock[]) ?? [],
-          (b) => b.id,
-        );
-        this.local.saveScheduleBlocks(merged);
-        this.push('schedule-blocks', merged);
-        done.push('schedule-blocks');
-      }
-      {
-        const merged = mergeRaw(
-          this.local.loadLogs() as SLog[],
-          (remote.get('logs') as SLog[]) ?? [],
-          (l) => l.id,
-        );
-        this.local.saveLogs(merged);
-        this.push('logs', merged);
-        done.push('logs');
-      }
-      {
-        const merged = mergeMaps(
-          this.local.loadAcademicLoad() as Record<string, SLoadVal>,
-          (remote.get('academic-load') as Record<string, SLoadVal>) ?? {},
-          (v) => v.updatedAt ?? v.deletedAt ?? '',
-        );
-        this.local.saveAcademicLoad(merged);
-        this.push('academic-load', merged);
-        done.push('academic-load');
-      }
-      {
-        const merged = this.mergePensum(
-          this.local.loadPensum() as SSemester[],
-          (remote.get('pensum') as SSemester[]) ?? [],
-        );
-        this.local.savePensum(merged);
-        this.push('pensum', merged);
-        done.push('pensum');
-      }
+      const remoteRaw: RawDatasets = {
+        professors: (remote.get('professors') as SProfessor[]) ?? [],
+        pensum: (remote.get('pensum') as SSemester[]) ?? [],
+        scheduleBlocks: (remote.get('schedule-blocks') as SBlock[]) ?? [],
+        academicLoad: (remote.get('academic-load') as Record<string, SLoadVal>) ?? {},
+        logs: (remote.get('logs') as SLog[]) ?? [],
+      };
 
+      this.local.saveProfessors(
+        mergeRaw(this.local.loadProfessors() as SProfessor[], remoteRaw.professors, (p) => p.id),
+      );
+      done.push('professors');
+      this.local.saveScheduleBlocks(
+        mergeRaw(this.local.loadScheduleBlocks() as SBlock[], remoteRaw.scheduleBlocks, (b) => b.id),
+      );
+      done.push('schedule-blocks');
+      this.local.saveLogs(
+        mergeRaw(this.local.loadLogs() as SLog[], remoteRaw.logs, (l) => l.id),
+      );
+      done.push('logs');
+      this.local.saveAcademicLoad(
+        mergeMaps(
+          this.local.loadAcademicLoad() as Record<string, SLoadVal>,
+          remoteRaw.academicLoad,
+          (v) => v.updatedAt ?? v.deletedAt ?? '',
+        ),
+      );
+      done.push('academic-load');
+      this.local.savePensum(
+        this.mergePensum(this.local.loadPensum() as SSemester[], remoteRaw.pensum),
+      );
+      done.push('pensum');
+
+      // El estado sincronizado refleja lo que hay EN LA NUBE → pending = cambios locales no subidos.
+      this.writeSyncState({ lastSyncAt: this.now(), hashes: this.hashMapsFromRaw(remoteRaw) });
       log.info('[Cloud] syncFromCloud OK:', done.join(', '));
       return { ok: true, merged: done };
     } catch (e) {

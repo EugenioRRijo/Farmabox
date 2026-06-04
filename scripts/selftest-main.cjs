@@ -30,6 +30,7 @@ app.whenReady().then(async () => {
     subjectService: new SubjectService(cloud, cloud),
     scheduleService: new ScheduleService(cloud),
     logService: new LogService(cloud),
+    cloud: cloud,
   });
 
   const win = new BrowserWindow({
@@ -63,6 +64,15 @@ app.whenReady().then(async () => {
     try { const r = await window.electronAPI.subjects.getAll(); out.subjects = ('data' in r) ? r.data.length : ('ERR:'+r.error); } catch(e){ out.subjects = 'EX:'+e.message; }
     try { const r = await window.electronAPI.schedule.getBlocks(); out.blocks = ('data' in r) ? r.data.length : ('ERR:'+r.error); } catch(e){ out.blocks = 'EX:'+e.message; }
     try { const r = await window.electronAPI.chat.send([{role:'user',text:'di OK'}]); out.chat = ('data' in r) ? (r.data.offline?'offline-fallback':'online-gemini') : ('ERR:'+r.error); } catch(e){ out.chat = 'EX:'+e.message; }
+    try { const r = await window.electronAPI.sync.status(); out.syncStatus = ('data' in r) ? r.data : ('ERR:'+r.error); } catch(e){ out.syncStatus = 'EX:'+e.message; }
+    try { const r = await window.electronAPI.sync.diff(); out.syncDiff = ('data' in r) ? { total: r.data.total, summary: r.data.summary } : ('ERR:'+r.error); } catch(e){ out.syncDiff = 'EX:'+e.message; }
+    out.navSync = document.body.innerText.includes('Sincronización');
+    // Navegar a /sync (click en el item del sidebar) y verificar que renderiza
+    try {
+      const link = [...document.querySelectorAll('a')].find(a => a.getAttribute('href') === '/sync');
+      if (link) { link.click(); await new Promise(r => setTimeout(r, 1500)); }
+      out.syncPageRendered = document.body.innerText.includes('Sincronización y Versiones') || document.body.innerText.includes('Cómo funciona');
+    } catch(e){ out.syncPageRendered = 'EX:'+e.message; }
     return JSON.stringify(out);
   })()`);
 

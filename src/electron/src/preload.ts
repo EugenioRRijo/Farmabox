@@ -59,4 +59,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   chat: {
     send: (messages: unknown) => invoke('chat:send', messages),
   },
+
+  // ── Sincronización / Historial ───────────────────────────────────────
+  sync: {
+    status: () => invoke('sync:status'),
+    diff: () => invoke('sync:diff'),
+    push: (label?: string) => invoke('sync:push', label),
+    pull: () => invoke('sync:pull'),
+    history: () => invoke('sync:history'),
+    restore: (id: number) => invoke('sync:restore', id),
+  },
 });
