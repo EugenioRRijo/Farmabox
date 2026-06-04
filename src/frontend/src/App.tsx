@@ -75,20 +75,8 @@ function AppContent() {
     );
   }
 
-  if (!pensum || pensum.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-brand-pale/20 text-red-500">
-         <h2 className="text-xl font-bold mb-2">Error de Datos</h2>
-         <p>No se ha podido cargar el pensum. Revise la consola para más detalles.</p>
-         <button 
-           onClick={() => window.location.reload()}
-           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-         >
-           Recargar
-         </button>
-      </div>
-    );
-  }
+  // Nota: un pensum vacío es un estado VÁLIDO (la app arranca en blanco y el
+  // usuario carga materias/profesores). No se bloquea la app por estar vacío.
 
   return (
     <MainLayout>
