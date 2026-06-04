@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, ChevronDown, ChevronUp, Beaker, Clock, GraduationCap, Link2, Plus, X, User, Trash2, Edit, CheckSquare, Square, LayoutGrid, List as ListIcon, Search } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
@@ -456,8 +457,8 @@ export function SubjectsPage() {
       </div>
 
       {/* Add Subject Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {isModalOpen && createPortal((
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
                 <button 
                     onClick={() => setIsModalOpen(false)}
@@ -641,11 +642,11 @@ export function SubjectsPage() {
                 </form>
             </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Professor Management Modal (Reuse existing logic) */}
-      {isProfModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {isProfModalOpen && createPortal((
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
               <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 relative max-h-[80vh] flex flex-col">
                   <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-bold text-gray-900">Asignar Profesores</h2>
@@ -700,7 +701,7 @@ export function SubjectsPage() {
                   </div>
               </div>
           </div>
-      )}
+      ), document.body)}
 
 
     </div>
