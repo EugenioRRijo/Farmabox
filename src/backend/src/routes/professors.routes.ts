@@ -21,6 +21,7 @@ professorsRouter.post('/', (req, res) => {
       fullName: req.body.fullName || 'Nuevo Profesor',
       title: req.body.title || 'Prof.',
       email: req.body.email,
+      cedula: req.body.cedula,
       subjects: req.body.subjects || [],
       type: req.body.type || 'both',
     };

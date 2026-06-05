@@ -36,11 +36,12 @@ subjectsRouter.post('/', (req, res) => {
     const newSubject = {
       code: subjectData.code,
       name: subjectData.name,
-      credits: subjectData.credits || 3,
+      credits: Number(subjectData.credits) || 0,
       hasLab: subjectData.hasLab || false,
-      hoursTheory: subjectData.hoursTheory || 0,
-      hoursLab: subjectData.hoursLab || 0,
+      hoursTheory: Number(subjectData.hoursTheory) || 0,
+      hoursLab: Number(subjectData.hoursLab) || 0,
       prerequisites: subjectData.prerequisites || [],
+      ...(subjectData.labNumber ? { labNumber: subjectData.labNumber } : {}),
     };
 
     const sem = pensum.find((s) => s.number === semesterNum)!;
