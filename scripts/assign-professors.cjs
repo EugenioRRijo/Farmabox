@@ -145,7 +145,8 @@ const professors = ordered.map((rec, i) => {
   const title = TITLE_RANK.find((t) => rec.titles.has(t)) || 'Prof.';
   const subjects = [...new Set([...rec.theory, ...rec.practice])].sort();
   const type = rec.theory.size && rec.practice.size ? 'both' : rec.practice.size ? 'practice' : 'theory';
-  return { id, fullName: rec.fullName, title, email: emailFor(rec.fullName), subjects, type };
+  // Sin email: los correos no son reales; el usuario los carga si quiere.
+  return { id, fullName: rec.fullName, title, subjects, type };
 });
 
 // professors[] por materia (ids de quien la dicta)
@@ -234,7 +235,6 @@ function genProfessors() {
         `    id: '${p.id}',\n` +
         `    fullName: ${JSON.stringify(p.fullName)},\n` +
         `    title: '${p.title}',\n` +
-        `    email: ${JSON.stringify(p.email)},\n` +
         `    subjects: ${JSON.stringify(p.subjects)},\n` +
         `    type: '${p.type}',\n` +
         `  },`,
