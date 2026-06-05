@@ -591,16 +591,25 @@ export function ProfessorsPage() {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div className="flex justify-end gap-2">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             onClick={() => handleOpenDialog(prof)}
                                             className="h-8 w-8"
                                         >
                                             <Edit2 className="w-4 h-4 text-blue-600" />
                                         </Button>
-                                        <Button 
-                                            variant="ghost" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            title="Descargar horario del profesor (PDF)"
+                                            onClick={() => generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects))}
+                                            className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                        >
+                                            <CalendarDays className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
                                             size="icon"
                                             onClick={() => {
                                                 if (window.confirm('¿Estás seguro de que deseas eliminar a este profesor?')) {
