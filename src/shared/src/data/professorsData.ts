@@ -1,7 +1,7 @@
 /**
- * Profesores de la Facultad de Farmacia USM. Sus materias (subjects) usan los
- * códigos del PENSUM 2023-01 (remapeadas desde la versión anterior por nombre).
- * Generado por scripts/rebuild-pensum.cjs.
+ * Profesores de la Facultad de Farmacia USM (nombres reales) y las materias que
+ * dictan, según Horarios 2026-01.docx. Códigos del PENSUM 2023-01.
+ * Generado por scripts/assign-professors.cjs.
  */
 
 export interface Professor {
@@ -20,7 +20,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Ángel Gutiérrez",
     title: 'Prof.',
     email: "agutierrez@usm.edu.ve",
-    subjects: ["3307011103"],
+    subjects: ["3307011103","3307075103","3307085104"],
     type: 'both',
   },
   {
@@ -29,7 +29,7 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Prof.',
     email: "zjimenez@usm.edu.ve",
     subjects: ["3307011105","3307021106"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-003',
@@ -45,7 +45,7 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Dr.',
     email: "cbrito@usm.edu.ve",
     subjects: ["3307011101","3307021102","3307095107","3307105108"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-005',
@@ -61,7 +61,7 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Dra.',
     email: "mgarcia@usm.edu.ve",
     subjects: ["3307014213","3307024214"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-007',
@@ -76,7 +76,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Alexander Campos",
     title: 'Prof.',
     email: "acampos@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307032211","3307042212"],
     type: 'both',
   },
   {
@@ -84,11 +84,19 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Ridsser Chirinos",
     title: 'Prof.',
     email: "rchirinos@usm.edu.ve",
-    subjects: ["3307037101","3307047102","3307033211"],
-    type: 'both',
+    subjects: ["3307033211","3307037101","3307047102"],
+    type: 'theory',
   },
   {
     id: 'prof-010',
+    fullName: "Gianfranco Giuttari",
+    title: 'Prof.',
+    email: "ggiuttari@usm.edu.ve",
+    subjects: ["3307038107","3307048108","3307078101","3307088102","3307107107"],
+    type: 'theory',
+  },
+  {
+    id: 'prof-011',
     fullName: "Ana Ferrer",
     title: 'Prof.',
     email: "aferrer@usm.edu.ve",
@@ -96,23 +104,23 @@ export const PROFESSORS_DATA: Professor[] = [
     type: 'both',
   },
   {
-    id: 'prof-011',
+    id: 'prof-012',
     fullName: "Gregory León",
     title: 'Prof.',
     email: "gleon@usm.edu.ve",
-    subjects: [],
-    type: 'both',
-  },
-  {
-    id: 'prof-012',
-    fullName: "Irene Henriquez",
-    title: 'Prof.',
-    email: "ihenriquez@usm.edu.ve",
-    subjects: ["3307032103","3307042104","3307032107","3307042108"],
+    subjects: ["3307033101","3307043102"],
     type: 'both',
   },
   {
     id: 'prof-013',
+    fullName: "Irene Henriquez",
+    title: 'Prof.',
+    email: "ihenriquez@usm.edu.ve",
+    subjects: ["3307032103","3307032107","3307042104","3307042108"],
+    type: 'both',
+  },
+  {
+    id: 'prof-014',
     fullName: "Khelly Marchena",
     title: 'Prof.',
     email: "kmarchena@usm.edu.ve",
@@ -120,7 +128,7 @@ export const PROFESSORS_DATA: Professor[] = [
     type: 'both',
   },
   {
-    id: 'prof-014',
+    id: 'prof-015',
     fullName: "Nibsy Pachano",
     title: 'Prof.',
     email: "npachano@usm.edu.ve",
@@ -128,7 +136,7 @@ export const PROFESSORS_DATA: Professor[] = [
     type: 'theory',
   },
   {
-    id: 'prof-015',
+    id: 'prof-016',
     fullName: "Omar Alviárez",
     title: 'Dr.',
     email: "oalviarez@usm.edu.ve",
@@ -136,19 +144,11 @@ export const PROFESSORS_DATA: Professor[] = [
     type: 'theory',
   },
   {
-    id: 'prof-016',
-    fullName: "Gianfranco Giuttari",
-    title: 'Prof.',
-    email: "ggiuttari@usm.edu.ve",
-    subjects: ["3307038107","3307048108","3307078101","3307088102","3307107107"],
-    type: 'both',
-  },
-  {
     id: 'prof-017',
     fullName: "Carlos Vallejo",
     title: 'Prof.',
     email: "cvallejo@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307052209","3307062210"],
     type: 'both',
   },
   {
@@ -164,7 +164,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Luz Do Nascimiento",
     title: 'Prof.',
     email: "lnascimiento@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307055105","3307065106"],
     type: 'theory',
   },
   {
@@ -172,7 +172,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Jennifer Lucero",
     title: 'Prof.',
     email: "jlucero@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307055105","3307065106"],
     type: 'practice',
   },
   {
@@ -181,7 +181,7 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Dr.',
     email: "gperdomo@usm.edu.ve",
     subjects: ["3307053103","3307063104"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-022',
@@ -205,13 +205,13 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Prof.',
     email: "eesposito@usm.edu.ve",
     subjects: ["3307053205","3307063206","3307094211","3307104212"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-025',
-    fullName: "Marín Marilis",
+    fullName: "Marilis Marín",
     title: 'Prof.',
-    email: "mmarilis@usm.edu.ve",
+    email: "mmarin@usm.edu.ve",
     subjects: ["3307067104"],
     type: 'theory',
   },
@@ -220,7 +220,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Eleana Serrano",
     title: 'Prof.',
     email: "eserrano@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307074209","3307084210"],
     type: 'theory',
   },
   {
@@ -228,7 +228,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Eneida Useche",
     title: 'Prof.',
     email: "euseche@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307074209","3307084210"],
     type: 'practice',
   },
   {
@@ -260,7 +260,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Oriana Coronado",
     title: 'Prof.',
     email: "ocoronado@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307073207","3307083208"],
     type: 'theory',
   },
   {
@@ -268,7 +268,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Andreína Méndez",
     title: 'Prof.',
     email: "amendez@usm.edu.ve",
-    subjects: ["3307095107","3307105108"],
+    subjects: ["3307073207","3307083208","3307095107","3307105108"],
     type: 'practice',
   },
   {
@@ -276,8 +276,8 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Behzaida Trías",
     title: 'Prof.',
     email: "btrias@usm.edu.ve",
-    subjects: ["3307075109","3307085110","3307097106"],
-    type: 'both',
+    subjects: ["3307075109","3307085110","3307097106","3307108104"],
+    type: 'theory',
   },
   {
     id: 'prof-034',
@@ -308,7 +308,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Luxz Paulo",
     title: 'Prof.',
     email: "lpaulo@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307095101","3307105102"],
     type: 'theory',
   },
   {
@@ -316,7 +316,7 @@ export const PROFESSORS_DATA: Professor[] = [
     fullName: "Romily Figuera",
     title: 'Dra.',
     email: "rfiguera@usm.edu.ve",
-    subjects: [],
+    subjects: ["3307095101","3307105102"],
     type: 'practice',
   },
   {
@@ -325,7 +325,7 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Prof.',
     email: "nfernandes@usm.edu.ve",
     subjects: ["3307096103","3307106104"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-040',
@@ -341,15 +341,15 @@ export const PROFESSORS_DATA: Professor[] = [
     title: 'Prof.',
     email: "edavila@usm.edu.ve",
     subjects: ["3307096105","3307106106"],
-    type: 'both',
+    type: 'theory',
   },
   {
     id: 'prof-042',
     fullName: "Edith Graffe",
     title: 'Prof.',
     email: "egraffe@usm.edu.ve",
-    subjects: [],
-    type: 'both',
+    subjects: ["3307098105","3307108106"],
+    type: 'theory',
   },
   {
     id: 'prof-043',

@@ -1,7 +1,7 @@
 /**
  * Pensum de la Facultad de Farmacia USM — PENSUM 2023-01 (Código 3307).
- * Fuente: docs/referencias/PENSUM 2023-01 (1).pdf  (84 materias, 10 semestres).
- * Generado por scripts/rebuild-pensum.cjs.
+ * Fuente: docs/referencias/PENSUM 2023-01 (1).pdf (materias) + Horarios 2026-01.docx
+ * (professors[] = quién dicta cada materia). Generado por scripts/assign-professors.cjs.
  */
 
 export interface PensumSubject {
@@ -34,6 +34,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: [],
+        professors: ["prof-001"],
       },
       {
         code: '3307011105',
@@ -43,6 +44,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 3,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-002"],
       },
       {
         code: '3307011108',
@@ -52,6 +54,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: [],
+        professors: ["prof-003"],
       },
       {
         code: '3307011101',
@@ -61,6 +64,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-004"],
       },
       {
         code: '3307012101',
@@ -70,6 +74,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 4,
         hoursLab: 3,
         prerequisites: [],
+        professors: ["prof-005"],
       },
       {
         code: '3307014213',
@@ -79,6 +84,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-006"],
       },
     ],
   },
@@ -94,6 +100,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307011103"],
+        professors: ["prof-007"],
       },
       {
         code: '3307021106',
@@ -103,6 +110,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 3,
         hoursLab: 0,
         prerequisites: ["3307011105"],
+        professors: ["prof-002"],
       },
       {
         code: '3307021109',
@@ -112,6 +120,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307011108"],
+        professors: ["prof-003"],
       },
       {
         code: '3307021102',
@@ -121,6 +130,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307011101"],
+        professors: ["prof-004"],
       },
       {
         code: '3307022102',
@@ -130,6 +140,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 4,
         hoursLab: 3,
         prerequisites: ["3307012101"],
+        professors: ["prof-005"],
       },
       {
         code: '3307024214',
@@ -139,6 +150,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307014213"],
+        professors: ["prof-006"],
       },
     ],
   },
@@ -154,6 +166,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 4,
         hoursLab: 3,
         prerequisites: ["3307022102"],
+        professors: ["prof-008"],
       },
       {
         code: '3307037101',
@@ -163,6 +176,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307021106"],
+        professors: ["prof-009"],
       },
       {
         code: '3307038107',
@@ -172,6 +186,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307021102"],
+        professors: ["prof-010"],
       },
       {
         code: '3307032213',
@@ -181,6 +196,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307021104"],
+        professors: ["prof-011"],
       },
       {
         code: '3307033101',
@@ -190,6 +206,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307021109"],
+        professors: ["prof-012"],
       },
       {
         code: '3307033211',
@@ -199,6 +216,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307021109"],
+        professors: ["prof-009"],
       },
       {
         code: '3307032103',
@@ -208,6 +226,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307022102"],
+        professors: ["prof-013","prof-014"],
       },
       {
         code: '3307032107',
@@ -217,6 +236,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 3,
         hoursLab: 3,
         prerequisites: ["3307022102"],
+        professors: ["prof-007","prof-013"],
       },
       {
         code: '3307031107',
@@ -226,6 +246,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-015"],
       },
     ],
   },
@@ -241,6 +262,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 4,
         hoursLab: 4,
         prerequisites: ["3307032211"],
+        professors: ["prof-008"],
       },
       {
         code: '3307047102',
@@ -250,6 +272,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307037101"],
+        professors: ["prof-009"],
       },
       {
         code: '3307048108',
@@ -259,6 +282,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307038107"],
+        professors: ["prof-010"],
       },
       {
         code: '3307042214',
@@ -268,6 +292,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307032213"],
+        professors: ["prof-011"],
       },
       {
         code: '3307043102',
@@ -277,6 +302,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307033101"],
+        professors: ["prof-012"],
       },
       {
         code: '3307047105',
@@ -286,6 +312,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307037101"],
+        professors: ["prof-016"],
       },
       {
         code: '3307042104',
@@ -295,6 +322,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307032103"],
+        professors: ["prof-013","prof-014"],
       },
       {
         code: '3307042108',
@@ -304,6 +332,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 4,
         hoursLab: 3,
         prerequisites: ["3307032107"],
+        professors: ["prof-007","prof-013"],
       },
     ],
   },
@@ -319,6 +348,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307042212"],
+        professors: ["prof-017"],
       },
       {
         code: '3307054101',
@@ -328,6 +358,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307042214"],
+        professors: ["prof-018"],
       },
       {
         code: '3307055105',
@@ -337,6 +368,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307048108"],
+        professors: ["prof-019","prof-020"],
       },
       {
         code: '3307053103',
@@ -346,6 +378,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307043102"],
+        professors: ["prof-021"],
       },
       {
         code: '3307056107',
@@ -355,6 +388,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-022"],
       },
       {
         code: '3307057103',
@@ -364,6 +398,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307047102"],
+        professors: ["prof-016"],
       },
       {
         code: '3307052105',
@@ -373,6 +408,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307042108"],
+        professors: ["prof-014","prof-023"],
       },
       {
         code: '3307053205',
@@ -382,6 +418,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307033211"],
+        professors: ["prof-024"],
       },
     ],
   },
@@ -397,6 +434,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307052209"],
+        professors: ["prof-017"],
       },
       {
         code: '3307064102',
@@ -406,6 +444,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307054101"],
+        professors: ["prof-018"],
       },
       {
         code: '3307065106',
@@ -415,6 +454,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307055105"],
+        professors: ["prof-019","prof-020"],
       },
       {
         code: '3307063104',
@@ -424,6 +464,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307053103"],
+        professors: ["prof-021"],
       },
       {
         code: '3307066108',
@@ -433,6 +474,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307056107"],
+        professors: ["prof-022"],
       },
       {
         code: '3307067104',
@@ -442,6 +484,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307057103"],
+        professors: ["prof-025"],
       },
       {
         code: '3307062106',
@@ -451,6 +494,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307052105"],
+        professors: ["prof-014","prof-023"],
       },
       {
         code: '3307063206',
@@ -460,6 +504,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307053205"],
+        professors: ["prof-024"],
       },
     ],
   },
@@ -475,6 +520,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307062210"],
+        professors: ["prof-026","prof-027"],
       },
       {
         code: '3307076101',
@@ -484,6 +530,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-028"],
       },
       {
         code: '3307074107',
@@ -493,6 +540,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307062106"],
+        professors: ["prof-029"],
       },
       {
         code: '3307074103',
@@ -502,6 +550,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307063104"],
+        professors: ["prof-030"],
       },
       {
         code: '3307073207',
@@ -511,6 +560,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307063206"],
+        professors: ["prof-031","prof-032"],
       },
       {
         code: '3307075103',
@@ -520,6 +570,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307062210"],
+        professors: ["prof-001"],
       },
       {
         code: '3307075109',
@@ -529,6 +580,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-033"],
       },
       {
         code: '3307074105',
@@ -538,6 +590,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307064102"],
+        professors: ["prof-034","prof-035","prof-036"],
       },
       {
         code: '3307078101',
@@ -547,6 +600,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307065106"],
+        professors: ["prof-010"],
       },
     ],
   },
@@ -562,6 +616,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307074209"],
+        professors: ["prof-026","prof-027"],
       },
       {
         code: '3307086102',
@@ -571,6 +626,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307076101"],
+        professors: ["prof-028"],
       },
       {
         code: '3307084108',
@@ -580,6 +636,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307074107"],
+        professors: ["prof-029"],
       },
       {
         code: '3307084104',
@@ -589,6 +646,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307074103"],
+        professors: ["prof-030"],
       },
       {
         code: '3307083208',
@@ -598,6 +656,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307073207"],
+        professors: ["prof-031","prof-032"],
       },
       {
         code: '3307085104',
@@ -607,6 +666,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307075103"],
+        professors: ["prof-001"],
       },
       {
         code: '3307085110',
@@ -616,6 +676,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307075109"],
+        professors: ["prof-033"],
       },
       {
         code: '3307084106',
@@ -625,6 +686,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307074105"],
+        professors: ["prof-034","prof-035","prof-036"],
       },
       {
         code: '3307088102',
@@ -634,6 +696,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307078101"],
+        professors: ["prof-010"],
       },
     ],
   },
@@ -649,6 +712,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307083208"],
+        professors: ["prof-037","prof-038"],
       },
       {
         code: '3307095107',
@@ -658,6 +722,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307085104"],
+        professors: ["prof-004","prof-032"],
       },
       {
         code: '3307094211',
@@ -667,6 +732,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307084104"],
+        professors: ["prof-024"],
       },
       {
         code: '3307096103',
@@ -676,6 +742,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: [],
+        professors: ["prof-039"],
       },
       {
         code: '3307098103',
@@ -685,6 +752,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307088102"],
+        professors: ["prof-036"],
       },
       {
         code: '3307093209',
@@ -694,6 +762,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307084106"],
+        professors: ["prof-040"],
       },
       {
         code: '3307096105',
@@ -703,6 +772,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307086102"],
+        professors: ["prof-041"],
       },
       {
         code: '3307098105',
@@ -712,6 +782,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307084104"],
+        professors: ["prof-042"],
       },
       {
         code: '3307095111',
@@ -721,6 +792,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307084108"],
+        professors: ["prof-043","prof-044"],
       },
       {
         code: '3307097106',
@@ -730,6 +802,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307067104"],
+        professors: ["prof-033"],
       },
     ],
   },
@@ -745,6 +818,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307095101"],
+        professors: ["prof-037","prof-038"],
       },
       {
         code: '3307105108',
@@ -754,6 +828,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307095107"],
+        professors: ["prof-004","prof-032"],
       },
       {
         code: '3307104212',
@@ -763,6 +838,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307094211"],
+        professors: ["prof-024"],
       },
       {
         code: '3307106104',
@@ -772,6 +848,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307096103"],
+        professors: ["prof-039"],
       },
       {
         code: '3307108104',
@@ -781,6 +858,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307098103"],
+        professors: ["prof-033"],
       },
       {
         code: '3307103210',
@@ -790,6 +868,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307093209"],
+        professors: ["prof-040"],
       },
       {
         code: '3307106106',
@@ -799,6 +878,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307096105"],
+        professors: ["prof-041"],
       },
       {
         code: '3307108106',
@@ -808,6 +888,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307098105"],
+        professors: ["prof-042"],
       },
       {
         code: '3307105112',
@@ -817,6 +898,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 3,
         prerequisites: ["3307095111"],
+        professors: ["prof-043","prof-044"],
       },
       {
         code: '3307107107',
@@ -826,6 +908,7 @@ export const PENSUM_DATA: Semester[] = [
         hoursTheory: 2,
         hoursLab: 0,
         prerequisites: ["3307097106"],
+        professors: ["prof-010"],
       },
       {
         code: '3307107108',

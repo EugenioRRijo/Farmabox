@@ -1,0 +1,1748 @@
+
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 1° SECCION “A”  	                           UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+7:00-7:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+Matemática
+Aplicada I                  Aula-F3
+
+ | Química Básica I Aula-F2
+ |
+EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+Laboratorio
+Biología I
+ |
+=ROW=
+7:45-8:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+8:30-9:15
+ | Botánica Aplicada I Aula-F1
+ |
+ | Biología I               Aula-F3
+ | Física Aplicada I           Aula-F3
+ |
+ |
+=ROW=
+9:15-10:00
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ |
+EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+10:00-10:45
+ | Química Básica I   Aula-F2
+ |
+ |
+EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+Laboratorio
+Física Aplicada I                Química Básica I
+
+ |
+ |
+=ROW=
+10:45-11.30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+11:30-12:15
+ | Orientación Farmacéutica I             Aula-F3
+ |
+ |
+ |
+ |
+ |
+=ROW=
+12:15-1:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307011103
+ | Física Aplicada I
+ | Prof. Ángel Gutiérrez
+ | Prof. Ángel Gutiérrez
+ | # 104
+ |
+ |
+=ROW=
+3307011105
+ | Matemática Aplicada I
+ | Prof. Zoraida Jiménez
+ |
+ |
+ |
+ |
+=ROW=
+3307011108
+ | Biología I
+ | Prof. Dailín Ruiz
+ | Prof. Dailín Ruiz
+ | # 101
+ |
+ |
+=ROW=
+3307011101
+ | Orientación Farmacéutica I
+ | Dr. Carlos Brito
+ |
+ |
+ |
+ |
+=ROW=
+3307012101
+ | Química Básica I
+ | Prof. Marla Mendoza
+ | Prof. Marla Mendoza
+ | # 300
+ |
+ |
+=ROW=
+3307014213
+ | Botánica Aplicada I
+ | Dra. Mayra García
+ |
+ |
+ |
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 1° SECCION “B”  	                           UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+7:00-7:45
+ | Botánica Aplicada I   Aula-F1
+ | Laboratorio
+     Química Básica I
+
+ | Biología I                     Aula-F3
+ |
+Física Aplicada I  Aula-F3
+
+ |
+EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+7:45-8:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+8:30-9:15
+ | Química Básica I   Aula-F2
+ |
+ | Química Básica I                     Aula-F2
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+
+ |
+ |
+=ROW=
+9:15-10:00
+ |
+ | Matemática
+Aplicada I                         Aula-F3
+ |
+ |
+ |
+ |
+=ROW=
+10:00-10:45
+ | Orientación Farmacéutica I               Aula-F3
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ |
+=ROW=
+10:45-11.30
+ |
+ |
+ | Laboratorio
+Física Aplicada I
+ |
+ |
+ |
+=ROW=
+11:30-12:15
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Laboratorio
+Física Aplicada I  Biología I
+ |
+ |
+ |
+=ROW=
+12:15-1:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+1:00-1:45
+ |
+ |
+ | Laboratorio
+Biología I
+
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307011103
+ | Física Aplicada I
+ | Prof. Ángel Gutiérrez
+ | Prof. Ángel Gutiérrez
+ | # 104
+ |
+ |
+=ROW=
+3307011105
+ | Matemática Aplicada I
+ | Prof. Zoraida Jiménez
+ |
+ |
+ |
+ |
+=ROW=
+3307011108
+ | Biología I
+ | Prof. Dailín Ruiz
+ | Prof. Dailín Ruiz
+ | # 101
+ |
+ |
+=ROW=
+3307011101
+ | Orientación Farmacéutica I
+ | Dr. Carlos Brito
+ |
+ |
+ |
+ |
+=ROW=
+3307012101
+ | Química Básica I
+ | Prof. Marla Mendoza
+ | Prof. Marla Mendoza
+ | # 300
+ |
+ |
+=ROW=
+3307014213
+ | Botánica Aplicada I
+ | Dra. Mayra García
+ |
+ |
+ |
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 2° SECCION “A”  	                           UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+7:00-7:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Matemática Aplicada II Aula-F4
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+7:45-8:30
+ |
+ |
+ |
+ |
+ | Química Básica II   Aula-F2
+ |
+=ROW=
+8:30-9:15
+ | Orientación Farmacéutica II             Aula-F3
+ |
+ |
+ |
+ |
+ |
+=ROW=
+9:15-10:00
+ |
+ | Física Aplicada II   Aula-F2
+
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+Laboratorios
+Biología II
+Física Aplicada II
+
+ |
+=ROW=
+10:00-10:45
+ | Botánica Aplicada II Aula-F1
+ |
+ | Biología II                Aula-F3
+ |
+ |
+ |
+=ROW=
+10:45-11.30
+ |
+ | Laboratorio                   Química Básica II
+ |
+ |
+ |
+ |
+=ROW=
+11:30-12:15
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ | Química Básica II Aula-F2
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+12:15-1:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+1:00-1:45
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307021104
+ | Física Aplicada II
+ | Prof. Mayerling González
+ | Prof. Mayerling González
+ | # 104
+ | 3307011103
+ |
+=ROW=
+3307021106
+ | Matemática Aplicada II
+ | Prof. Zoraida Jimenez
+ |
+ |
+ | 3307011105
+ |
+=ROW=
+3307021109
+ | Biología II
+ | Prof. Dailín Ruiz
+ | Prof. Dailín Ruiz
+ | # 101
+ | 3307011108
+ |
+=ROW=
+3307021102
+ | Orientación Farmacéutica II
+ | Dr. Carlos Brito
+ |
+ |
+ | 3307011101
+ |
+=ROW=
+3307022102
+ | Química Básica II
+ | Prof. Marla Mendoza
+ | Prof. Marla Mendoza
+ | # 300
+ | 3307012101
+ |
+=ROW=
+3307024214
+ | Botánica Aplicada II
+ | Dra. Mayra García
+ |
+ |
+ | 3307014213
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+                                                                                             SEMESTRE 3° SECCION “A”                         UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+7:00-7:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Análisis Químico I   Aula-F4
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Química Orgánica I Aula-F4
+ |
+=ROW=
+7:45-8:30
+ |
+ |
+ | Estadística I                Aula-F5
+ |
+ |
+ |
+=ROW=
+8:30-9:15
+ | Estudio y Comprensión del Hombre Aula-F4
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ |
+ |
+=ROW=
+9:15-10:00
+ |
+ |
+ | Laboratorios
+Fisicoquímica I
+Química Inorgánica I
+ |
+ | Laboratorios
+Análisis Químico I
+Fisiología I
+Química Orgánica I
+ |
+=ROW=
+10:00-10:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Atención Farmacéutica I Aula-F1
+ |
+ |
+ |
+ |
+=ROW=
+10:45-11.30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+11:30-12:15
+ |
+ | Fisicoquímica I Aula-F4
+ | Parasitología               Aula-F1
+ |
+ | Análisis Químico I Aula-F4
+ |
+=ROW=
+12:15-1:00
+ | Química Inorgánica I Aula-F4
+ |
+ |
+ |
+ |
+ |
+=ROW=
+1:00-1:45
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Fisiología y Anatomía I Aula-F1
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+1:45-2:30
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307032211
+ | Análisis Químico I
+ | Prof. Alexander Campos
+ | Prof. Alexander Campos
+ | # 300
+ | 3307022102
+ |
+=ROW=
+3307037101
+ | Estadística I
+ | Prof. Ridsser Chirinos
+ |
+ |
+ | 3307021106
+ |
+=ROW=
+3307038107
+ | Atención Farmacéutica I
+ | Prof. Gianfranco Giuttari
+ |
+ |
+ | 3307021102
+ |
+=ROW=
+3307032213
+ | Fisicoquímica I
+ | Prof. Ana Ferrer
+ | Prof.  Ana Ferrer
+ | # 104
+ | 3307021104
+ |
+=ROW=
+3307033101
+ | Fisiología y Anatomía I
+ | Prof. Gregory León
+ | Prof. Gregory León
+ | # 101
+ | 3307021109
+ |
+=ROW=
+3307033211
+ | Parasitología
+ | Prof.  Ridsser Chirinos
+ |
+ |
+ | 3307021109
+ |
+=ROW=
+3307032103
+ | Química Inorgánica I
+ | Prof. Irene Henriquez
+ | Prof. Khelly Marchena
+ | # 302
+ | 3307022102
+ |
+=ROW=
+3307032107
+ | Química Orgánica I
+ | Prof. Mayerling González
+ | Prof. Irene Henriquez
+ | # 401
+ | 3307022102
+ |
+=ROW=
+3307031107
+ | Estudio y Comprensión del Hombre
+ | Prof. Nibsy Pachano
+ |
+ |
+ |
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+                                                                                             SEMESTRE 4° SECCION “A”                         UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+7:00-7:45
+ | Metodología de la Investigación              Aula-F4
+ | Química Orgánica II Aula-F1
+ | Laboratorio   Fisicoquímica II Química Inorgánica II
+
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Laboratorios
+Análisis Químico II
+Química Orgánica II
+ |
+=ROW=
+7:45-8:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+8:30-9:15
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Análisis Químico II Aula-F4
+ |
+ |
+ |
+ |
+=ROW=
+9:15-10:00
+ |
+ |
+ | Estadística II Aula-F5
+ |
+ | Química Orgánica II Aula-F4
+ |
+=ROW=
+10:00-10:45
+ | Química Inorgánica II Aula-F4
+ | Fisicoquímica II             Aula-F4
+ |
+ |
+ |
+ |
+=ROW=
+10:45-11.30
+ |
+ |
+ | Laboratorio               Fisiología y Anatomía II
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+11:30-12:15
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Atención Farmacéutica II           Aula-F1
+ |
+ |
+ | Fisiología y Anatomía II Aula-F1
+ |
+=ROW=
+12:15-1:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+1:00-1:45
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ | Análisis Químico II Aula-F4
+
+ |
+=ROW=
+1:45-2:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307042212
+ | Análisis Químico II
+ | Prof. Alexander Campos
+ | Prof. Alexander Campos
+ | # 300
+ | 3307032211
+ |
+=ROW=
+3307047102
+ | Estadística II
+ | Prof. Ridsser Chirinos
+ |
+ |
+ | 3307037101
+ |
+=ROW=
+3307048108
+ | Atención Farmacéutica II
+ | Prof. Gianfranco Giuttari
+ |
+ |
+ | 3307038107
+ |
+=ROW=
+3307042214
+ | Fisicoquímica II
+ | Prof.  Ana Ferrer
+ | Prof.  Ana Ferrer
+ | # 104
+ | 3307032213
+ |
+=ROW=
+3307043102
+ | Fisiología y Anatomía II
+ | Prof. Gregory León
+ | Prof. Gregory León
+ | # 101
+ | 3307033101
+ |
+=ROW=
+3307047105
+ | Metodología de la Investigación
+ | Dr. Omar Alviárez
+ |
+ |
+ | 3307037101
+ |
+=ROW=
+3307042104
+ | Química Inorgánica II
+ | Prof. Irene Henriquez
+ | Prof. Khelly Marchena
+ | # 302
+ | 3307032103
+ |
+=ROW=
+3307042108
+ | Química Orgánica II
+ | Prof. Mayerling González
+ | Prof. Irene Henriquez
+ | # 401
+ | 3307032107
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+                                                                                              SEMESTRE 5° SECCION “A”                         UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+1:45-2:30
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Diseño de Proyectos I                Aula-F4
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+2:30-3:15
+ | Fisiopatología I           Aula-F3
+ |
+ | Legislación Farmacéutica I Aula-F6
+ | Química Medicinal I            Aula-F5
+ |
+ |
+=ROW=
+3:15-4:00
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ | Farmacotecnia I             Aula-F3
+ |
+=ROW=
+4:00-4:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Análisis Instrumental I Aula-F6
+ |
+ |
+=ROW=
+4:45-5:30
+ |
+ |
+ |
+ |
+ | Laboratorios                  Análisis Instrumental I Bioquímica I Farmacotecnia I   Química Medicinal I
+ |
+=ROW=
+5:30-6:15
+ |
+ | Salud Pública I Aula-F4
+ | Bioquímica I                Aula-F5
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+=ROW=
+6:15-7:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307052209
+ | Análisis Instrumental I
+ | Prof. Carlos Vallejo
+ | Prof. Carlos Vallejo
+ | # 200
+ | 3307042212
+ |
+=ROW=
+3307054101
+ | Bioquímica I
+ | Prof. Carlos Roque
+ | Prof. Carlos Roque
+ | # 101
+ | 3307042214
+ |
+=ROW=
+3307055105
+ | Farmacotecnia I
+ | Prof. Luz Do Nascimiento
+ | Prof. Jennifer Lucero
+ | # 105
+ | 3307048108
+ |
+=ROW=
+3307053103
+ | Fisiopatología I
+ | Dr. Gilberto Perdomo
+ |
+ |
+ | 3307043102
+ |
+=ROW=
+3307056107
+ | Legislación Farmacéutica I
+ | Prof. Juan Carlos González
+ |
+ |
+ |
+ |
+=ROW=
+3307057103
+ | Diseño de Proyectos I
+ | Dr. Omar Alviárez
+ |
+ |
+ | 3307047102
+ |
+=ROW=
+3307052105
+ | Química Medicinal I
+ | Prof. Khelly Marchena
+ | Prof. Glenmary Linares
+ | # 401
+ | 3307042108
+ |
+=ROW=
+3307053205
+ | Salud Pública I
+ | Prof. Emilia Espósito
+ |
+ |
+ | 3307033211
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+                                                                                             SEMESTRE 6° SECCION “A”                         UBICACIÓN NIVEL FERIA PISO 2
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+1:00-1:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Servicio Comunitario
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Química Medicinal II
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+1:45-2:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+2:30-3:15
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Laboratorios                  Análisis Instrumental II Bioquímica II               Química Medicinal II
+ |
+=ROW=
+3:15-4:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+4:00-4:45
+ | Fisiopatología II Aula-F
+ | Salud Pública II
+ | Legislación Farmacéutica II
+ |
+ |
+ |
+=ROW=
+4:45-5:30
+ |
+ |
+ |
+ |
+ | Farmacotecnia II
+ |
+=ROW=
+5:30-6:15
+ | Bioquímica II
+ | Laboratorio Farmacotecnia II
+ | Diseño de Proyectos II
+ | Análisis Instrumental II
+ |
+ |
+=ROW=
+6:15-7:00
+ |
+ |
+ |
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+7:00-7:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307062210
+ | Análisis Instrumental II
+ | Prof. Carlos Vallejo
+ | Prof. Carlos Vallejo
+ | # 406
+ | 3307052209
+ |
+=ROW=
+3307064102
+ | Bioquímica II
+ | Prof. Carlos Roque
+ | Prof. Carlos Roque
+ | # 101
+ | 3307054101
+ |
+=ROW=
+3307065106
+ | Farmacotecnia II
+ | Prof. Luz Do Nascimiento
+ | Prof. Jennifer Lucero
+ | # 107
+ | 3307055105
+ |
+=ROW=
+3307063104
+ | Fisiopatología II
+ | Dr. Gilberto Perdomo
+ |
+ |
+ | 3307053103
+ |
+=ROW=
+3307066108
+ | Legislación Farmacéutica II
+ | Prof. Juan Carlos González
+ |
+ |
+ | 3307056107
+ |
+=ROW=
+3307067104
+ | Diseño de Proyectos II
+ | Prof. Marín Marilis
+ |
+ |
+ | 3307057103
+ |
+=ROW=
+3307062106
+ | Química Medicinal II
+ | Prof. Khelly Marchena
+ | Prof. Glenmarys Linares
+ | # 401
+ | 3307052105
+ |
+=ROW=
+3307063206
+ | Salud Pública II
+ | Prof. Emilia Espósito
+ |
+ |
+ | 3307053205
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 7° SECCION “A”
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+1:00-1:45
+ | Toxicología I
+
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Higiene y Seguridad Industrial I
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+1:45-2:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+2:30-3:15
+ | Economía Aplicada
+ | Biofarmacia I
+
+ | Farmacognosia I
+ | Laboratorios                  Biofarmacia I                  Farmacognosia I Microbiología I             Farmacología I                Microbiología I                Toxicología I
+ |
+ |
+=ROW=
+3:15-4:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+4:00-4:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Farmacología I
+ | Orientación Pasantías Oficina de Farmacia
+ |
+ |
+ |
+=ROW=
+4:45-5:30
+ |
+ |
+ |
+ | Procesos Unitarios I
+ |
+ |
+=ROW=
+5:30-6:15
+ |
+ | Microbiología I
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+ |
+=ROW=
+6:15-7:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307074209
+ | Biofarmacia I
+ | Prof. Eleana Serrano
+ | Prof. Eneida Useche
+ | # 200
+ | 3307062210
+ |
+=ROW=
+3307076101
+ | Economía Aplicada
+ | Dr. Nello Collevecchio
+ |
+ |
+ |
+ |
+=ROW=
+3307074107
+ | Farmacognosia I
+ | Prof. Ninfa Cordero
+ | Prof. Ninfa Cordero
+ | # 304
+ | 3307062106
+ |
+=ROW=
+3307074103
+ | Farmacología I
+ | Prof. Leandro Goncalves
+ | Prof. Leandro Goncalves
+ | # 302
+ | 3307063104
+ |
+=ROW=
+3307073207
+ | Microbiología I
+ | Prof. Oriana Coronado
+ | Prof. Andreína Méndez
+ | # 204
+ | 3307063206
+ |
+=ROW=
+3307075103
+ | Procesos Unitarios I
+ | Prof. Ángel Gutiérrez
+ |
+ |
+ | 3307062210
+ |
+=ROW=
+3307075109
+ | Higiene y Seguridad Industrial I
+ | Prof. Behzaida Trías
+ |
+ |
+ |
+ |
+=ROW=
+3307074105
+ | Toxicología I
+ | Prof. Christina Zoghbi- Prof. Gladys Venegas
+ | Prof. María Miranda
+ | # 406
+ | 3307064102
+ |
+=ROW=
+3307078101
+ | Orientación Pasantías Oficina de Farmacia
+ | Prof. Gianfranco Giuttari
+ |
+ |
+ | 3307065106
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 8° SECCION “A”
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+ |
+=ROW=
+1:00-1:45
+ | Administración Aplicada
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Pasantías I Ofic. de Farmacia
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+1:45-2:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+2:30-3:15
+ | Toxicología II
+ |
+ | Seguridad e Higiene Industrial II
+ | Procesos Unitarios II
+ |
+ |
+=ROW=
+3:15-4:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+4:00-4:45
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Biofarmacia II
+ | Farmacognosia II
+ |
+ |
+ |
+=ROW=
+4:45-5:30
+ |
+ |
+ |
+ | Laboratorios                  Biofarmacia II                  Farmacognosia II Microbiología II             Farmacología II                Microbiología II                Toxicología II
+ |
+ |
+=ROW=
+5:30-6:15
+ |
+ | Farmacología II
+ | Microbiología II
+ |
+ |
+ |
+=ROW=
+6:15-7:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307084210
+ | Biofarmacia II
+ | Prof. Eleana Serrano
+ | Prof. Eneida Useche
+ | # 200
+ | 3307084209
+ |
+=ROW=
+3307086102
+ | Administración Aplicada
+ | Dr. Nello Collevecchio
+ |
+ |
+ | 3307076101
+ |
+=ROW=
+3307084108
+ | Farmacognosia II
+ | Dra.  Ninfa Cordero
+ | Prof. Ninfa Cordero
+ | # 304
+ | 3307074107
+ |
+=ROW=
+3307084104
+ | Farmacología II
+ | Prof. Leandro Goncalves
+ | Prof. Leandro Goncalves
+ | # 302
+ | 3307074103
+ |
+=ROW=
+3307083208
+ | Microbiología II
+ | Prof. Oriana Coronado
+ | Prof. Andreína Méndez
+ | # 204
+ | 3307073207
+ |
+=ROW=
+3307085104
+ | Procesos Unitarios II
+ | Prof. Ángel Gutiérrez
+ |
+ |
+ | 3307075103
+ |
+=ROW=
+3307085110
+ | Seguridad e Higiene Industrial II
+ | Prof. Behzaida Trías
+ |
+ |
+ | 3307075109
+ |
+=ROW=
+3307084106
+ | Toxicología II
+ | Prof. Christina Zoghbi- Prof. Gladys Venegas
+ | Prof. María Miranda
+ | # 406
+ | 3307074105
+ |
+=ROW=
+3307088102
+ | Pasantías I Ofic. de Farmacia.
+ | Prof. Gianfranco Giuttari
+ |
+ |
+ | 3307078101
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 9º   SECCION “A”
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+
+ |
+=ROW=
+1:00-1:45
+ | Seminario Trabajo Especial de Grado I Aula-F2
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Orientación Pasantías Industriales-Empresas
+ | Farmacia Hospitalaria I
+ | Primeros Auxilios I
+ |
+=ROW=
+1:45-2:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+2:30-3:15
+ | Técnicas Gerenciales I Aula-F1
+ |
+ | Bromatología I
+ | Farmacotecnia III
+ | Laboratorios
+ |
+=ROW=
+3:15-4:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+4:00-4:45
+ | Primeros Auxilios I Aula-F2
+ |
+ | Dermocosmética I
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+=ROW=
+4:45-5:30
+ |
+ |
+ |
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+5:30-6:15
+ | Farmacoterapéutica I
+ |
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Mercadotecnia I
+ |
+ |
+=ROW=
+6:15-7:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorio
+ | Prelación
+ |
+=ROW=
+3307095101
+ | Bromatología I
+ | Prof. Luxz Paulo
+ | Dra. Romily Figuera
+ | #409
+ | 3307083208
+ |
+=ROW=
+3307095107
+ | Farmacotecnia III
+ | Dr. Carlos Brito
+ | Prof. Andreína Méndez
+ | #105
+ | 3307085104
+ |
+=ROW=
+3307094211
+ | Farmacoterapéutica I
+ | Prof. Emilia Espósito
+ |
+ |
+ | 3307084104
+ |
+=ROW=
+3307096103
+ | Mercadotecnia I
+ | Prof. Nairobys Fernandes
+ |
+ |
+ |
+ |
+=ROW=
+3307098103
+ | Orientación Pasantías Industriales-Empresas
+ | Prof. María Miranda
+ |
+ |
+ | 3307088102
+ |
+=ROW=
+3307093209
+ | Primeros Auxilios I
+ | Prof. Felix Sierralta
+ | Prof. Felix Sierralta
+ |
+ | 3307084106
+ |
+=ROW=
+3307096105
+ | Técnicas Gerenciales I
+ | Prof. Elisabeth Davila
+ |
+ |
+ | 3307086102
+ |
+=ROW=
+3307098105
+ | Farmacia Hospitalaria I
+ | Prof. Edith Graffe
+ |
+ |
+ | 3307084104
+ |
+=ROW=
+3307095111
+ | Dermocosmética I
+ | Prof. Giovanna González
+ | Prof. Naireth Villar
+ | #203
+ | 3307084108
+ |
+=ROW=
+3307097106
+ | Seminario Trabajo Especial de Grado I
+ | Prof. Behzaida Trías
+ |
+ |
+ | 3307067104
+ |
+=ROW=
+
+FACULTAD DE FARMACIA
+HORARIOS PERIODO ACADÉMICO 2026-01
+SEMESTRE 10º   SECCION “A”
+HORA
+ | LUNES
+ | MARTES
+ | MIERCOLES
+ | JUEVES
+ | VIERNES
+
+ |
+=ROW=
+1:00-1:45
+ |
+Seminario Trabajo Especial de Grado II   Aula-F1
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ | Técnicas Gerenciales II
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+=ROW=
+1:45-2:30
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+2:30-3:15
+ |
+Pasantías II Industriales-Empresas Aula-F6
+ |
+ | Dermocosmética II
+ | Farmacia Hospitalaria II
+ |
+ |
+=ROW=
+3:15-4:00
+ |
+ |
+ |
+ |
+ | Primeros Auxilios II
+ |
+=ROW=
+4:00-4:45
+ | Farmacoterapéutica II
+ |
+ | Bromatología II
+ | Farmacotecnia IV
+ |
+ |
+=ROW=
+4:45-5:30
+ |
+ |
+ |
+ |
+ | Laboratorios
+ |
+=ROW=
+5:30-6:15
+ | Primeros Auxilios II
+ |
+ | Mercadotecnia II
+ | EVALUACIONES Y ACTIVIDADES      EXTRACATEDRA
+ |
+ |
+=ROW=
+6:15-7:00
+ |
+ |
+ |
+ |
+ |
+ |
+=ROW=
+
+Código
+ | Cátedra
+ | Prof. Teoría
+ | Prof. Práctica
+ | N° Laboratorios
+ | Prelación
+ |
+=ROW=
+3307105102
+ | Bromatología II
+ | Prof. Luxz Paulo
+ | Dra. Romily Figuera
+ | # 409
+ | 3307095101
+ |
+=ROW=
+3307105108
+ | Farmacotecnia IV
+ | Dr. Carlos Brito
+ | Prof. Andreína Méndez
+ | # 105
+ | 3307095107
+ |
+=ROW=
+3307104212
+ | Farmacoterapéutica II
+ | Prof. Emilia Espósito
+ |
+ |
+ | 3307094211
+ |
+=ROW=
+3307106104
+ | Mercadotecnia II
+ | Prof. Nairobys Fernandes
+ |
+ |
+ | 3307096103
+ |
+=ROW=
+3307108104
+ | Pasantías II Industriales-Empresas
+ | Prof. Behzaida Trías
+ |
+ |
+ | 3307098103
+ |
+=ROW=
+3307103210
+ | Primeros Auxilios II
+ | Prof. Felix Sierralta
+ | Prof. Felix Sierralta
+ |
+ | 3307093209
+ |
+=ROW=
+3307106106
+ | Técnicas Gerenciales II
+ | Prof. Elisabeth Davila
+ |
+ |
+ | 3307096105
+ |
+=ROW=
+3307108106
+ | Farmacia Hospitalaria II
+ | Prof. Edith Graffe
+ |
+ |
+ | 3307098105
+ |
+=ROW=
+3307105112
+ | Dermocosmética II
+ | Prof. Giovanna González
+ | Prof. Naireth Villar
+ | #203
+ | 3307095111
+ |
+=ROW=
+3307107107
+ | Seminario Trabajo Especial de Grado II
+ | Prof. Gianfranco Giuttari
+ |
+ |
+ | 3307097106
+ |
+=ROW=
+3307107108
+ | Trabajo Especial de Grado
+ |
+ |
+ |
+ | 3307107107
+ |
+=ROW=
+
