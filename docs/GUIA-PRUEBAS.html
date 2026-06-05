@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Farmabox — Guía de pruebas manuales (v1.0.17)</title>
+<style>
+  :root{
+    --navy:#011023; --blue:#052558; --accent:#0077EA; --pale:#C2E8FF;
+    --ok:#16a34a; --warn:#d97706; --pend:#6b7280; --bg:#f4f7fb; --card:#fff; --line:#e5e7eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Segoe UI,system-ui,Arial,sans-serif;background:var(--bg);color:#1f2937;line-height:1.55}
+  header{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;padding:32px 24px}
+  header .wrap{max-width:1000px;margin:0 auto}
+  header h1{margin:0 0 4px;font-size:28px}
+  header p{margin:2px 0;opacity:.9}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle}
+  .b-ok{background:#dcfce7;color:#166534}.b-warn{background:#fef3c7;color:#92400e}.b-pend{background:#e5e7eb;color:#374151}
+  main{max-width:1000px;margin:0 auto;padding:24px}
+  .progress{position:sticky;top:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 20px;box-shadow:0 2px 8px rgba(0,0,0,.04);z-index:5}
+  .bar{height:10px;background:#eef2f7;border-radius:999px;overflow:hidden;margin-top:6px}
+  .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#22c55e);transition:width .3s}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .card h2{margin:0 0 4px;font-size:20px;color:var(--blue);display:flex;align-items:center;gap:8px}
+  .card .sub{color:#6b7280;font-size:14px;margin:0 0 12px}
+  ul.cases{list-style:none;padding:0;margin:0}
+  ul.cases li{display:flex;gap:10px;padding:9px 0;border-top:1px dashed var(--line)}
+  ul.cases li:first-child{border-top:0}
+  ul.cases input{margin-top:3px;width:17px;height:17px;flex-shrink:0;cursor:pointer}
+  .case .t{font-weight:600}
+  .case .e{color:#475569;font-size:14px}
+  .case .e b{color:#0f766e}
+  code{background:#eef2f7;border-radius:5px;padding:1px 5px;font-size:13px}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:14px;margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:700px){.grid2{grid-template-columns:1fr}}
+  .opt{border:1px solid var(--line);border-radius:10px;padding:14px}
+  .opt h3{margin:0 0 6px;font-size:16px}
+  table.kv{width:100%;border-collapse:collapse;font-size:14px}
+  table.kv td{border-top:1px solid var(--line);padding:7px 6px;vertical-align:top}
+  table.kv td:first-child{font-weight:600;width:38%;color:#374151}
+  footer{max-width:1000px;margin:0 auto;padding:20px 24px 50px;color:#6b7280;font-size:13px}
+  button.reset{background:#eef2f7;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+  @media print{.progress,button.reset{display:none}body{background:#fff}.card{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>🧪 Farmabox — Guía de pruebas manuales</h1>
+  <p>Sistema de Gestión de Horarios · Facultad de Farmacia, Universidad Santa María</p>
+  <p>Versión <strong>1.0.17</strong> · Guía para verificar la app en otra máquina</p>
+</div></header>
+
+<main>
+  <div class="progress">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Progreso de pruebas: <span id="pc">0%</span> (<span id="cnt">0/0</span>)</strong>
+      <button class="reset" onclick="resetAll()">Reiniciar marcas</button>
+    </div>
+    <div class="bar"><i id="barFill"></i></div>
+  </div>
+
+  <div class="card">
+    <h2>¿Qué es?</h2>
+    <p class="sub">Farmabox arma y gestiona los horarios de la Facultad de Farmacia. Maneja el <b>pensum</b> (materias), los <b>profesores</b>, y un <b>armador de horarios</b> con validación de colisiones. Los datos se guardan en la nube (Supabase) o en una carpeta compartida de red, con funcionamiento <b>offline-first</b> (sigue andando sin internet y sincroniza al volver).</p>
+    <p class="sub">Viene <b>precargado con el pensum real (PENSUM 2023-01)</b>: 84 materias en 10 semestres y 44 profesores con las materias que dictan (del Horario 2026-01). Todo es editable.</p>
+  </div>
+
+  <div class="card">
+    <h2>Cómo acceder (elegí una)</h2>
+    <div class="grid2">
+      <div class="opt">
+        <h3>🖥️ App de escritorio (.exe)</h3>
+        <p style="font-size:14px;margin:.3em 0">Instalá <code>Farmabox-Setup-1.0.17.exe</code> (Windows). Doble clic → Siguiente. Si Windows muestra SmartScreen (no está firmado), <em>Más información → Ejecutar de todas formas</em>.</p>
+        <p style="font-size:14px;margin:.3em 0">Guarda en la nube (Supabase) por defecto, o en carpeta compartida si la configurás. Funciona sin internet.</p>
+      </div>
+      <div class="opt">
+        <h3>🌐 Versión web (navegador)</h3>
+        <p style="font-size:14px;margin:.3em 0">Abrí la URL pública que te pasaron (túnel de Cloudflare, ej. <code>https://...trycloudflare.com</code>) desde cualquier dispositivo. Misma app, mismos datos.</p>
+        <p style="font-size:14px;margin:.3em 0"><b>Nota:</b> la URL del túnel es temporal y puede cambiar.</p>
+      </div>
+    </div>
+    <div class="note">⚠️ <b>Importante para la sincronización:</b> ambos caminos usan la <b>misma base en Supabase</b>. Lo que cambies en una máquina aparece en la otra (al refrescar, o solo en el escritorio cada ~1 minuto). Si probás en 2 máquinas a la vez, vas a ver los datos compartidos.</div>
+  </div>
+
+  <!-- ============== CASOS ============== -->
+
+  <div class="card">
+    <h2>1 · Arranque <span class="badge b-ok">funciona</span></h2>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Abrir la app</div><div class="e">Carga sin pantalla de error; muestra <b>Inicio</b> con el menú lateral (Inicio, Horarios, Visualización, Materias, Profesores, Reportes, Configuración) y el logo de Farmabox.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>2 · Materias <span class="badge b-ok">funciona</span></h2>
+    <p class="sub">Menú <b>Materias</b>.</p>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Ver el pensum</div><div class="e">Muestra <b>84 materias</b> en <b>10 semestres</b> (tabla compacta por defecto). Arriba: Total Materias 84, Semestres 10, Créditos 230.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Buscar</div><div class="e">Escribí “Química” → se filtran las materias que coinciden por nombre o código.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Cambiar vista</div><div class="e">El toggle arriba a la derecha alterna entre <b>lista</b> (tabla) y <b>tarjetas</b>.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Agregar materia</div><div class="e">“Agregar Materia” → completá nombre, código, <b>semestre (1–10)</b>, créditos, horas, salón → Guardar → <b>aparece</b> en su semestre.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Editar / Borrar</div><div class="e">Editá una materia (lápiz) y guardá; borrá otra (papelera) → se reflejan los cambios.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Importar en lote (CSV)</div><div class="e">“Importar” → <b>Descargar plantilla</b> → completala en Excel → <em>Guardar como CSV</em> → “Elegir archivo CSV” → ves el <b>preview</b> → “Importar” → las materias se cargan de una.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>3 · Profesores <span class="badge b-ok">funciona</span></h2>
+    <p class="sub">Menú <b>Profesores</b>.</p>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Ver profesores</div><div class="e">Muestra <b>44 profesores</b> con su título y las materias que dictan (sin correos, porque no son reales).</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Buscar / Agregar / Editar / Borrar</div><div class="e">Probá buscar por nombre, agregar uno nuevo (con cédula), editarlo y borrarlo → todo se refleja.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Asignar materias a un profesor</div><div class="e">Botón de asignar materias (ícono persona) → elegí materias → se guardan en ese profesor.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Importar en lote (CSV)</div><div class="e">“Importar” → plantilla → CSV → preview → Importar (mismo flujo que materias).</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">📅 Exportar horario del profesor (PDF)</div><div class="e">En cada fila/tarjeta, el botón <b>morado 📅</b> descarga <code>Horario_&lt;Nombre&gt;.pdf</code> con la semana de ese profesor. <b>Nota:</b> si todavía no armaste horarios, el PDF sale con la grilla en blanco.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>4 · Horarios — armador <span class="badge b-ok">funciona</span></h2>
+    <p class="sub">Menú <b>Horarios</b>. Acá se arma el horario arrastrando.</p>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Elegir semestre y sección</div><div class="e">Botones de semestre (1–10) y sección (A, B, C…). Podés <b>agregar/quitar secciones</b>.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Asignar un bloque</div><div class="e">Elegí una materia del panel, elegí <b>Teoría/Lab</b>, y <b>arrastrá</b> sobre la grilla (día × hora) → se crea el bloque.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Profesor del bloque</div><div class="e">El desplegable “Profesor Asignado” sugiere según la carga académica, pero podés elegir otro manualmente (no se resetea).</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Validación de colisiones</div><div class="e">Intentá poner dos cosas que choquen (mismo profesor a la misma hora, o solapar bloques) → aparece un <b>aviso de error</b> y no se crea.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Indicador de guardado</div><div class="e">Al cambiar algo, muestra “Guardando…” y luego “Guardado HH:MM” (es <b>real</b>, refleja el guardado).</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Quitar un bloque / Limpiar</div><div class="e">Clic sobre un bloque lo elimina; “Limpiar Horario” borra los del semestre/sección actual.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Exportar horario (PDF)</div><div class="e">Botón de exportar → descarga el PDF del horario del semestre/sección con la tabla de profesores.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Volver a Profesores y exportar su PDF</div><div class="e">Después de asignarle bloques a un profe, su <b>📅 PDF</b> (paso 3) ya sale con datos.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>5 · Visualización <span class="badge b-ok">funciona</span></h2>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Ver horarios (solo lectura)</div><div class="e">Muestra los horarios armados sin permitir edición.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>6 · Reportes <span class="badge b-ok">funciona</span></h2>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Registro de actividad</div><div class="e">Cada acción (crear/editar/borrar, armar bloque) queda registrada con fecha en los logs.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Colisiones</div><div class="e">Lista los choques detectados en los horarios.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>7 · Configuración <span class="badge b-ok">funciona</span></h2>
+    <p class="sub">Menú <b>Configuración</b>.</p>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Apariencia</div><div class="e">Probá: <b>tema oscuro/claro</b>, <b>modo compacto</b>, <b>tamaño de texto</b> (A / A+ / A++), <b>reducir animaciones</b>, y <b>restablecer</b> preferencias.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Período académico</div><div class="e">Editá la etiqueta del período (ej. 2026-01).</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Almacenamiento (solo .exe)</div><div class="e">Pestaña Almacenamiento → ves el modo actual (Nube / Carpeta compartida). Podés <b>“Elegir carpeta compartida”</b> (red local) y volver a la nube. <em>En la web dice “solo disponible en la app de escritorio”.</em></div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Backup</div><div class="e">Gestión de Datos → <b>exportar</b> un backup JSON y <b>restaurar</b> desde uno.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Contacto</div><div class="e">Pestaña Contacto → datos del autor (Eugenio Rijo, Ing. de Sistemas USM, eugerijo@gmail.com).</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>8 · Asistente (Chat) <span class="badge b-ok">funciona</span></h2>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Chat flotante</div><div class="e">Botón azul abajo a la derecha → preguntá algo (ej. “¿cuántas materias tiene 3er semestre?”). Responde con IA; si no hay conexión, responde con datos locales.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>9 · Sincronización multi-PC <span class="badge b-warn">requiere 2 máquinas</span></h2>
+    <ul class="cases" data-sec>
+      <li class="case"><input type="checkbox"><div><div class="t">Cambios entre PCs (nube)</div><div class="e">En la máquina A agregá un profesor. En la máquina B, refrescá (web) o esperá ~1 min (escritorio) → <b>aparece</b> el profesor. El merge no pisa lo de la otra PC.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Carpeta compartida (red local, sin internet)</div><div class="e">Solo escritorio: configurá la misma carpeta de red en 2 PCs → comparten datos por la carpeta, sin Supabase.</div></div></li>
+      <li class="case"><input type="checkbox"><div><div class="t">Offline</div><div class="e">Cortá internet (escritorio) → la app sigue funcionando; al volver, sincroniza. La carpeta inaccesible no rompe nada (sigue local).</div></div></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Notas técnicas y estado conocido</h2>
+    <table class="kv">
+      <tr><td>Backend de datos</td><td>Único: Supabase (tablas relacionales: professors, subjects, professor_subjects, academic_load, schedule_blocks, logs). No hay servidor Express.</td></tr>
+      <tr><td>Modos de almacenamiento</td><td>Nube (Supabase) por defecto, o Carpeta compartida (LAN) en el escritorio.</td></tr>
+      <tr><td>Offline-first</td><td>Guarda local y sincroniza; merge por ítem (newest-wins) con borrado lógico.</td></tr>
+      <tr><td>Horarios al empezar</td><td>Vacíos (hay que armarlos). El pensum y los profesores sí vienen precargados.</td></tr>
+      <tr><td><span class="badge b-pend">pendiente</span> Buscador del header</td><td>La caja de búsqueda del encabezado aún no está conectada (usá el buscador dentro de Materias/Profesores).</td></tr>
+      <tr><td><span class="badge b-pend">pendiente</span> Auto-actualización</td><td>El código está, pero falta crear el repo público de releases para que el .exe se actualice solo.</td></tr>
+      <tr><td><span class="badge b-pend">pendiente</span> Disponibilidad de aulas</td><td>El salón es un texto; todavía no hay gestión de aulas ni detección de choque de aula entre materias distintas.</td></tr>
+      <tr><td>Seguridad (web pública)</td><td>La base permite lectura/escritura anónima (RLS abierta). Para una vista pública real conviene endurecer permisos.</td></tr>
+    </table>
+  </div>
+</main>
+
+<footer>
+  Farmabox v1.0.17 — Servicio Comunitario, Facultad de Farmacia (USM). Generado para pruebas manuales.
+  Las marcas de esta guía se guardan en este navegador (localStorage); usá “Reiniciar marcas” para empezar de cero.
+</footer>
+
+<script>
+  const boxes = () => Array.from(document.querySelectorAll('ul.cases input[type=checkbox]'));
+  function key(i){ return 'fb-test-'+i; }
+  function refresh(){
+    const b = boxes(); const done = b.filter(x=>x.checked).length;
+    const pct = b.length ? Math.round(done/b.length*100) : 0;
+    document.getElementById('pc').textContent = pct+'%';
+    document.getElementById('cnt').textContent = done+'/'+b.length;
+    document.getElementById('barFill').style.width = pct+'%';
+  }
+  function resetAll(){ boxes().forEach((x,i)=>{x.checked=false; localStorage.removeItem(key(i));}); refresh(); }
+  boxes().forEach((x,i)=>{
+    x.checked = localStorage.getItem(key(i))==='1';
+    x.addEventListener('change',()=>{ localStorage.setItem(key(i), x.checked?'1':'0'); refresh(); });
+  });
+  refresh();
+</script>
+</body>
+</html>
