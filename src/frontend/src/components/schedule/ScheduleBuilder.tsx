@@ -50,7 +50,9 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         pensum,
         academicLoad,
         handleBlocksChange: onBlocksChange,
-        logScheduleChange
+        logScheduleChange,
+        isSaving,
+        lastSaved
     } = useAppData();
     const { validateBlock } = useScheduleValidation();
 
@@ -73,21 +75,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         );
     }, [scheduleBlocks, availableSubjects, section]);
 
-    // Saving state
-    const [isSaving, setIsSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date | null>(null);
-
-    // Simulate saving delay and update last saved time when blocks change
-    useEffect(() => {
-        if (scheduleBlocks.length > 0) {
-            setIsSaving(true);
-            const timer = setTimeout(() => {
-                setIsSaving(false);
-                setLastSaved(new Date());
-            }, 800); // 800ms "fake" delay to make the saving action noticeable
-            return () => clearTimeout(timer);
-        }
-    }, [scheduleBlocks]);
+    // isSaving / lastSaved vienen del contexto (reflejan el guardado real, no un timer falso).
 
     // handleUpdateCourseInfo removed
 
@@ -408,7 +396,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                      <div className="flex justify-between text-[10px] text-gray-500">
                                                         <span>Teoría: {usedTheory}/{sub.hoursTheory}</span>
                                                         <span className={isTheoryComplete ? 'text-green-600 font-bold' : 'text-orange-500'}>
-                                                            {Math.round((usedTheory/sub.hoursTheory)*100)}%
+                                                            {sub.hoursTheory > 0 ? Math.round((usedTheory / sub.hoursTheory) * 100) : 0}%
                                                         </span>
                                                      </div>
                                                  )}

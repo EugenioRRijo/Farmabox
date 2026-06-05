@@ -48,10 +48,11 @@ function AppContent() {
 
 
   const handleAddSection = () => {
-    const nextLetter = String.fromCharCode(65 + sections.length);
-    if (sections.length < 26) {
-      setSections([...sections, nextLetter]);
-    }
+    if (sections.length >= 26) return;
+    // Buscar la primera letra libre (evita duplicar al borrar una del medio).
+    let i = 0;
+    while (sections.includes(String.fromCharCode(65 + i))) i++;
+    setSections([...sections, String.fromCharCode(65 + i)]);
   };
 
   const handleRemoveSection = (sectionToRemove: string) => {

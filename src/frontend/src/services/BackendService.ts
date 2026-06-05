@@ -242,3 +242,9 @@ export async function setSharedDir(
 export async function pickSharedFolder(): Promise<{ path: string | null }> {
   return unwrap(configApi().pickFolder());
 }
+
+/** Se dispara cuando el pull periódico (multi-PC) trae cambios de otra PC. Devuelve unsubscribe. */
+export function onRemoteDataChanged(callback: () => void): () => void {
+  if (!ipc || typeof ipc.onDataChanged !== 'function') return () => {};
+  return ipc.onDataChanged(callback);
+}

@@ -176,6 +176,22 @@ function setupAutoUpdater(): void {
   autoUpdater.checkForUpdates().catch((e) => log.error('[Updater] checkForUpdates falló:', e));
 }
 
+// ── Pull periódico: trae cambios de otras PCs durante la sesión ──────────────
+function setupPeriodicSync(): void {
+  setInterval(() => {
+    if (!store || !store.isRemoteEnabled()) return;
+    store
+      .syncNow()
+      .then((r) => {
+        if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
+          log.info('[Sync] Pull periódico trajo cambios → avisando al renderer.');
+          mainWindow.webContents.send('data-changed');
+        }
+      })
+      .catch((e) => log.error('[Sync] Pull periódico falló:', e));
+  }, 60000); // cada 60 s
+}
+
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
@@ -194,6 +210,9 @@ app.whenReady().then(async () => {
 
   // Chequear actualizaciones (solo en la app instalada).
   setupAutoUpdater();
+
+  // Traer cambios de otras PCs cada minuto (avisa al renderer si hubo cambios).
+  setupPeriodicSync();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

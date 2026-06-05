@@ -66,4 +66,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setSharedDir: (dir: string | null) => invoke('config:setSharedDir', dir),
     pickFolder: () => invoke('config:pickFolder'),
   },
+
+  // ── Aviso de cambios traídos por el pull periódico (multi-PC) ─────────
+  onDataChanged: (callback: () => void) => {
+    const listener = (): void => callback();
+    ipcRenderer.on('data-changed', listener);
+    return () => ipcRenderer.removeListener('data-changed', listener);
+  },
 });

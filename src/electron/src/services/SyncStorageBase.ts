@@ -259,10 +259,21 @@ export abstract class SyncStorageBase implements IStorageService {
     }
   }
 
-  // ── Recibir (pull + merge por fila, automático al abrir) ─────────────────
-  async syncNow(): Promise<{ ok: boolean; merged: string[] }> {
-    if (!this.isRemoteEnabled()) return { ok: false, merged: [] };
+  /** Firma de lo que VE la UI (datos vivos), para detectar si un pull cambió algo. */
+  private liveSignature(): string {
+    return stableStringify({
+      p: this.loadProfessors(),
+      s: this.loadPensum(),
+      b: this.loadScheduleBlocks(),
+      l: this.loadAcademicLoad(),
+    });
+  }
+
+  // ── Recibir (pull + merge por fila, automático al abrir y periódico) ─────
+  async syncNow(): Promise<{ ok: boolean; merged: string[]; changed: boolean }> {
+    if (!this.isRemoteEnabled()) return { ok: false, merged: [], changed: false };
     const done: string[] = [];
+    const before = this.liveSignature();
     try {
       const remote = await this.pullRemote();
 
@@ -287,11 +298,12 @@ export abstract class SyncStorageBase implements IStorageService {
       this.local.savePensum(this.mergePensum(this.local.loadPensum() as SSemester[], remote.pensum));
       done.push('pensum');
 
-      log.info('[Sync] syncNow OK:', done.join(', '));
-      return { ok: true, merged: done };
+      const changed = this.liveSignature() !== before;
+      log.info('[Sync] syncNow OK:', done.join(', '), changed ? '(cambios)' : '(sin cambios)');
+      return { ok: true, merged: done, changed };
     } catch (e) {
       log.error('[Sync] syncNow FALLÓ (se mantiene local):', e);
-      return { ok: false, merged: done };
+      return { ok: false, merged: done, changed: false };
     }
   }
 }

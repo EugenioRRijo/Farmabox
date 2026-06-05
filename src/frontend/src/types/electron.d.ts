@@ -65,6 +65,9 @@ export interface ElectronAPI {
     setSharedDir(dir: string | null): Promise<Envelope<{ ok: boolean; sharedDir: string | null }>>;
     pickFolder(): Promise<Envelope<{ path: string | null }>>;
   };
+
+  /** Suscribe a cambios traídos por el pull periódico (multi-PC). Devuelve un unsubscribe. */
+  onDataChanged(callback: () => void): () => void;
 }
 
 declare global {
