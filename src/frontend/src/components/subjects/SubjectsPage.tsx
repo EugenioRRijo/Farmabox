@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronUp, Beaker, Clock, GraduationCap, Link2, Plus, X, User, Trash2, Edit, CheckSquare, Square, LayoutGrid, List as ListIcon, Search } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Beaker, Clock, GraduationCap, Link2, Plus, X, User, Trash2, Edit, CheckSquare, Square, LayoutGrid, List as ListIcon, Search, Upload } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
+import { ImportModal } from '@/components/common/ImportModal';
 import { Badge } from '@/components/ui/Badge';
 import { Professor, PensumSubject, Semester } from '../../../../shared/src/index';
 
@@ -13,6 +14,7 @@ export function SubjectsPage() {
   const [expandedSemesters, setExpandedSemesters] = useState<Set<number>>(new Set([1]));
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   
   // State for Professor Assignment Modal
@@ -194,6 +196,13 @@ export function SubjectsPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button
+                onClick={() => setShowImport(true)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+            >
+                <Upload className="w-4 h-4" />
+                Importar
+            </button>
             <button
                 onClick={() => setIsModalOpen(true)}
                 className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
@@ -690,6 +699,9 @@ export function SubjectsPage() {
           </div>
       ), document.body)}
 
+      {showImport && (
+        <ImportModal kind="subjects" onClose={() => setShowImport(false)} onDone={() => window.location.reload()} />
+      )}
 
     </div>
   );

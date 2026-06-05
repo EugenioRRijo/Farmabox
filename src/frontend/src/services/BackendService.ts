@@ -100,6 +100,11 @@ export async function resetProfessors(): Promise<Professor[]> {
   return web.resetProfessors();
 }
 
+export async function bulkUpsertProfessors(data: Partial<Professor>[]): Promise<Professor[]> {
+  if (ipc) return unwrap(ipc.professors.bulkUpsert(data));
+  return web.bulkUpsertProfessors(data);
+}
+
 // ── Subjects / Pensum ──────────────────────────────────
 export async function getSubjects(): Promise<Semester[]> {
   if (ipc) return unwrap(ipc.subjects.getAll());
@@ -133,6 +138,13 @@ export async function deleteSubject(code: string): Promise<void> {
     return;
   }
   await web.deleteSubject(code);
+}
+
+export async function bulkUpsertSubjects(
+  data: Array<Partial<PensumSubject> & { code: string; semester: number | string }>,
+): Promise<Semester[]> {
+  if (ipc) return unwrap(ipc.subjects.bulkUpsert(data));
+  return web.bulkUpsertSubjects(data);
 }
 
 // ── Academic Load ──────────────────────────────────────

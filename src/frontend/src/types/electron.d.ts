@@ -27,6 +27,7 @@ export interface ElectronAPI {
     update(id: string, data: Partial<Professor>): Promise<Envelope<Professor>>;
     delete(id: string): Promise<Envelope<Ok>>;
     reset(): Promise<Envelope<Professor[]>>;
+    bulkUpsert(data: Partial<Professor>[]): Promise<Envelope<Professor[]>>;
   };
 
   subjects: {
@@ -36,6 +37,9 @@ export interface ElectronAPI {
     delete(code: string): Promise<Envelope<Ok>>;
     updateProfessors(code: string, professorIds: string[]): Promise<Envelope<Ok>>;
     resetPensum(): Promise<Envelope<Semester[]>>;
+    bulkUpsert(
+      data: Array<Partial<PensumSubject> & { code: string; semester: number | string }>,
+    ): Promise<Envelope<Semester[]>>;
   };
 
   schedule: {

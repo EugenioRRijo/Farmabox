@@ -12,7 +12,9 @@ import {
   LayoutGrid,
   List as ListIcon,
   Trash2,
-  Copy
+  Copy,
+  Upload,
+  CalendarDays
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,18 +23,22 @@ import { Dialog, DialogContent } from '@/components/ui/Dialog';
 
 import { Professor, Semester, PensumSubject } from '../../../../shared/src/index';
 import { useAppData } from '../../context/AppDataContext';
+import { ImportModal } from '@/components/common/ImportModal';
+import { generateProfessorSchedulePdf } from '../../services/PdfExportService';
 
 export function ProfessorsPage() {
-  const { 
-    professors, 
-    pensum, 
-    handleAddProfessor: onAdd, 
-    handleUpdateProfessor: onUpdate, 
-    handleDeleteProfessor: onDelete, 
-    handleResetProfessors: onReset, 
-    academicLoad, 
-    handleUpdateLoad: onUpdateLoad 
+  const {
+    professors,
+    pensum,
+    scheduleBlocks,
+    handleAddProfessor: onAdd,
+    handleUpdateProfessor: onUpdate,
+    handleDeleteProfessor: onDelete,
+    handleResetProfessors: onReset,
+    academicLoad,
+    handleUpdateLoad: onUpdateLoad
   } = useAppData();
+  const [showImport, setShowImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<string>('alpha-asc');
   const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
@@ -215,6 +221,14 @@ export function ProfessorsPage() {
                 </Button>
             )}
             <Button
+                onClick={() => setShowImport(true)}
+                variant="outline"
+                className="flex items-center gap-2 text-gray-600"
+            >
+                <Upload className="w-4 h-4" />
+                Importar
+            </Button>
+            <Button
                 onClick={() => handleOpenDialog()}
                 className="flex items-center gap-2"
             >
@@ -366,6 +380,15 @@ export function ProfessorsPage() {
                    >
                     <Edit2 className="w-4 h-4" />
                    </Button>
+                 <Button
+                   variant="ghost"
+                   size="icon"
+                   title="Descargar horario del profesor (PDF)"
+                   onClick={() => generateProfessorSchedulePdf(professor, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects))}
+                   className="flex-shrink-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                 >
+                   <CalendarDays className="w-4 h-4" />
+                 </Button>
                  <Button
                    variant="ghost"
                    size="icon"
@@ -727,6 +750,14 @@ export function ProfessorsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {showImport && (
+        <ImportModal
+          kind="professors"
+          onClose={() => setShowImport(false)}
+          onDone={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }

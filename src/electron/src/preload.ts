@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (id: string, data: unknown) => invoke('professors:update', id, data),
     delete: (id: string) => invoke('professors:delete', id),
     reset: () => invoke('professors:reset'),
+    bulkUpsert: (data: unknown) => invoke('professors:bulkUpsert', data),
   },
 
   // ── Subjects ─────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateProfessors: (code: string, professorIds: string[]) =>
       invoke('subjects:updateProfessors', code, professorIds),
     resetPensum: () => invoke('subjects:resetPensum'),
+    bulkUpsert: (data: unknown) => invoke('subjects:bulkUpsert', data),
   },
 
   // ── Schedule ─────────────────────────────────────────────────────────

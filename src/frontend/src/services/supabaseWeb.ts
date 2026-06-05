@@ -112,6 +112,26 @@ export async function resetProfessors(): Promise<Professor[]> {
   return PROFESSORS_DATA;
 }
 
+export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Promise<Professor[]> {
+  const sb = requireSupabase();
+  let i = 0;
+  const profs: Professor[] = incoming.map((raw) => ({
+    id: raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${i++}`,
+    fullName: raw.fullName ?? 'Sin nombre',
+    title: raw.title ?? 'Prof.',
+    email: raw.email,
+    cedula: raw.cedula,
+    subjects: raw.subjects ?? [],
+    type: raw.type ?? 'both',
+  }));
+  if (profs.length) {
+    const { error } = await sb.from('professors').upsert(profs.map((p) => profRow(p)));
+    if (error) throw error;
+    for (const p of profs) await setProfessorLinks(p.id, p.subjects ?? []);
+  }
+  return profs;
+}
+
 // ── Materias / Pensum ───────────────────────────────────────────────────────
 export async function getSubjects(): Promise<Semester[]> {
   const sb = requireSupabase();
@@ -203,6 +223,32 @@ export async function deleteSubject(code: string): Promise<void> {
   await sb.from('academic_load').delete().eq('subject_code', code);
   const { error } = await sb.from('subjects').update({ deleted_at: now() }).eq('code', code);
   if (error) throw error;
+}
+
+export async function bulkUpsertSubjects(
+  incoming: (Partial<PensumSubject> & { code: string; semester: number | string })[],
+): Promise<Semester[]> {
+  const sb = requireSupabase();
+  const rows = incoming
+    .filter((r) => r.code)
+    .map((raw) => {
+      const sub: PensumSubject = {
+        code: String(raw.code).trim(),
+        name: raw.name ?? String(raw.code),
+        credits: Number(raw.credits) || 0,
+        hasLab: Number(raw.hoursLab) > 0 || !!raw.hasLab,
+        hoursTheory: Number(raw.hoursTheory) || 0,
+        hoursLab: Number(raw.hoursLab) || 0,
+        prerequisites: raw.prerequisites ?? [],
+        labNumber: raw.labNumber ? String(raw.labNumber) : undefined,
+      };
+      return subjRow(sub, Number(raw.semester) || 1);
+    });
+  if (rows.length) {
+    const { error } = await sb.from('subjects').upsert(rows);
+    if (error) throw error;
+  }
+  return getSubjects();
 }
 
 // ── Carga académica ─────────────────────────────────────────────────────────

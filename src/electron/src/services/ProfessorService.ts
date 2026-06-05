@@ -51,4 +51,26 @@ export class ProfessorService {
     this.storage.saveProfessors(PROFESSORS_DATA);
     return PROFESSORS_DATA;
   }
+
+  /** Importación en lote: crea/actualiza profesores (upsert por id; genera id si falta). */
+  bulkUpsert(incoming: Partial<Professor>[]): Professor[] {
+    const existing = this.storage.loadProfessors();
+    const byId = new Map(existing.map((p) => [p.id, p]));
+    let i = 0;
+    for (const raw of incoming) {
+      const id = raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${i++}`;
+      byId.set(id, {
+        id,
+        fullName: raw.fullName ?? 'Sin nombre',
+        title: raw.title ?? 'Prof.',
+        email: raw.email,
+        cedula: raw.cedula,
+        subjects: raw.subjects ?? [],
+        type: raw.type ?? 'both',
+      });
+    }
+    const merged = [...byId.values()];
+    this.storage.saveProfessors(merged);
+    return merged;
+  }
 }

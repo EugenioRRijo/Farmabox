@@ -242,6 +242,84 @@ export const generateSchedulePdf = async (
   pdfMake.createPdf(docDefinition).download(finalName);
 };
 
+/** Horario semanal de UN profesor (todos sus bloques, todas las secciones/semestres). */
+export const generateProfessorSchedulePdf = async (
+  professor: Professor,
+  blocks: ScheduleBlock[],
+  subjects: PensumSubject[],
+) => {
+  const logoDataUrl = await loadLogo();
+
+  const timeSlots = [
+    '7:00-7:45', '7:45-8:30', '8:30-9:15', '9:15-10:00',
+    '10:00-10:45', '10:45-11:30', '11:30-12:15', '12:15-1:00',
+    '1:00-1:45', '1:45-2:30', '2:30-3:15', '3:15-4:00',
+    '4:00-4:45', '4:45-5:30', '5:30-6:15', '6:15-7:00',
+  ];
+  const days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
+  const myBlocks = blocks.filter((b) => b.professorId === professor.id);
+
+  const covered: Record<string, boolean> = {};
+  const body: TableCell[][] = [];
+  body.push([
+    { text: 'HORA', style: 'tableHeader', alignment: 'center' },
+    ...days.map((d) => ({ text: d, style: 'tableHeader', alignment: 'center' as const })),
+  ]);
+
+  timeSlots.forEach((label, row) => {
+    const r: TableCell[] = [{ text: label, alignment: 'center', fontSize: 7 }];
+    for (let d = 0; d < 5; d++) {
+      const key = `${d}-${row}`;
+      if (covered[key]) {
+        r.push({ text: '', fontSize: 7 });
+        continue;
+      }
+      const block = myBlocks.find((b) => b.day === d && b.startHour === row);
+      if (block) {
+        const subj = subjects.find((s) => s.code === block.subjectCode);
+        const tipo = block.type === 'LAB' ? 'Lab' : 'Teoría';
+        const sec = block.section ? ` · Sec ${block.section}` : '';
+        const txt = `${subj?.name ?? block.subjectCode}\n${tipo}${sec}`;
+        if (block.duration > 1) {
+          for (let k = 1; k < block.duration; k++) covered[`${d}-${row + k}`] = true;
+          r.push({ text: txt, alignment: 'center', fontSize: 6, rowSpan: block.duration });
+        } else {
+          r.push({ text: txt, alignment: 'center', fontSize: 6 });
+        }
+      } else {
+        r.push({ text: '', fontSize: 7 });
+      }
+    }
+    body.push(r);
+  });
+
+  const content: Content[] = [];
+  if (logoDataUrl) content.push({ image: logoDataUrl, width: 50, alignment: 'center', margin: [0, 0, 0, 5] });
+  content.push(
+    { text: 'FACULTAD DE FARMACIA', style: 'docHeader', alignment: 'center' },
+    { text: 'HORARIO DEL PROFESOR', style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 4] },
+    { text: `${professor.title} ${professor.fullName}`, bold: true, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 8] },
+    {
+      table: { headerRows: 1, widths: [45, '*', '*', '*', '*', '*'], body },
+      layout: {
+        hLineWidth: () => 0.5,
+        vLineWidth: () => 0.5,
+        hLineColor: () => '#999999',
+        vLineColor: () => '#999999',
+        paddingLeft: () => 3,
+        paddingRight: () => 3,
+        paddingTop: () => 2,
+        paddingBottom: () => 2,
+      },
+    },
+  );
+
+  const docDefinition = getBaseDocDefinition();
+  docDefinition.content = content;
+  const safe = professor.fullName.replace(/[^a-zA-Z0-9]+/g, '_');
+  pdfMake.createPdf(docDefinition).download(`Horario_${safe}.pdf`);
+};
+
 export const generateAllSchedulesPdf = async (
   configs: SchedulePageConfig[],
   filename: string = 'Todos_Los_Horarios'

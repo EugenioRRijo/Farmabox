@@ -91,6 +91,14 @@ export function registerIpcHandlers(services: AppServices): void {
       return { error: 'Error resetting professors' };
     }
   });
+  ipcMain.handle('professors:bulkUpsert', (_e: IpcMainInvokeEvent, data: Partial<Professor>[]) => {
+    try {
+      return { data: professorService.bulkUpsert(Array.isArray(data) ? data : []) };
+    } catch (err) {
+      log.error('[IPC professors:bulkUpsert]', err);
+      return { error: 'Error importing professors' };
+    }
+  });
 
   // ── Subjects ───────────────────────────────────────────────────────────
   ipcMain.handle('subjects:getAll', () => {
@@ -151,6 +159,17 @@ export function registerIpcHandlers(services: AppServices): void {
       return { error: 'Error resetting pensum' };
     }
   });
+  ipcMain.handle(
+    'subjects:bulkUpsert',
+    (_e: IpcMainInvokeEvent, data: Array<Partial<PensumSubject> & { code: string; semester: number | string }>) => {
+      try {
+        return { data: subjectService.bulkUpsert(Array.isArray(data) ? data : []) };
+      } catch (err) {
+        log.error('[IPC subjects:bulkUpsert]', err);
+        return { error: 'Error importing subjects' };
+      }
+    },
+  );
 
   // ── Schedule Blocks ────────────────────────────────────────────────────
   ipcMain.handle('schedule:getBlocks', () => {
