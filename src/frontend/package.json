@@ -16,6 +16,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@scheduler/shared": "*",
+    "@supabase/supabase-js": "^2.107.0",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.18",
     "@types/pdfmake": "^0.3.2",
