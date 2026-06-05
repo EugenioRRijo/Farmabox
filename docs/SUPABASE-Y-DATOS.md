@@ -2,8 +2,9 @@
 
 ## Cómo funciona ahora (resumen)
 
-- La app arranca **sin materias ni profesores**: los carga el usuario.
-- **Todo lo que cargue se guarda solo en Supabase**, tras cada cambio y al cerrar
+- La app arranca **precargada con el pensum real** (PENSUM 2023-01: 86 materias en
+  10 semestres + 45 profesores). El usuario puede editar, agregar o borrar.
+- **Todo lo que cargue/edite se guarda solo en Supabase**, tras cada cambio y al cerrar
   la app. No hay botón ni menú de "Sincronizar": es automático e invisible. Si no
   hay internet, sigue funcionando local y sube al reconectar.
 - Al abrir, la app **baja** lo último de la nube y lo **fusiona por fila**
