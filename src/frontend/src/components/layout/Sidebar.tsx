@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
 import { Link, useLocation } from 'react-router-dom';
-import logoUsm from '@/assets/logo_usm.png';
+import appLogo from '@/assets/logo.png';
 
 interface SidebarItem {
   id: string; // Used as the path now
@@ -58,16 +58,16 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       <div className="flex h-16 items-center justify-center border-b border-brand-light/20 px-4">
         {collapsed ? (
           <img
-            src={logoUsm}
-            alt="USM"
-            className="h-10 w-10 object-contain rounded-lg bg-white p-1"
+            src={appLogo}
+            alt="Farmabox"
+            className="h-10 w-10 object-contain rounded-lg ring-1 ring-white/15"
           />
         ) : (
           <div className="flex items-center gap-3">
             <img
-              src={logoUsm}
-              alt="USM"
-              className="h-10 w-10 object-contain rounded-lg bg-white p-1"
+              src={appLogo}
+              alt="Farmabox"
+              className="h-10 w-10 object-contain rounded-lg ring-1 ring-white/15"
             />
             <div className="flex flex-col">
               <span className="text-sm font-bold text-white">Farmabox</span>
