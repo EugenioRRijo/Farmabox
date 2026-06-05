@@ -13,7 +13,7 @@ export function SubjectsPage() {
   const [expandedSemesters, setExpandedSemesters] = useState<Set<number>>(new Set([1]));
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   
   // State for Professor Assignment Modal
   const [isProfModalOpen, setIsProfModalOpen] = useState(false);

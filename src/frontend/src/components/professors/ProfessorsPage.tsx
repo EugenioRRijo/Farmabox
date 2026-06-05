@@ -38,7 +38,7 @@ export function ProfessorsPage() {
   const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Professor>>({});
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [emailsCopied, setEmailsCopied] = useState(false);
   
   // State for Subject Autocomplete in Modal

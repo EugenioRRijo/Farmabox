@@ -12,6 +12,9 @@ USM-Scheduler-Portable/
 src/electron/frontend/
 *.tsbuildinfo
 
+# Datos de runtime del backend Express (se siembran desde @scheduler/shared)
+src/backend/data/
+
 # vite.config compilado: NO debe existir, eclipsa a vite.config.ts
 # (sin base:'./' → rutas absolutas → pantalla en blanco en el .exe)
 src/frontend/vite.config.js
