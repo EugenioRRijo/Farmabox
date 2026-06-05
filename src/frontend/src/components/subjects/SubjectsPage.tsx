@@ -542,19 +542,6 @@ export function SubjectsPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Horas Laboratorio</label>
-                            <input 
-                                type="number" 
-                                min="0"
-                                className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                value={formData.hoursLab}
-                                onChange={e => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    setFormData({...formData, hoursLab: val, hasLab: val > 0});
-                                }}
-                            />
-                        </div>
-                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Salón de Laboratorio</label>
                             <input 
                                 type="text" 

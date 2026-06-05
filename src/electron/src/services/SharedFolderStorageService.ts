@@ -27,6 +27,7 @@ import type { IStorageService } from './IStorageService';
 
 export class SharedFolderStorageService extends SyncStorageBase {
   private readonly dir: string;
+  private enabledCache: { val: boolean; at: number } | null = null;
 
   constructor(local: IStorageService, private readonly sharedRoot: string) {
     super(local);
@@ -34,12 +35,22 @@ export class SharedFolderStorageService extends SyncStorageBase {
     log.info('[Shared] Carpeta compartida →', this.dir);
   }
 
+  /**
+   * ¿La carpeta está accesible? `fs.existsSync` sobre una ruta de red caída
+   * BLOQUEA el hilo principal (timeout SMB) y se llama tras CADA guardado, así
+   * que cacheamos el resultado ~15s para no congelar la UI si la red se cae.
+   */
   isRemoteEnabled(): boolean {
+    const now = Date.now();
+    if (this.enabledCache && now - this.enabledCache.at < 15000) return this.enabledCache.val;
+    let val = false;
     try {
-      return fs.existsSync(this.sharedRoot);
+      val = fs.existsSync(this.sharedRoot);
     } catch {
-      return false;
+      val = false;
     }
+    this.enabledCache = { val, at: now };
+    return val;
   }
 
   private ensureDir(): void {

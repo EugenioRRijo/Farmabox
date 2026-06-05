@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Professor, 
   Semester, 
@@ -59,6 +59,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         if (load) {
           const finalLoad = { ...(load as AcademicLoad) };
           Object.keys(finalLoad).forEach(code => {
+            // Guard: si la entrada no es un objeto válido, descartarla (evita crash).
+            const entry = finalLoad[code] as unknown;
+            if (!entry || typeof entry !== 'object') {
+              delete finalLoad[code];
+              return;
+            }
             // Cleanup corrupted string-spread elements (like "p", "r", "o", "f")
             if (Array.isArray(finalLoad[code].theory)) {
               finalLoad[code].theory = finalLoad[code].theory.filter(id => id.length > 3);
@@ -209,7 +215,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const availableSubjects = pensum.find((s) => s.number === selectedSemester)?.subjects || [];
+  const availableSubjects = useMemo(
+    () => pensum.find((s) => s.number === selectedSemester)?.subjects || [],
+    [pensum, selectedSemester],
+  );
 
   const value = {
     professors,

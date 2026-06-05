@@ -20,6 +20,7 @@ export class ProfessorService {
       fullName: data.fullName ?? 'Nuevo Profesor',
       title: data.title ?? 'Prof.',
       email: data.email,
+      cedula: data.cedula,
       subjects: data.subjects ?? [],
       type: data.type ?? 'both',
     };
