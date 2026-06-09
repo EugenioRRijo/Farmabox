@@ -8,7 +8,7 @@
  *   4. Splash screen con logo + ventana principal
  *   5. Ciclo de vida + sincronización (inicio y cierre de sesión)
  */
-import { app, BrowserWindow, Menu, dialog } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
 import path from 'path';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
@@ -192,12 +192,38 @@ function setupPeriodicSync(): void {
   }, 60000); // cada 60 s
 }
 
+// ── Sincronización manual (botón "Sincronizar ahora") + estado ──────────────
+function registerSyncIpc(): void {
+  ipcMain.handle('sync:now', async () => {
+    try {
+      if (!store || !store.isRemoteEnabled()) {
+        return { data: { ok: false, changed: false, online: false } };
+      }
+      await store.flush(); // sube lo pendiente
+      const r = await store.syncNow(); // baja + fusiona
+      if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('data-changed');
+      }
+      return { data: { ok: r.ok, changed: r.changed, online: true, at: new Date().toISOString() } };
+    } catch (e) {
+      log.error('[IPC sync:now]', e);
+      return { error: 'No se pudo sincronizar' };
+    }
+  });
+
+  ipcMain.handle('sync:status', () => {
+    const online = !!store && store.isRemoteEnabled();
+    return { data: { online, mode: getSharedDir() ? 'folder' : 'cloud' } };
+  });
+}
+
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
   store = buildStorage();
   const services = buildServices(store);
   registerIpcHandlers(services);
+  registerSyncIpc();
   log.info('[IPC] All handlers registered.');
 
   // Sincronizar (pull + merge) al iniciar, antes de mostrar la UI.

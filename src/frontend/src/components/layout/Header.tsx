@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui';
 import { MESSAGES } from '@/constants';
+import { SyncButton } from './SyncButton';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -45,6 +46,8 @@ export function Header({ onSearch }: HeaderProps) {
             </div>
           </form>
         )}
+
+        <SyncButton />
       </div>
     </motion.header>
   );

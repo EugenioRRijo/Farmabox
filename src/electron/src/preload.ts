@@ -69,6 +69,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pickFolder: () => invoke('config:pickFolder'),
   },
 
+  // ── Sincronización manual (botón "Sincronizar ahora") ────────────────
+  sync: {
+    now: () => invoke('sync:now'),
+    status: () => invoke('sync:status'),
+  },
+
   // ── Aviso de cambios traídos por el pull periódico (multi-PC) ─────────
   onDataChanged: (callback: () => void) => {
     const listener = (): void => callback();

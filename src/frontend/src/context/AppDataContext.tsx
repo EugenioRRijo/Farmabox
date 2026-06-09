@@ -30,6 +30,7 @@ interface AppDataContextType {
   handleBlocksChange: (blocks: ScheduleBlock[]) => void;
   logScheduleChange: (action: string, details: string) => Promise<void>;
   availableSubjects: PensumSubject[];
+  reload: (silent?: boolean) => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -107,6 +108,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = Backend.onRemoteDataChanged(() => reload(true));
     return unsub;
+  }, [reload]);
+
+  // En la WEB no hay pull periódico nativo (la .exe sí lo tiene cada ~60s),
+  // así que acá refrescamos solos cada 30s para ver cambios de otras PCs.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI) return;
+    const id = setInterval(() => reload(true), 30000);
+    return () => clearInterval(id);
   }, [reload]);
 
   const handleAddProfessor = useCallback(async (prof: Professor) => {
@@ -257,6 +266,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     handleBlocksChange,
     logScheduleChange,
     availableSubjects,
+    reload,
   };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

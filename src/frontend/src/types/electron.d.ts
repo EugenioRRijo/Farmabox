@@ -70,6 +70,11 @@ export interface ElectronAPI {
     pickFolder(): Promise<Envelope<{ path: string | null }>>;
   };
 
+  sync: {
+    now(): Promise<Envelope<{ ok: boolean; changed: boolean; online: boolean; at?: string }>>;
+    status(): Promise<Envelope<{ online: boolean; mode: 'cloud' | 'folder' }>>;
+  };
+
   /** Suscribe a cambios traídos por el pull periódico (multi-PC). Devuelve un unsubscribe. */
   onDataChanged(callback: () => void): () => void;
 }

@@ -241,3 +241,27 @@ export function onRemoteDataChanged(callback: () => void): () => void {
   if (!ipc || typeof ipc.onDataChanged !== 'function') return () => {};
   return ipc.onDataChanged(callback);
 }
+
+// ── Sincronización manual ("Sincronizar ahora") ────────────────────────────
+export interface SyncResult {
+  ok: boolean;
+  changed: boolean;
+  online: boolean;
+  at?: string;
+}
+export interface SyncStatus {
+  online: boolean;
+  mode: 'cloud' | 'folder';
+}
+
+/** Fuerza subir lo pendiente + bajar cambios (.exe). En web no hay nada que subir
+ *  (las escrituras ya van directo a Supabase); el caller re-lee con reload(). */
+export async function syncNow(): Promise<SyncResult> {
+  if (ipc) return unwrap(ipc.sync.now());
+  return { ok: true, changed: false, online: typeof navigator !== 'undefined' ? navigator.onLine : true };
+}
+
+export async function getSyncStatus(): Promise<SyncStatus> {
+  if (ipc) return unwrap(ipc.sync.status());
+  return { online: typeof navigator !== 'undefined' ? navigator.onLine : true, mode: 'cloud' };
+}
