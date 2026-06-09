@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { PensumSubject, Professor } from '../../../../shared/src/index'; 
+import { createPortal } from 'react-dom';
+import { X, Trash2 } from 'lucide-react';
+import { PensumSubject, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
 import { ExportButton } from './ExportButton';
 import { CourseInfoTable } from './CourseInfoTable';
@@ -37,7 +39,7 @@ const COLORS = [
 ];
 
 interface CellData {
-    block: ScheduleBlock | null;
+    blocks: ScheduleBlock[]; // todos los bloques que ARRANCAN en esta celda (labs solapados)
     rowspan: number;
     isEmpty: boolean;
 }
@@ -65,6 +67,8 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
     const [selectionStart, setSelectionStart] = useState<{day: number, row: number} | null>(null);
     const [selectionEnd, setSelectionEnd] = useState<{day: number, row: number} | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    // Detalle de una celda ocupada (al hacer click): muestra qué bloques/labs tiene.
+    const [detailCell, setDetailCell] = useState<{ day: number; row: number; blocks: ScheduleBlock[] } | null>(null);
 
     // Filter blocks by current semester's subjects and CURRENT SECTION
     const currentSemesterBlocks = useMemo(() => {
@@ -121,33 +125,33 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
     const tableData = useMemo(() => {
         const data: CellData[][] = TIME_SLOTS.map(() =>
-            DAYS.map(() => ({ block: null, rowspan: 1, isEmpty: true }))
+            DAYS.map(() => ({ blocks: [] as ScheduleBlock[], rowspan: 1, isEmpty: true }))
         );
 
+        // 1) Agrupar TODOS los bloques que arrancan en cada celda (permite labs solapados).
         blocksToDisplay.forEach((block: ScheduleBlock) => {
             const row = block.startHour;
             const day = block.day;
-
             if (row < TIME_SLOTS.length) {
-                // Set the block in the starting cell
-                data[row][day] = {
-                    block,
-                    rowspan: block.duration,
-                    isEmpty: false,
-                };
+                data[row][day].blocks.push(block);
+                data[row][day].isEmpty = false;
+            }
+        });
 
-                // Mark subsequent rows as empty (will be hidden via rowspan)
-                for (let i = 1; i < block.duration; i++) {
-                    if (row + i < TIME_SLOTS.length) {
-                        data[row + i][day] = {
-                            block: null,
-                            rowspan: 0, // This cell will be hidden
-                            isEmpty: true,
-                        };
+        // 2) Rowspan = mayor duración del grupo; enmascarar las filas cubiertas (si están vacías).
+        for (let r = 0; r < TIME_SLOTS.length; r++) {
+            for (let d = 0; d < DAYS.length; d++) {
+                const cell = data[r][d];
+                if (cell.blocks.length === 0) continue;
+                const maxDur = Math.max(...cell.blocks.map((b) => b.duration));
+                cell.rowspan = maxDur;
+                for (let i = 1; i < maxDur; i++) {
+                    if (r + i < TIME_SLOTS.length && data[r + i][d].blocks.length === 0) {
+                        data[r + i][d] = { blocks: [], rowspan: 0, isEmpty: true };
                     }
                 }
             }
-        });
+        }
 
         return data;
     }, [blocksToDisplay]);
@@ -246,6 +250,20 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         setSelectionStart(null);
         setSelectionEnd(null);
     }, [isDragging, selectionStart, selectionEnd, selectedSubjectCode, currentSemesterBlocks, scheduleBlocks, assignmentType, onBlocksChange, getSubject, selectedProfessorId, section, validateBlock, logScheduleChange]);
+
+    // Eliminar un bloque concreto desde el modal de detalle de la celda.
+    const removeBlockFromDetail = useCallback((b: ScheduleBlock) => {
+        const newBlocks = scheduleBlocks.filter((x: ScheduleBlock) => x.id !== b.id);
+        const sub = getSubject(b.subjectCode);
+        const time = TIME_SLOTS[b.startHour].split('-')[0];
+        logScheduleChange('Eliminar Bloque', `Se eliminó bloque de ${sub?.name || b.subjectCode} el día ${DAYS[b.day]} a las ${time}`);
+        onBlocksChange(newBlocks);
+        setDetailCell((prev) => {
+            if (!prev) return null;
+            const remaining = prev.blocks.filter((x) => x.id !== b.id);
+            return remaining.length ? { ...prev, blocks: remaining } : null;
+        });
+    }, [scheduleBlocks, getSubject, logScheduleChange, onBlocksChange]);
 
     // Helper to visualize selection
     const isCellSelected = (day: number, row: number) => {
@@ -544,47 +562,44 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                     return null;
                                                 }
 
-                                                // Handle Filter
-                                                const isFilteredOut = filterProfessorId !== 'all' &&
-                                                                      cell.block &&
-                                                                      cell.block.professorId !== filterProfessorId;
-
-                                                const subject = cell.block ? getSubject(cell.block.subjectCode) : null;
-                                                const color = cell.block && subject ? getSubjectColor(subject.code) : null;
-                                                // Removed courseInfo references
+                                                // Bloques que arrancan en esta celda (puede haber varios labs solapados).
+                                                const blocks = cell.blocks;
+                                                const hasBlocks = blocks.length > 0;
+                                                const isMulti = blocks.length > 1;
+                                                const primary = blocks[0] ?? null;
+                                                const allLab = hasBlocks && blocks.every((b) => b.type === 'LAB');
+                                                const subject = primary ? getSubject(primary.subjectCode) : null;
+                                                const color = primary && subject ? getSubjectColor(subject.code) : null;
                                                 const classroomDisplay = subject?.labNumber ? `Lab ${subject.labNumber}` : 'Aula-F1';
-
-                                                const professor = cell.block?.professorId
-                                                    ? professors.find((p: Professor) => p.id === cell.block?.professorId)
+                                                const professor = primary?.professorId
+                                                    ? professors.find((p: Professor) => p.id === primary.professorId)
                                                     : null;
+
+                                                // Filtro por profesor: se atenúa si NINGÚN bloque de la celda es de ese profe.
+                                                const isFilteredOut = filterProfessorId !== 'all' &&
+                                                                      hasBlocks &&
+                                                                      !blocks.some((b) => b.professorId === filterProfessorId);
 
                                                 return (
                                                     <td
                                                         key={`${dayIndex}-${rowIndex}`}
                                                         rowSpan={cell.rowspan}
                                                         onMouseDown={readOnly ? undefined : (e) => {
-                                                            // Prevent default text selection
                                                             e.preventDefault();
-
-                                                            // If clicking an existing block, remove it (keep old logic for removal)
-                                                            if (cell.block) {
-                                                                const newBlocks = scheduleBlocks.filter((b: ScheduleBlock) => b.id !== cell.block!.id);
-                                                                const time = TIME_SLOTS[cell.block.startHour].split('-')[0];
-                                                                const blockSubject = getSubject(cell.block.subjectCode);
-                                                                
-                                                                logScheduleChange('Eliminar Bloque', `Se eliminó bloque de ${blockSubject?.name || cell.block.subjectCode} el día ${DAYS[cell.block.day]} a las ${time}`);
-                                                                
-                                                                onBlocksChange(newBlocks);
+                                                            // Click sobre celda ocupada → abrir detalle (qué bloques/labs tiene).
+                                                            if (hasBlocks) {
+                                                                setDetailCell({ day: dayIndex, row: rowIndex, blocks });
                                                                 return;
                                                             }
-
                                                             handleMouseDown(dayIndex, rowIndex);
                                                         }}
                                                         onMouseEnter={readOnly ? undefined : () => handleMouseEnter(dayIndex, rowIndex)}
                                                         className={`
                                                             px-2 py-2 text-center align-middle cursor-pointer transition-all select-none
-                                                            ${cell.block
-                                                                ? `${color?.bg || 'bg-gray-50'} ${color?.text || 'text-black'} hover:opacity-85`
+                                                            ${hasBlocks
+                                                                ? (isMulti
+                                                                    ? 'bg-purple-50 text-purple-900 hover:opacity-85'
+                                                                    : `${color?.bg || 'bg-gray-50'} ${color?.text || 'text-black'} hover:opacity-85`)
                                                                 : isCellSelected(dayIndex, rowIndex)
                                                                     ? 'bg-brand-pale/50 ring-2 ring-inset ring-brand-accent'
                                                                     : 'bg-white hover:bg-brand-pale/10'
@@ -601,25 +616,36 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                             verticalAlign: 'middle'
                                                         }}
                                                     >
-                                                        {cell.block && subject ? (
-                                                            <div className={`flex flex-col justify-center items-center h-full py-1 ${cell.block.type === 'LAB' ? 'text-purple-800' : ''}`}>
-                                                                <div className="font-bold text-[10px] uppercase leading-tight mb-0.5 px-1 text-center">
-                                                                    {subject.name}
-                                                                </div>
-                                                                <div className="text-[9px] font-normal opacity-75 text-center flex flex-col items-center justify-center gap-0.5">
-                                                                    <div className="flex items-center justify-center gap-1 flex-wrap">
-                                                                        {cell.block.type === 'LAB' && (
-                                                                            <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold">
-                                                                                LAB {subject.labNumber ? `(${subject.labNumber})` : ''}
-                                                                            </span>
-                                                                        )}
-                                                                        <span>{classroomDisplay}</span>
+                                                        {hasBlocks ? (
+                                                            isMulti ? (
+                                                                <div className="flex flex-col justify-center items-center h-full py-1 text-purple-800">
+                                                                    <div className="font-bold text-[10px] uppercase leading-tight">
+                                                                        {allLab ? '🧪 Laboratorios' : 'Clases'}
                                                                     </div>
-                                                                    {professor && (
-                                                                        <span className="text-[8px] italic">{professor.title} {professor.fullName}</span>
-                                                                    )}
+                                                                    <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold mt-0.5">
+                                                                        {blocks.length} {allLab ? 'labs' : 'bloques'} · ver
+                                                                    </span>
                                                                 </div>
-                                                            </div>
+                                                            ) : subject ? (
+                                                                <div className={`flex flex-col justify-center items-center h-full py-1 ${primary!.type === 'LAB' ? 'text-purple-800' : ''}`}>
+                                                                    <div className="font-bold text-[10px] uppercase leading-tight mb-0.5 px-1 text-center">
+                                                                        {subject.name}
+                                                                    </div>
+                                                                    <div className="text-[9px] font-normal opacity-75 text-center flex flex-col items-center justify-center gap-0.5">
+                                                                        <div className="flex items-center justify-center gap-1 flex-wrap">
+                                                                            {primary!.type === 'LAB' && (
+                                                                                <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold">
+                                                                                    LAB {subject.labNumber ? `(${subject.labNumber})` : ''}
+                                                                                </span>
+                                                                            )}
+                                                                            <span>{classroomDisplay}</span>
+                                                                        </div>
+                                                                        {professor && (
+                                                                            <span className="text-[8px] italic">{professor.title} {professor.fullName}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ) : null
                                                         ) : (
                                                             <div className="h-full flex items-center justify-center">
                                                                 <span className="text-[8px] text-gray-400 opacity-50">
@@ -654,6 +680,64 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                 academicLoad={academicLoad}
                 professors={professors}
             />
+
+            {/* Detalle de la celda: qué bloques/labs tiene este horario (al hacer click) */}
+            {detailCell && createPortal(
+                <div
+                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4"
+                    onMouseDown={() => setDetailCell(null)}
+                >
+                    <div
+                        className="bg-white rounded-lg shadow-xl w-full max-w-md p-5"
+                        onMouseDown={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-bold text-gray-900">
+                                {DAYS[detailCell.day]} · {TIME_SLOTS[detailCell.row]}
+                            </h3>
+                            <button onClick={() => setDetailCell(null)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3">
+                            {detailCell.blocks.length} bloque(s) en este horario
+                            {detailCell.blocks.length > 1 && detailCell.blocks.every((b) => b.type === 'LAB')
+                                ? ' — laboratorios en paralelo'
+                                : ''}:
+                        </p>
+                        <div className="space-y-2 max-h-[55vh] overflow-auto">
+                            {detailCell.blocks.map((b) => {
+                                const sub = getSubject(b.subjectCode);
+                                const prof = b.professorId ? professors.find((p: Professor) => p.id === b.professorId) : null;
+                                return (
+                                    <div key={b.id} className="flex items-center justify-between border border-gray-200 rounded-lg p-2.5">
+                                        <div className="min-w-0">
+                                            <div className="font-semibold text-sm text-gray-800 truncate">{sub?.name ?? b.subjectCode}</div>
+                                            <div className="text-xs text-gray-500 flex gap-2 flex-wrap mt-0.5">
+                                                <span className={b.type === 'LAB' ? 'text-purple-700 font-medium' : ''}>
+                                                    {b.type === 'LAB' ? `🧪 Lab${sub?.labNumber ? ' ' + sub.labNumber : ''}` : 'Teoría'}
+                                                </span>
+                                                {b.section && <span>Sección {b.section}</span>}
+                                                {prof && <span>{prof.title} {prof.fullName}</span>}
+                                            </div>
+                                        </div>
+                                        {!readOnly && (
+                                            <button
+                                                onClick={() => removeBlockFromDetail(b)}
+                                                title="Eliminar este bloque"
+                                                className="flex-shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1.5"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }
