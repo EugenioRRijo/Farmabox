@@ -1,6 +1,7 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces';
+import { saveAs } from 'file-saver';
 import { PensumSubject, Professor } from '../../../shared/src/index';
 import { ScheduleBlock, AcademicLoad } from '@/types/schedule';
 
@@ -317,7 +318,20 @@ export const generateProfessorSchedulePdf = async (
   const docDefinition = getBaseDocDefinition();
   docDefinition.content = content;
   const safe = professor.fullName.replace(/[^a-zA-Z0-9]+/g, '_');
-  pdfMake.createPdf(docDefinition).download(`Horario_${safe}.pdf`);
+
+  // getBlob + file-saver: descarga confiable en navegador/Electron y permite
+  // await + manejo de errores (a diferencia de .download(), que es fire-and-forget).
+  await new Promise<void>((resolve, reject) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (pdfMake.createPdf(docDefinition) as any).getBlob((blob: Blob) => {
+        saveAs(blob, `Horario_${safe}.pdf`);
+        resolve();
+      });
+    } catch (e) {
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
+  });
 };
 
 export const generateAllSchedulesPdf = async (

@@ -25,6 +25,7 @@ import { Professor, Semester, PensumSubject } from '../../../../shared/src/index
 import { useAppData } from '../../context/AppDataContext';
 import { ImportModal } from '@/components/common/ImportModal';
 import { generateProfessorSchedulePdf } from '../../services/PdfExportService';
+import toast from 'react-hot-toast';
 
 export function ProfessorsPage() {
   const {
@@ -40,6 +41,24 @@ export function ProfessorsPage() {
   } = useAppData();
   const [showImport, setShowImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Exporta el horario de UN profesor a PDF, con avisos claros.
+  const handleExportProfessorPdf = async (prof: Professor) => {
+    const myBlocks = scheduleBlocks.filter((b) => b.professorId === prof.id);
+    if (myBlocks.length === 0) {
+      toast.error(
+        `${prof.fullName} no tiene clases asignadas en ningún horario todavía. Andá a "Horarios", asignale el profesor a sus bloques, y volvé a exportar.`,
+        { duration: 6000 },
+      );
+      return;
+    }
+    try {
+      await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects));
+      toast.success(`Horario de ${prof.fullName} exportado (${myBlocks.length} bloque(s)).`);
+    } catch (e) {
+      toast.error('No se pudo generar el PDF: ' + (e instanceof Error ? e.message : 'error desconocido'));
+    }
+  };
   const [sortOption, setSortOption] = useState<string>('alpha-asc');
   const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -384,7 +403,7 @@ export function ProfessorsPage() {
                    variant="ghost"
                    size="icon"
                    title="Descargar horario del profesor (PDF)"
-                   onClick={() => generateProfessorSchedulePdf(professor, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects))}
+                   onClick={() => handleExportProfessorPdf(professor)}
                    className="flex-shrink-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                  >
                    <CalendarDays className="w-4 h-4" />
@@ -603,7 +622,7 @@ export function ProfessorsPage() {
                                             variant="ghost"
                                             size="icon"
                                             title="Descargar horario del profesor (PDF)"
-                                            onClick={() => generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects))}
+                                            onClick={() => handleExportProfessorPdf(prof)}
                                             className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                         >
                                             <CalendarDays className="w-4 h-4" />
