@@ -29,6 +29,18 @@ create table if not exists professors (
 -- Si la tabla ya existe, agregá la columna nueva:
 -- alter table professors add column if not exists profession text;
 
+-- ── Semestres (tabla independiente; FK desde schedule_blocks) ───────
+create table if not exists semesters (
+  number      integer primary key,             -- 1..10
+  name        text,
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+insert into semesters (number, name)
+  values (1,'Semestre 1'),(2,'Semestre 2'),(3,'Semestre 3'),(4,'Semestre 4'),(5,'Semestre 5'),
+         (6,'Semestre 6'),(7,'Semestre 7'),(8,'Semestre 8'),(9,'Semestre 9'),(10,'Semestre 10')
+  on conflict (number) do nothing;
+
 -- ── Materias (pensum) ───────────────────────────────────────────────
 create table if not exists subjects (
   code          text primary key,
@@ -64,6 +76,7 @@ create table if not exists academic_load (
 create table if not exists schedule_blocks (
   id           text primary key,
   subject_code text,
+  semester     integer references semesters(number),  -- FK al semestre
   day          integer not null,              -- 0 = Lunes
   start_hour   integer not null,
   duration     integer not null,
@@ -75,6 +88,8 @@ create table if not exists schedule_blocks (
   updated_at   timestamptz not null default now(),
   deleted_at   timestamptz
 );
+-- Si la tabla ya existe, agregá la columna nueva:
+-- alter table schedule_blocks add column if not exists semester integer references semesters(number);
 
 -- ── Registro de actividad ───────────────────────────────────────────
 create table if not exists logs (

@@ -34,6 +34,20 @@ async function stripProf(rows: Record<string, unknown>[]): Promise<Record<string
   });
 }
 
+// schedule_blocks.semester también es columna nueva (tabla semesters + FK).
+let blockSemesterSupported: boolean | null = null;
+async function stripBlockSemester(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  if (blockSemesterSupported === null) {
+    const { error } = await requireSupabase().from('schedule_blocks').select('semester').limit(1);
+    blockSemesterSupported = !error;
+  }
+  if (blockSemesterSupported) return rows;
+  return rows.map((r) => {
+    const { semester: _omit, ...rest } = r;
+    return rest;
+  });
+}
+
 // ── Helpers de lectura ──────────────────────────────────────────────────────
 async function fetchLinks(): Promise<{ byProf: Map<string, string[]>; bySubject: Map<string, string[]> }> {
   const sb = requireSupabase();
@@ -305,6 +319,7 @@ export async function getScheduleBlocks(): Promise<ScheduleBlockData[]> {
   return (data ?? []).map((r) => ({
     id: r.id,
     subjectCode: r.subject_code ?? '',
+    semester: r.semester ?? undefined,
     day: r.day,
     startHour: r.start_hour,
     duration: r.duration,
@@ -321,6 +336,7 @@ export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<v
   const rows = blocks.map((b) => ({
     id: b.id,
     subject_code: b.subjectCode ?? null,
+    semester: b.semester ?? null,
     day: b.day,
     start_hour: b.startHour,
     duration: b.duration,
@@ -333,7 +349,7 @@ export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<v
     deleted_at: null,
   }));
   if (rows.length) {
-    const { error } = await sb.from('schedule_blocks').upsert(rows);
+    const { error } = await sb.from('schedule_blocks').upsert(await stripBlockSemester(rows));
     if (error) throw error;
   }
   // Tombstone de los bloques que ya no están en el set.

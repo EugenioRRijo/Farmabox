@@ -62,6 +62,7 @@ export interface AcademicLoad {
 export interface ScheduleBlockData {
   id: string;
   subjectCode: string;
+  semester?: number;
   day: number;
   startHour: number;
   duration: number;

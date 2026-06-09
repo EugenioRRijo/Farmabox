@@ -281,6 +281,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         const newBlock: ScheduleBlock = {
             id: Math.random().toString(36).substr(2, 9),
             subjectCode: selectedSubjectCode,
+            semester: semesterNumber,
             day: day,
             startHour: startRow,
             duration: duration,
