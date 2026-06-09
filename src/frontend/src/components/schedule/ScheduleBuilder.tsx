@@ -128,26 +128,60 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
             DAYS.map(() => ({ blocks: [] as ScheduleBlock[], rowspan: 1, isEmpty: true }))
         );
 
-        // 1) Agrupar TODOS los bloques que arrancan en cada celda (permite labs solapados).
-        blocksToDisplay.forEach((block: ScheduleBlock) => {
-            const row = block.startHour;
-            const day = block.day;
-            if (row < TIME_SLOTS.length) {
-                data[row][day].blocks.push(block);
-                data[row][day].isEmpty = false;
-            }
-        });
+        const masked = new Set<string>(); // "day-row" cubiertas por un rowspan
 
-        // 2) Rowspan = mayor duración del grupo; enmascarar las filas cubiertas (si están vacías).
-        for (let r = 0; r < TIME_SLOTS.length; r++) {
-            for (let d = 0; d < DAYS.length; d++) {
-                const cell = data[r][d];
-                if (cell.blocks.length === 0) continue;
-                const maxDur = Math.max(...cell.blocks.map((b) => b.duration));
-                cell.rowspan = maxDur;
-                for (let i = 1; i < maxDur; i++) {
-                    if (r + i < TIME_SLOTS.length && data[r + i][d].blocks.length === 0) {
-                        data[r + i][d] = { blocks: [], rowspan: 0, isEmpty: true };
+        for (let day = 0; day < DAYS.length; day++) {
+            const dayBlocks = blocksToDisplay.filter(
+                (b: ScheduleBlock) => b.day === day && b.startHour < TIME_SLOTS.length,
+            );
+
+            // 1) CLUSTERS DE LABS: fusiona labs solapados O consecutivos (back-to-back)
+            //    en un solo bloque que abarca todo el rango → "Laboratorios".
+            const labs = dayBlocks
+                .filter((b: ScheduleBlock) => b.type === 'LAB')
+                .sort((a: ScheduleBlock, b: ScheduleBlock) => a.startHour - b.startHour);
+
+            let i = 0;
+            while (i < labs.length) {
+                const start = labs[i].startHour;
+                let end = labs[i].startHour + labs[i].duration;
+                const cluster: ScheduleBlock[] = [labs[i]];
+                let j = i + 1;
+                // Conectados si el siguiente arranca dentro del rango ya cubierto (<= end).
+                while (j < labs.length && labs[j].startHour <= end) {
+                    cluster.push(labs[j]);
+                    end = Math.max(end, labs[j].startHour + labs[j].duration);
+                    j++;
+                }
+                const clampedEnd = Math.min(end, TIME_SLOTS.length);
+                data[start][day].blocks.push(...cluster);
+                data[start][day].isEmpty = false;
+                data[start][day].rowspan = clampedEnd - start;
+                for (let r = start + 1; r < clampedEnd; r++) {
+                    masked.add(`${day}-${r}`);
+                    data[r][day] = { blocks: [], rowspan: 0, isEmpty: true };
+                }
+                i = j;
+            }
+
+            // 2) TEORÍA: bloques normales (cada uno su celda).
+            const theories = dayBlocks.filter((b: ScheduleBlock) => b.type !== 'LAB');
+            for (const t of theories) {
+                const start = t.startHour;
+                const end = Math.min(start + t.duration, TIME_SLOTS.length);
+                if (data[start][day].blocks.length > 0) {
+                    // Comparte la celda de inicio con un cluster de labs → se agrupan.
+                    data[start][day].blocks.push(t);
+                    data[start][day].rowspan = Math.max(data[start][day].rowspan, end - start);
+                } else if (!masked.has(`${day}-${start}`)) {
+                    data[start][day].blocks.push(t);
+                    data[start][day].isEmpty = false;
+                    data[start][day].rowspan = end - start;
+                    for (let r = start + 1; r < end; r++) {
+                        if (data[r][day].blocks.length === 0 && !masked.has(`${day}-${r}`)) {
+                            masked.add(`${day}-${r}`);
+                            data[r][day] = { blocks: [], rowspan: 0, isEmpty: true };
+                        }
                     }
                 }
             }
@@ -568,6 +602,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                 const isMulti = blocks.length > 1;
                                                 const primary = blocks[0] ?? null;
                                                 const allLab = hasBlocks && blocks.every((b) => b.type === 'LAB');
+                                                const allSameSubject = hasBlocks && blocks.every((b) => b.subjectCode === blocks[0].subjectCode);
                                                 const subject = primary ? getSubject(primary.subjectCode) : null;
                                                 const color = primary && subject ? getSubjectColor(subject.code) : null;
                                                 const classroomDisplay = subject?.labNumber ? `Lab ${subject.labNumber}` : 'Aula-F1';
@@ -619,11 +654,11 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                         {hasBlocks ? (
                                                             isMulti ? (
                                                                 <div className="flex flex-col justify-center items-center h-full py-1 text-purple-800">
-                                                                    <div className="font-bold text-[10px] uppercase leading-tight">
-                                                                        {allLab ? '🧪 Laboratorios' : 'Clases'}
+                                                                    <div className="font-bold text-[10px] uppercase leading-tight px-1 text-center">
+                                                                        {allLab ? (allSameSubject && subject ? subject.name : '🧪 Laboratorios') : 'Clases'}
                                                                     </div>
                                                                     <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold mt-0.5">
-                                                                        {blocks.length} {allLab ? 'labs' : 'bloques'} · ver
+                                                                        🧪 {blocks.length} {allLab ? (allSameSubject ? 'grupos' : 'labs') : 'bloques'} · ver
                                                                     </span>
                                                                 </div>
                                                             ) : subject ? (
@@ -683,59 +718,66 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
             {/* Detalle de la celda: qué bloques/labs tiene este horario (al hacer click) */}
             {detailCell && createPortal(
-                <div
-                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4"
-                    onMouseDown={() => setDetailCell(null)}
-                >
-                    <div
-                        className="bg-white rounded-lg shadow-xl w-full max-w-md p-5"
-                        onMouseDown={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-bold text-gray-900">
-                                {DAYS[detailCell.day]} · {TIME_SLOTS[detailCell.row]}
-                            </h3>
-                            <button onClick={() => setDetailCell(null)} className="text-gray-400 hover:text-gray-600">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-3">
-                            {detailCell.blocks.length} bloque(s) en este horario
-                            {detailCell.blocks.length > 1 && detailCell.blocks.every((b) => b.type === 'LAB')
-                                ? ' — laboratorios en paralelo'
-                                : ''}:
-                        </p>
-                        <div className="space-y-2 max-h-[55vh] overflow-auto">
-                            {detailCell.blocks.map((b) => {
-                                const sub = getSubject(b.subjectCode);
-                                const prof = b.professorId ? professors.find((p: Professor) => p.id === b.professorId) : null;
-                                return (
-                                    <div key={b.id} className="flex items-center justify-between border border-gray-200 rounded-lg p-2.5">
-                                        <div className="min-w-0">
-                                            <div className="font-semibold text-sm text-gray-800 truncate">{sub?.name ?? b.subjectCode}</div>
-                                            <div className="text-xs text-gray-500 flex gap-2 flex-wrap mt-0.5">
-                                                <span className={b.type === 'LAB' ? 'text-purple-700 font-medium' : ''}>
-                                                    {b.type === 'LAB' ? `🧪 Lab${sub?.labNumber ? ' ' + sub.labNumber : ''}` : 'Teoría'}
-                                                </span>
-                                                {b.section && <span>Sección {b.section}</span>}
-                                                {prof && <span>{prof.title} {prof.fullName}</span>}
+                (() => {
+                    const sorted = [...detailCell.blocks].sort((a, b) => a.startHour - b.startHour);
+                    const minStart = Math.min(...sorted.map((b) => b.startHour));
+                    const maxEnd = Math.min(Math.max(...sorted.map((b) => b.startHour + b.duration)), TIME_SLOTS.length);
+                    const rangeLabel = `${TIME_SLOTS[minStart].split('-')[0]} – ${TIME_SLOTS[maxEnd - 1].split('-')[1]}`;
+                    const allLabs = sorted.length > 1 && sorted.every((b) => b.type === 'LAB');
+                    return (
+                        <div
+                            className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4"
+                            onMouseDown={() => setDetailCell(null)}
+                        >
+                            <div
+                                className="bg-white rounded-lg shadow-xl w-full max-w-md p-5"
+                                onMouseDown={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-bold text-gray-900">{DAYS[detailCell.day]} · {rangeLabel}</h3>
+                                    <button onClick={() => setDetailCell(null)} className="text-gray-400 hover:text-gray-600">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500 mb-3">
+                                    {sorted.length} bloque(s){allLabs ? ' — laboratorios juntos' : ''}:
+                                </p>
+                                <div className="space-y-2 max-h-[55vh] overflow-auto">
+                                    {sorted.map((b) => {
+                                        const sub = getSubject(b.subjectCode);
+                                        const prof = b.professorId ? professors.find((p: Professor) => p.id === b.professorId) : null;
+                                        const bEnd = Math.min(b.startHour + b.duration, TIME_SLOTS.length);
+                                        const bTime = `${TIME_SLOTS[b.startHour].split('-')[0]}–${TIME_SLOTS[bEnd - 1].split('-')[1]}`;
+                                        return (
+                                            <div key={b.id} className="flex items-center justify-between border border-gray-200 rounded-lg p-2.5">
+                                                <div className="min-w-0">
+                                                    <div className="font-semibold text-sm text-gray-800 truncate">{sub?.name ?? b.subjectCode}</div>
+                                                    <div className="text-xs text-gray-500 flex gap-2 flex-wrap mt-0.5 items-center">
+                                                        <span className="font-medium text-gray-700">{bTime}</span>
+                                                        <span className={b.type === 'LAB' ? 'text-purple-700 font-medium' : ''}>
+                                                            {b.type === 'LAB' ? `🧪 Lab${sub?.labNumber ? ' ' + sub.labNumber : ''}` : 'Teoría'}
+                                                        </span>
+                                                        {b.section && <span>Sec {b.section}</span>}
+                                                        {prof && <span>{prof.title} {prof.fullName}</span>}
+                                                    </div>
+                                                </div>
+                                                {!readOnly && (
+                                                    <button
+                                                        onClick={() => removeBlockFromDetail(b)}
+                                                        title="Eliminar este bloque"
+                                                        className="flex-shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1.5"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
-                                        </div>
-                                        {!readOnly && (
-                                            <button
-                                                onClick={() => removeBlockFromDetail(b)}
-                                                title="Eliminar este bloque"
-                                                className="flex-shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1.5"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>,
+                    );
+                })(),
                 document.body
             )}
         </div>
