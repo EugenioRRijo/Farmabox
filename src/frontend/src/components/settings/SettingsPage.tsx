@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
-import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User, Cloud, FolderInput, HardDrive } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
 import { useSettings } from '@/context/SettingsContext';
 
-type Tab = 'general' | 'data' | 'contact' | 'storage';
+type Tab = 'general' | 'data' | 'contact';
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('general');
@@ -24,47 +24,7 @@ export function SettingsPage() {
     resetSettings,
   } = useSettings();
 
-  const [storage, setStorage] = useState<BackendService.StorageInfo | null>(null);
-  const [storageBusy, setStorageBusy] = useState(false);
-
-  useEffect(() => {
-    if (!BackendService.isStorageConfigAvailable()) return;
-    BackendService.getStorageInfo()
-      .then(setStorage)
-      .catch(() => {});
-  }, []);
-
   // ── Handlers ─────────────────────────────────────────
-
-  const handleUseSharedFolder = async () => {
-    try {
-      setStorageBusy(true);
-      const { path } = await BackendService.pickSharedFolder();
-      if (!path) return;
-      await BackendService.setSharedDir(path);
-      setStorage({ mode: 'shared', sharedDir: path });
-      alert('Carpeta compartida configurada. Reiniciá la app para aplicar el cambio.');
-    } catch (e) {
-      console.error('Error setting shared folder:', e);
-      alert('No se pudo configurar la carpeta compartida.');
-    } finally {
-      setStorageBusy(false);
-    }
-  };
-
-  const handleUseCloud = async () => {
-    try {
-      setStorageBusy(true);
-      await BackendService.setSharedDir(null);
-      setStorage({ mode: 'cloud', sharedDir: null });
-      alert('Volviste a la nube (Supabase). Reiniciá la app para aplicar el cambio.');
-    } catch (e) {
-      console.error('Error switching to cloud:', e);
-      alert('No se pudo cambiar el modo de almacenamiento.');
-    } finally {
-      setStorageBusy(false);
-    }
-  };
 
   const handleResetProfessors = async () => {
     if (!window.confirm('¿Estás seguro de que deseas restablecer la lista de profesores? Esta acción no se puede deshacer.')) {
@@ -170,7 +130,6 @@ export function SettingsPage() {
       <div className="flex gap-2 border-b border-gray-200 pb-2">
         <TabButton id="general" label="General" icon={Monitor} />
         <TabButton id="data" label="Gestión de Datos" icon={Database} />
-        <TabButton id="storage" label="Almacenamiento" icon={Cloud} />
         <TabButton id="contact" label="Contacto" icon={Mail} />
       </div>
 
@@ -343,79 +302,6 @@ export function SettingsPage() {
         )}
 
         {/* STORAGE TAB */}
-        {activeTab === 'storage' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                {storage?.mode === 'shared' ? (
-                  <HardDrive className="w-5 h-5 text-blue-600" />
-                ) : (
-                  <Cloud className="w-5 h-5 text-blue-600" />
-                )}
-                Almacenamiento de datos
-              </h2>
-              <p className="text-sm text-gray-500 mb-5">
-                Dónde se guardan y comparten los datos entre computadoras.
-              </p>
-
-              {!BackendService.isStorageConfigAvailable() ? (
-                <p className="text-sm text-gray-500">Disponible solo en la app de escritorio.</p>
-              ) : (
-                <>
-                  <div className="rounded-lg border border-gray-200 p-4 mb-4">
-                    {storage?.mode === 'shared' ? (
-                      <div className="flex items-start gap-3">
-                        <HardDrive className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-gray-900">Carpeta compartida (red local)</p>
-                          <p className="text-sm text-gray-500 break-all">{storage.sharedDir}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-3">
-                        <Cloud className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-gray-900">Nube (Supabase)</p>
-                          <p className="text-sm text-gray-500">
-                            Los datos se guardan en internet; las PCs se sincronizan online.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={handleUseSharedFolder}
-                      disabled={storageBusy}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <FolderInput className="w-4 h-4" />
-                      Elegir carpeta compartida…
-                    </button>
-                    {storage?.mode === 'shared' && (
-                      <button
-                        onClick={handleUseCloud}
-                        disabled={storageBusy}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        <Cloud className="w-4 h-4" />
-                        Volver a la nube
-                      </button>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-gray-400 mt-5 border-t border-gray-100 pt-4">
-                    Usá una carpeta compartida (ej. <span className="font-mono">{'\\\\PC\\Farmabox'}</span> o
-                    una unidad de red <span className="font-mono">{'Z:\\'}</span>) si las PCs están en la
-                    misma red local. Los cambios se aplican al <strong>reiniciar</strong> la app.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* CONTACT TAB */}
         {activeTab === 'contact' && (
           <div className="space-y-6">

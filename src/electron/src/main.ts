@@ -14,9 +14,8 @@ import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
-import { SharedFolderStorageService } from './services/SharedFolderStorageService';
 import type { SyncStorageBase } from './services/SyncStorageBase';
-import { getSharedDir } from './config/appConfig';
+import { getSharedDir, setSharedDir } from './config/appConfig';
 import { ProfessorService } from './services/ProfessorService';
 import { SubjectService } from './services/SubjectService';
 import { ScheduleService } from './services/ScheduleService';
@@ -51,12 +50,13 @@ function buildServices(storage: SyncStorageBase): AppServices {
 /** Elige el backend de sincronización: carpeta compartida si está configurada, si no Supabase. */
 function buildStorage(): SyncStorageBase {
   const local = new StorageService();
-  const sharedDir = getSharedDir();
-  if (sharedDir) {
-    log.info('[Storage] Modo carpeta compartida →', sharedDir);
-    return new SharedFolderStorageService(local, sharedDir);
+  // Carpeta compartida RETIRADA: siempre nube (Supabase). Si quedó una config
+  // previa de carpeta, la limpiamos para que el .exe vuelva a sincronizar por la nube.
+  if (getSharedDir()) {
+    log.info('[Storage] Carpeta compartida retirada → forzando nube y limpiando config previa.');
+    setSharedDir(null);
   }
-  log.info('[Storage] Modo nube (Supabase) / solo local.');
+  log.info('[Storage] Modo nube (Supabase).');
   return new CloudStorageService(local);
 }
 
