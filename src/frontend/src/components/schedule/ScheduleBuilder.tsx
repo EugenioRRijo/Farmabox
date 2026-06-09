@@ -164,26 +164,41 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                 i = j;
             }
 
-            // 2) TEORÍA: bloques normales (cada uno su celda).
+            // 2) TEORÍA: cada uno su celda; si solapa un cluster de labs, se agrupa con su
+            //    celda "dueña" (la teoría y el lab pueden solaparse según los validadores).
             const theories = dayBlocks.filter((b: ScheduleBlock) => b.type !== 'LAB');
             for (const t of theories) {
                 const start = t.startHour;
                 const end = Math.min(start + t.duration, TIME_SLOTS.length);
-                if (data[start][day].blocks.length > 0) {
-                    // Comparte la celda de inicio con un cluster de labs → se agrupan.
-                    data[start][day].blocks.push(t);
-                    data[start][day].rowspan = Math.max(data[start][day].rowspan, end - start);
-                } else if (!masked.has(`${day}-${start}`)) {
-                    data[start][day].blocks.push(t);
-                    data[start][day].isEmpty = false;
-                    data[start][day].rowspan = end - start;
-                    for (let r = start + 1; r < end; r++) {
-                        if (data[r][day].blocks.length === 0 && !masked.has(`${day}-${r}`)) {
-                            masked.add(`${day}-${r}`);
-                            data[r][day] = { blocks: [], rowspan: 0, isEmpty: true };
+
+                // Si `start` cae DENTRO del rowspan de un cluster (fila enmascarada), buscar
+                // la celda de inicio de ese cluster para agrupar ahí en vez de perder el bloque.
+                let owner = start;
+                if (data[start][day].blocks.length === 0 && masked.has(`${day}-${start}`)) {
+                    for (let r = start - 1; r >= 0; r--) {
+                        if (data[r][day].blocks.length > 0 && r + data[r][day].rowspan > start) {
+                            owner = r;
+                            break;
                         }
                     }
+                    if (owner === start) continue; // no se encontró dueño (no debería pasar): omitir seguro
                 }
+
+                if (data[owner][day].blocks.length === 0) {
+                    data[owner][day].isEmpty = false;
+                    data[owner][day].rowspan = 1;
+                }
+                data[owner][day].blocks.push(t);
+
+                // Asegurar que el rowspan del dueño cubra hasta `end`, enmascarando filas nuevas.
+                const clampedEnd = Math.min(Math.max(owner + data[owner][day].rowspan, end), TIME_SLOTS.length);
+                for (let r = owner + 1; r < clampedEnd; r++) {
+                    if (data[r][day].blocks.length === 0) {
+                        masked.add(`${day}-${r}`);
+                        data[r][day] = { blocks: [], rowspan: 0, isEmpty: true };
+                    }
+                }
+                data[owner][day].rowspan = clampedEnd - owner;
             }
         }
 
