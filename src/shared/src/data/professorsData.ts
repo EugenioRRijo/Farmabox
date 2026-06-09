@@ -10,6 +10,7 @@ export interface Professor {
   title: 'Prof.' | 'Dr.' | 'Dra.' | 'MSc.' | 'Lic.';
   email?: string;
   cedula?: string;
+  profession?: string; // profesión (texto libre, ej. "Farmacéutico")
   subjects: string[];
   type: 'theory' | 'practice' | 'both';
 }

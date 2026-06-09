@@ -21,10 +21,13 @@ create table if not exists professors (
   title       text not null default 'Prof.',  -- Prof. | Dr. | Dra. | MSc. | Lic.
   email       text,
   cedula      text,
+  profession  text,                            -- profesión (texto libre)
   type        text not null default 'both',   -- theory | practice | both
   updated_at  timestamptz not null default now(),
   deleted_at  timestamptz
 );
+-- Si la tabla ya existe, agregá la columna nueva:
+-- alter table professors add column if not exists profession text;
 
 -- ── Materias (pensum) ───────────────────────────────────────────────
 create table if not exists subjects (

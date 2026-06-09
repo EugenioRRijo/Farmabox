@@ -1,6 +1,6 @@
 {
   "name": "@scheduler/electron",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "Sistema de Gestión de Horarios Académicos",
   "author": "Eugenio Rijo",
   "main": "dist/main.js",

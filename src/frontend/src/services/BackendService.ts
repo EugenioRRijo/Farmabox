@@ -30,6 +30,7 @@ export interface Professor {
   title: 'Prof.' | 'Dr.' | 'Dra.' | 'MSc.' | 'Lic.';
   email?: string;
   cedula?: string;
+  profession?: string;
   subjects: string[];
   type: 'theory' | 'practice' | 'both';
 }

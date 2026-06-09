@@ -63,7 +63,13 @@ export function ProfessorsPage() {
   const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Professor>>({});
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(
+    () => (localStorage.getItem('professors-view') as 'grid' | 'list') || 'list',
+  );
+  const setViewMode = (m: 'grid' | 'list') => {
+    localStorage.setItem('professors-view', m);
+    setViewModeState(m);
+  };
   const [emailsCopied, setEmailsCopied] = useState(false);
   
   // State for Subject Autocomplete in Modal
@@ -102,12 +108,12 @@ export function ProfessorsPage() {
             ...formData as Professor 
         });
     } else {
-        // Add
+        // Add — spread para incluir cédula, profesión, email, etc.
         const newProf: Professor = {
+            ...formData,
             id: `prof-${Date.now()}`,
             fullName: formData.fullName || 'Nuevo Profesor',
             title: formData.title || 'Prof.',
-            email: formData.email,
             subjects: formData.subjects || [],
             type: formData.type || 'both'
         } as Professor;
@@ -382,6 +388,9 @@ export function ProfessorsPage() {
                        {professor.cedula && (
                          <div className="text-xs text-gray-500 mt-0.5 font-mono">C.I: {professor.cedula}</div>
                        )}
+                       {professor.profession && (
+                         <div className="text-xs text-brand-accent mt-0.5">{professor.profession}</div>
+                       )}
                        {professor.email && (
                          <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
                            <Mail className="w-3 h-3" />
@@ -594,11 +603,15 @@ export function ProfessorsPage() {
                                         <div className="flex flex-wrap gap-1">
                                             {prof.subjects.map((code: string) => {
                                                 const semNum = pensum.find(s => s.subjects.some(sub => sub.code === code))?.number;
+                                                const isTheory = academicLoad[code]?.theory?.includes(prof.id);
+                                                const isLab = academicLoad[code]?.lab?.includes(prof.id);
                                                 return (
                                                     <Badge key={code} variant="outline" className="text-xs font-normal bg-gray-50 hover:bg-gray-100 transition-colors">
                                                         <span className="truncate max-w-[120px]" title={getSubjectName(code)}>
                                                             {getSubjectName(code)}
                                                         </span>
+                                                        {isTheory && <span className="ml-1 text-[9px] font-bold text-blue-700 bg-blue-100 rounded px-1" title="Teoría">T</span>}
+                                                        {isLab && <span className="ml-1 text-[9px] font-bold text-purple-700 bg-purple-100 rounded px-1" title="Laboratorio">Lab</span>}
                                                         {semNum && <span className="text-blue-600 font-medium ml-1">S{semNum}</span>}
                                                     </Badge>
                                                 );
@@ -671,12 +684,18 @@ export function ProfessorsPage() {
                 value={formData.cedula || ''}
                 onChange={(e) => setFormData({...formData, cedula: e.target.value})}
               />
-              <Input 
-                label="Email" 
-                type="email" 
-                placeholder="ejemplo@usm.edu.ve" 
+              <Input
+                label="Email"
+                type="email"
+                placeholder="ejemplo@usm.edu.ve"
                 value={formData.email || ''}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+              <Input
+                label="Profesión"
+                placeholder="Ej: Farmacéutico, Químico, Bioanalista..."
+                value={formData.profession || ''}
+                onChange={(e) => setFormData({...formData, profession: e.target.value})}
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

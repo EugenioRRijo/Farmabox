@@ -19,6 +19,21 @@ import type {
 
 const now = (): string => new Date().toISOString();
 
+// La columna `profession` es nueva. Si la base todavía no la tiene, la omitimos en
+// las escrituras para no romper el guardado (se proba una vez y se cachea).
+let professionSupported: boolean | null = null;
+async function stripProf(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  if (professionSupported === null) {
+    const { error } = await requireSupabase().from('professors').select('profession').limit(1);
+    professionSupported = !error;
+  }
+  if (professionSupported) return rows;
+  return rows.map((r) => {
+    const { profession: _omit, ...rest } = r;
+    return rest;
+  });
+}
+
 // ── Helpers de lectura ──────────────────────────────────────────────────────
 async function fetchLinks(): Promise<{ byProf: Map<string, string[]>; bySubject: Map<string, string[]> }> {
   const sb = requireSupabase();
@@ -47,6 +62,7 @@ export async function getProfessors(): Promise<Professor[]> {
     title: r.title,
     email: r.email ?? undefined,
     cedula: r.cedula ?? undefined,
+    profession: r.profession ?? undefined,
     subjects: byProf.get(r.id) ?? [],
     type: r.type,
   })) as Professor[];
@@ -59,6 +75,7 @@ function profRow(p: Professor): Record<string, unknown> {
     title: p.title,
     email: p.email ?? null,
     cedula: p.cedula ?? null,
+    profession: p.profession ?? null,
     type: p.type,
     updated_at: now(),
     deleted_at: null,
@@ -78,7 +95,7 @@ async function setProfessorLinks(profId: string, subjectCodes: string[]): Promis
 export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Professor> {
   const sb = requireSupabase();
   const prof: Professor = { ...data, id: `prof-${Date.now()}` } as Professor;
-  const { error } = await sb.from('professors').upsert(profRow(prof));
+  const { error } = await sb.from('professors').upsert(await stripProf([profRow(prof)]));
   if (error) throw error;
   await setProfessorLinks(prof.id, prof.subjects ?? []);
   return prof;
@@ -87,7 +104,7 @@ export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Prof
 export async function updateProfessor(id: string, data: Partial<Professor>): Promise<Professor> {
   const sb = requireSupabase();
   const merged: Professor = { ...(data as Professor), id };
-  const { error } = await sb.from('professors').upsert(profRow(merged));
+  const { error } = await sb.from('professors').upsert(await stripProf([profRow(merged)]));
   if (error) throw error;
   if (data.subjects) await setProfessorLinks(id, data.subjects);
   return merged;
@@ -105,7 +122,7 @@ export async function resetProfessors(): Promise<Professor[]> {
   const sb = requireSupabase();
   const rows = PROFESSORS_DATA.map((p) => profRow(p));
   if (rows.length) {
-    const { error } = await sb.from('professors').upsert(rows);
+    const { error } = await sb.from('professors').upsert(await stripProf(rows));
     if (error) throw error;
     for (const p of PROFESSORS_DATA) await setProfessorLinks(p.id, p.subjects ?? []);
   }
@@ -125,7 +142,7 @@ export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Prom
     type: raw.type ?? 'both',
   }));
   if (profs.length) {
-    const { error } = await sb.from('professors').upsert(profs.map((p) => profRow(p)));
+    const { error } = await sb.from('professors').upsert(await stripProf(profs.map((p) => profRow(p))));
     if (error) throw error;
     for (const p of profs) await setProfessorLinks(p.id, p.subjects ?? []);
   }
@@ -358,7 +375,7 @@ export async function createLog(action: string, details: string): Promise<LogEnt
 export async function restoreData(data: BackupData): Promise<void> {
   const sb = requireSupabase();
   if (data.professors) {
-    await sb.from('professors').upsert(data.professors.map((p) => profRow(p)));
+    await sb.from('professors').upsert(await stripProf(data.professors.map((p) => profRow(p))));
     for (const p of data.professors) await setProfessorLinks(p.id, p.subjects ?? []);
   }
   if (data.pensum) {

@@ -3,7 +3,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { ScheduleBuilder } from '../schedule/ScheduleBuilder';
 import { Semester, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
-import { generateAllSchedulesPdf, SchedulePageConfig } from '../../services/PdfExportService';
+import { generateAllSchedulesPdf, generateProfessorSchedulePdf, SchedulePageConfig } from '../../services/PdfExportService';
 
 export function ScheduleVisualization() {
   const { pensum, professors, scheduleBlocks, academicLoad } = useAppData();
@@ -41,7 +41,21 @@ export function ScheduleVisualization() {
             
             <button
                 className="px-4 py-1.5 bg-brand-navy hover:bg-brand-navy/90 text-white text-sm font-bold rounded shadow-sm transition-colors flex items-center gap-2"
-                onClick={() => {
+                onClick={async () => {
+                    // Si hay un profesor filtrado → exportar SOLO su horario consolidado.
+                    if (filterProfessorId !== 'all') {
+                        const prof = professors.find((p: Professor) => p.id === filterProfessorId);
+                        if (!prof) return;
+                        const profBlocks = scheduleBlocks.filter((b: ScheduleBlock) => b.professorId === filterProfessorId);
+                        if (profBlocks.length === 0) {
+                            alert(`${prof.fullName} no tiene clases asignadas en ningún horario.`);
+                            return;
+                        }
+                        const allSubjects = pensum.flatMap((s: Semester) => s.subjects);
+                        await generateProfessorSchedulePdf(prof, scheduleBlocks, allSubjects);
+                        return;
+                    }
+                    // Sin filtro → exportar todos los semestres/secciones.
                     const configs: SchedulePageConfig[] = [];
                     for (const sec of existingSections) {
                         for (const s of pensum) {
@@ -69,7 +83,7 @@ export function ScheduleVisualization() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Exportar Todos
+                {filterProfessorId !== 'all' ? 'Exportar este profesor' : 'Exportar Todos'}
             </button>
         </div>
       </div>
