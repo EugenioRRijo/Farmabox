@@ -22,6 +22,7 @@ interface AppDataContextType {
   handleUpdateProfessor: (prof: Professor) => Promise<void>;
   handleDeleteProfessor: (id: string) => Promise<void>;
   handleResetProfessors: () => Promise<void>;
+  handleWipeAll: () => Promise<void>;
   handleAddSubject: (subject: PensumSubject & { semester: number }) => Promise<void>;
   handleUpdateSubject: (code: string, updates: Partial<PensumSubject & { semester: number }>) => Promise<void>;
   handleUpdateLoad: (load: AcademicLoad) => Promise<void>;
@@ -166,6 +167,31 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Empezar de cero: vacía profesores + pensum + carga + horarios. El borrado va
+  // a través de la app (tombstones) para que el merge offline-first no lo
+  // resucite en ninguna PC. Supabase queda como única fuente de la verdad.
+  const handleWipeAll = useCallback(async () => {
+    if (
+      !window.confirm(
+        'BORRAR TODOS los datos (profesores, materias, asignaciones y horarios) en todas las PC al sincronizar.\n\n' +
+          'Supabase queda vacío para que cargues tus datos reales. Esta acción NO se puede deshacer. ¿Continuar?',
+      )
+    )
+      return;
+    try {
+      await Backend.resetProfessors();
+      await Backend.resetPensum();
+      await Backend.saveAcademicLoad({});
+      await Backend.saveScheduleBlocks([]);
+      setProfessors([]);
+      setPensum([]);
+      setAcademicLoad({});
+      setScheduleBlocks([]);
+    } catch (e) {
+      console.error('Failed to wipe all data:', e);
+    }
+  }, []);
+
   const handleUpdateLoad = useCallback(async (load: AcademicLoad) => {
     setAcademicLoad(load);
     try {
@@ -265,6 +291,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     handleUpdateProfessor,
     handleDeleteProfessor,
     handleResetProfessors,
+    handleWipeAll,
     handleAddSubject,
     handleUpdateSubject,
     handleUpdateLoad,

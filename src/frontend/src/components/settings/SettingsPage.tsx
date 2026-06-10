@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
 import { useSettings } from '@/context/SettingsContext';
+import { useAppData } from '@/context/AppDataContext';
 
 type Tab = 'general' | 'data' | 'contact';
 
@@ -23,6 +24,7 @@ export function SettingsPage() {
     setReduceMotion,
     resetSettings,
   } = useSettings();
+  const { handleWipeAll } = useAppData();
 
   // ── Handlers ─────────────────────────────────────────
 
@@ -44,32 +46,6 @@ export function SettingsPage() {
     }
   };
 
-  const handleWipeAll = async () => {
-    if (
-      !window.confirm(
-        '¿BORRAR TODOS los datos (profesores, materias, asignaciones y horarios) en todas las PC? ' +
-          'Supabase queda vacío para que cargues tus datos reales. Esta acción NO se puede deshacer.',
-      )
-    ) {
-      return;
-    }
-    try {
-      setIsResetting(true);
-      // Se borra a través de la app (tombstones) para que el merge offline-first
-      // no resucite los datos en ninguna PC.
-      await BackendService.resetProfessors();
-      await BackendService.resetPensum();
-      await BackendService.saveAcademicLoad({});
-      await BackendService.saveScheduleBlocks([]);
-      alert('Todos los datos fueron borrados. Recarga la página y carga tus datos reales.');
-      window.location.reload();
-    } catch (error) {
-      console.error('Error wiping all data:', error);
-      alert('Error al borrar los datos.');
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleExportBackup = async () => {
     try {
