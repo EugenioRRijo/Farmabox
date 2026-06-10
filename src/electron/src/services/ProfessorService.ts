@@ -66,6 +66,7 @@ export class ProfessorService {
         title: raw.title ?? 'Prof.',
         email: raw.email,
         cedula: raw.cedula,
+        profession: raw.profession,
         subjects: raw.subjects ?? [],
         type: raw.type ?? 'both',
       });

@@ -117,11 +117,19 @@ export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Prof
 
 export async function updateProfessor(id: string, data: Partial<Professor>): Promise<Professor> {
   const sb = requireSupabase();
-  const merged: Professor = { ...(data as Professor), id };
-  const { error } = await sb.from('professors').upsert(await stripProf([profRow(merged)]));
+  // PATCH parcial: solo los campos enviados (no pisar profesión/cédula/etc. existentes).
+  const patch: Record<string, unknown> = { updated_at: now() };
+  if (data.fullName !== undefined) patch.full_name = data.fullName;
+  if (data.title !== undefined) patch.title = data.title;
+  if (data.email !== undefined) patch.email = data.email ?? null;
+  if (data.cedula !== undefined) patch.cedula = data.cedula ?? null;
+  if (data.profession !== undefined) patch.profession = data.profession ?? null;
+  if (data.type !== undefined) patch.type = data.type;
+  const safePatch = (await stripProf([patch]))[0];
+  const { error } = await sb.from('professors').update(safePatch).eq('id', id);
   if (error) throw error;
   if (data.subjects) await setProfessorLinks(id, data.subjects);
-  return merged;
+  return { ...(data as Professor), id };
 }
 
 export async function deleteProfessor(id: string): Promise<void> {
@@ -152,6 +160,7 @@ export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Prom
     title: raw.title ?? 'Prof.',
     email: raw.email,
     cedula: raw.cedula,
+    profession: raw.profession,
     subjects: raw.subjects ?? [],
     type: raw.type ?? 'both',
   }));
