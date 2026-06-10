@@ -1,7 +1,7 @@
 /**
  * Tipado de la API expuesta por el preload de Electron (window.electronAPI).
  * Cada canal devuelve la envoltura { data } | { error }.
- * Si window.electronAPI es undefined → la app corre en modo web (HTTP a Express).
+ * Si window.electronAPI es undefined → la app corre en modo web (Supabase directo).
  */
 import type {
   Professor,
@@ -16,6 +16,22 @@ import type {
 
 type Envelope<T> = { data: T } | { error: string };
 type Ok = { success: boolean };
+
+export interface PingResult {
+  success: boolean;
+  timestamp: string;
+  statusCode?: number;
+  latencyMs?: number;
+  error?: string;
+}
+
+export interface KeepaliveStatus {
+  configured: boolean;
+  lastPing?: PingResult;
+  nextPingAt?: string;
+  pingCount: number;
+  autoKeepAlive: boolean;
+}
 
 export interface ElectronAPI {
   getAppVersion(): Promise<string>;
@@ -73,6 +89,12 @@ export interface ElectronAPI {
   sync: {
     now(): Promise<Envelope<{ ok: boolean; changed: boolean; online: boolean; at?: string }>>;
     status(): Promise<Envelope<{ online: boolean; mode: 'cloud' | 'folder' }>>;
+  };
+
+  maintenance: {
+    keepaliveStatus(): Promise<Envelope<KeepaliveStatus | null>>;
+    pingNow(): Promise<Envelope<PingResult>>;
+    createBackup(): Promise<Envelope<{ ok: boolean }>>;
   };
 
   /** Suscribe a cambios traídos por el pull periódico (multi-PC). Devuelve un unsubscribe. */

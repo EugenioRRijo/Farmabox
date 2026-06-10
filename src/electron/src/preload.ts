@@ -75,6 +75,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     status: () => invoke('sync:status'),
   },
 
+  // ── Mantenimiento (keepalive de Supabase + backups locales) ──────────
+  maintenance: {
+    keepaliveStatus: () => invoke('maintenance:keepaliveStatus'),
+    pingNow: () => invoke('maintenance:pingNow'),
+    createBackup: () => invoke('maintenance:createBackup'),
+  },
+
   // ── Aviso de cambios traídos por el pull periódico (multi-PC) ─────────
   onDataChanged: (callback: () => void) => {
     const listener = (): void => callback();

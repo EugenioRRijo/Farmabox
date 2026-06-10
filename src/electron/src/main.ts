@@ -20,6 +20,8 @@ import { ProfessorService } from './services/ProfessorService';
 import { SubjectService } from './services/SubjectService';
 import { ScheduleService } from './services/ScheduleService';
 import { LogService } from './services/LogService';
+import { SupabaseKeepaliveService } from './services/SupabaseKeepaliveService';
+import { BackupService } from './services/BackupService';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
 import type { AppServices } from './ipc/ipcHandlers';
 
@@ -30,6 +32,8 @@ log.info('Application starting...');
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let store: SyncStorageBase | null = null;
+let keepalive: SupabaseKeepaliveService | null = null;
+let backup: BackupService | null = null;
 let isQuitting = false;
 const IS_DEV = !app.isPackaged || process.env.NODE_ENV === 'development';
 const VITE_DEV_URL = 'http://localhost:5173';
@@ -217,6 +221,33 @@ function registerSyncIpc(): void {
   });
 }
 
+// ── Mantenimiento: keepalive de Supabase + backups locales ──────────────────
+function registerMaintenanceIpc(): void {
+  ipcMain.handle('maintenance:keepaliveStatus', () => {
+    return { data: keepalive ? keepalive.getStatus() : null };
+  });
+
+  ipcMain.handle('maintenance:pingNow', async () => {
+    try {
+      if (!keepalive) return { error: 'Keepalive no inicializado' };
+      return { data: await keepalive.ping() };
+    } catch (e) {
+      log.error('[IPC maintenance:pingNow]', e);
+      return { error: 'No se pudo hacer ping a Supabase' };
+    }
+  });
+
+  ipcMain.handle('maintenance:createBackup', async () => {
+    try {
+      if (!backup) return { error: 'Backup no inicializado' };
+      return { data: { ok: await backup.createBackup() } };
+    } catch (e) {
+      log.error('[IPC maintenance:createBackup]', e);
+      return { error: 'No se pudo crear el backup' };
+    }
+  });
+}
+
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
@@ -224,7 +255,15 @@ app.whenReady().then(async () => {
   const services = buildServices(store);
   registerIpcHandlers(services);
   registerSyncIpc();
+  registerMaintenanceIpc();
   log.info('[IPC] All handlers registered.');
+
+  // Mantenimiento: evita que el proyecto Supabase (free-tier) se pause por
+  // inactividad y crea backups locales periódicos como red de seguridad.
+  keepalive = new SupabaseKeepaliveService();
+  keepalive.startAutoKeepAlive();
+  backup = new BackupService(store);
+  backup.startAutoBackup();
 
   // Sincronizar (pull + merge) al iniciar, antes de mostrar la UI.
   if (store.isRemoteEnabled()) {
