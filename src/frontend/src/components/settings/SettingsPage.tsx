@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
 import { useSettings } from '@/context/SettingsContext';
-import { useAppData } from '@/context/AppDataContext';
 
 type Tab = 'general' | 'data' | 'contact';
 
@@ -24,7 +23,6 @@ export function SettingsPage() {
     setReduceMotion,
     resetSettings,
   } = useSettings();
-  const { handleWipeAll } = useAppData();
 
   // ── Handlers ─────────────────────────────────────────
 
@@ -404,20 +402,6 @@ export function SettingsPage() {
                     </button>
                 </div>
 
-                <div className="flex items-center justify-between py-4 border-t border-red-100">
-                    <div>
-                        <p className="font-medium text-gray-900">Empezar de cero</p>
-                        <p className="text-sm text-gray-500">Borra TODO (profesores, materias, asignaciones y horarios) en todas las PC al sincronizar. Deja Supabase vacío para cargar tus datos reales.</p>
-                    </div>
-                    <button
-                        onClick={handleWipeAll}
-                        disabled={isResetting}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-800 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-                    >
-                        <ShieldAlert className="w-4 h-4" />
-                        {isResetting ? 'Borrando...' : 'Borrar todos los datos'}
-                    </button>
-                </div>
             </div>
           </div>
         )}

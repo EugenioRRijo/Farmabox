@@ -149,12 +149,6 @@ export async function bulkUpsertSubjects(
   return web.bulkUpsertSubjects(data);
 }
 
-/** Vacía el pensum completo (materias + enlaces). Supabase es la única fuente. */
-export async function resetPensum(): Promise<Semester[]> {
-  if (ipc) return unwrap(ipc.subjects.resetPensum());
-  return web.resetPensum();
-}
-
 // ── Academic Load ──────────────────────────────────────
 export async function getAcademicLoad(): Promise<AcademicLoad> {
   if (ipc) return unwrap(ipc.schedule.getLoad());

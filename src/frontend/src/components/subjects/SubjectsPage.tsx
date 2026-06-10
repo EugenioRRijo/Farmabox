@@ -10,7 +10,7 @@ import { Professor, PensumSubject, Semester } from '../../../../shared/src/index
 import { useAppData } from '../../context/AppDataContext';
 
 export function SubjectsPage() {
-  const { pensum, professors, handleAddSubject: onAddSubject, handleUpdateSubject, handleWipeAll } = useAppData();
+  const { pensum, professors, handleAddSubject: onAddSubject, handleUpdateSubject } = useAppData();
   const [expandedSemesters, setExpandedSemesters] = useState<Set<number>>(new Set([1]));
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -196,14 +196,6 @@ export function SubjectsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-                onClick={handleWipeAll}
-                title="Borra profesores, materias, asignaciones y horarios en todas las PC. Supabase queda vacío para cargar tus datos reales."
-                className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
-            >
-                <Trash2 className="w-4 h-4" />
-                Empezar de cero
-            </button>
             <button
                 onClick={() => setShowImport(true)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
