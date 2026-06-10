@@ -290,6 +290,16 @@ export async function bulkUpsertSubjects(
   return getSubjects();
 }
 
+/** "Vaciar pensum": soft-delete de TODAS las materias + limpia enlaces y carga. */
+export async function resetPensum(): Promise<Semester[]> {
+  const sb = requireSupabase();
+  await sb.from('professor_subjects').delete().not('subject_code', 'is', null);
+  await sb.from('academic_load').delete().not('subject_code', 'is', null);
+  const { error } = await sb.from('subjects').update({ deleted_at: now() }).is('deleted_at', null);
+  if (error) throw error;
+  return [];
+}
+
 // ── Carga académica ─────────────────────────────────────────────────────────
 export async function getAcademicLoad(): Promise<AcademicLoad> {
   const sb = requireSupabase();

@@ -44,6 +44,33 @@ export function SettingsPage() {
     }
   };
 
+  const handleWipeAll = async () => {
+    if (
+      !window.confirm(
+        '¿BORRAR TODOS los datos (profesores, materias, asignaciones y horarios) en todas las PC? ' +
+          'Supabase queda vacío para que cargues tus datos reales. Esta acción NO se puede deshacer.',
+      )
+    ) {
+      return;
+    }
+    try {
+      setIsResetting(true);
+      // Se borra a través de la app (tombstones) para que el merge offline-first
+      // no resucite los datos en ninguna PC.
+      await BackendService.resetProfessors();
+      await BackendService.resetPensum();
+      await BackendService.saveAcademicLoad({});
+      await BackendService.saveScheduleBlocks([]);
+      alert('Todos los datos fueron borrados. Recarga la página y carga tus datos reales.');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error wiping all data:', error);
+      alert('Error al borrar los datos.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const handleExportBackup = async () => {
     try {
       const [profs, subs, load, blocks] = await Promise.all([
@@ -398,6 +425,21 @@ export function SettingsPage() {
                     >
                         <RotateCcw className="w-4 h-4" />
                         {isResetting ? 'Vaciando...' : 'Vaciar profesores'}
+                    </button>
+                </div>
+
+                <div className="flex items-center justify-between py-4 border-t border-red-100">
+                    <div>
+                        <p className="font-medium text-gray-900">Empezar de cero</p>
+                        <p className="text-sm text-gray-500">Borra TODO (profesores, materias, asignaciones y horarios) en todas las PC al sincronizar. Deja Supabase vacío para cargar tus datos reales.</p>
+                    </div>
+                    <button
+                        onClick={handleWipeAll}
+                        disabled={isResetting}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-800 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                    >
+                        <ShieldAlert className="w-4 h-4" />
+                        {isResetting ? 'Borrando...' : 'Borrar todos los datos'}
                     </button>
                 </div>
             </div>
