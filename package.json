@@ -1,8 +1,8 @@
 {
-  "name": "servicio-comunitario-scheduler",
+  "name": "farmabox",
   "private": true,
-  "version": "1.0.0",
-  "description": "Sistema de Gestión de Horarios Académicos - Offline First",
+  "version": "2.3.1",
+  "description": "Farmabox — Sistema de Gestión de Horarios Académicos (USM, Facultad de Farmacia), offline-first",
   "author": "Eugenio Rijo (Servicio Comunitario USM)",
   "workspaces": [
     "src/frontend",
