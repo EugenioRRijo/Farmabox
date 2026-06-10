@@ -2,8 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import {
   Professor,
   Semester,
-  PensumSubject,
-  PENSUM_DATA
+  PensumSubject
 } from '../../../shared/src/index';
 import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
 import * as Backend from '../services/BackendService';
@@ -35,10 +34,10 @@ interface AppDataContextType {
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  // Profesores: SIN seed hardcodeado. Arranca vacío y se llena con los datos
-  // reales del backend (Supabase). Antes mostraba 45 profesores ficticios.
+  // Profesores y pensum: SIN seed hardcodeado. Arrancan vacíos y se llenan con
+  // los datos reales del backend (Supabase = única fuente de la verdad).
   const [professors, setProfessors] = useState<Professor[]>([]);
-  const [pensum, setPensum] = useState<Semester[]>(PENSUM_DATA || []);
+  const [pensum, setPensum] = useState<Semester[]>([]);
   const [academicLoad, setAcademicLoad] = useState<AcademicLoad>({});
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [selectedSemester, setSelectedSemester] = useState(1);

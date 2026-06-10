@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import log from 'electron-log';
-import { PENSUM_DATA } from '@scheduler/shared';
 import type { Professor, Semester } from '@scheduler/shared';
 import type { AcademicLoad, ScheduleBlockData, LogEntry } from '../types';
 import type { IStorageService } from './IStorageService';
@@ -56,7 +55,8 @@ export class StorageService implements IStorageService {
   }
 
   loadPensum(): Semester[] {
-    return this.loadJSON<Semester[]>('pensum.json', PENSUM_DATA);
+    // Sin seed hardcodeado: el pensum vive en Supabase (única fuente de verdad).
+    return this.loadJSON<Semester[]>('pensum.json', []);
   }
   savePensum(pensum: Semester[]): void {
     this.saveJSON('pensum.json', pensum);

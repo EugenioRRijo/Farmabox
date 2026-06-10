@@ -3,7 +3,6 @@
  * Maneja el pensum por semestres y la asignación de profesores a materias
  * (que actualiza el array `subjects` de cada Professor).
  */
-import { PENSUM_DATA } from '@scheduler/shared';
 import type { Semester, PensumSubject } from '@scheduler/shared';
 import type { IStorageService } from './IStorageService';
 
@@ -23,10 +22,10 @@ export class SubjectService {
     return this.subjectStorage.loadPensum();
   }
 
-  /** Fuerza la escritura del pensum canónico, descartando datos stale. */
+  /** Vacía el pensum (tombstones → se sincronizan). Ya no re-siembra datos hardcodeados. */
   resetPensum(): Semester[] {
-    this.subjectStorage.savePensum(PENSUM_DATA);
-    return PENSUM_DATA;
+    this.subjectStorage.savePensum([]);
+    return [];
   }
 
   /** Importación en lote: crea/actualiza materias por código (upsert). */
