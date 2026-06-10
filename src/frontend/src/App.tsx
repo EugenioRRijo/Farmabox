@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { ProfessorsPage } from '@/components/professors/ProfessorsPage';
 import { SubjectsPage } from '@/components/subjects/SubjectsPage';
 import { ScheduleBuilder } from '@/components/schedule/ScheduleBuilder';
+import { ScheduleControlBar } from '@/components/schedule/ScheduleControlBar';
 import { ScheduleVisualization } from '@/components/visualization/ScheduleVisualization';
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { HomePage } from '@/components/home/HomePage';
@@ -13,16 +14,13 @@ import { ChatWidget } from '@/components/chat/ChatWidget';
 import { Toaster } from 'react-hot-toast';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { AppDataProvider, useAppData } from '@/context/AppDataContext';
-import { Semester } from '../../shared/src/index';
 
 
 function AppContent() {
-  const { 
-    loading, 
-    error, 
-    pensum,
+  const {
+    loading,
+    error,
     selectedSemester,
-    setSelectedSemester,
     availableSubjects,
   } = useAppData();
 
@@ -64,10 +62,6 @@ function AppContent() {
     }
   };
 
-  useEffect(() => {
-    console.log('App Mounted');
-  }, []);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-brand-pale/20">
@@ -93,62 +87,13 @@ function AppContent() {
         <Route path="/subjects" element={<SubjectsPage />} />
         <Route path="/schedule" element={
           <>
-            {/* Semester selector */}
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-sm font-medium text-gray-600">Semestre:</span>
-              <div className="flex gap-2">
-                {pensum.map((s: Semester) => (
-                  <button
-                    key={s.number}
-                    onClick={() => setSelectedSemester(s.number)}
-                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                      selectedSemester === s.number
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {s.number}°
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Section selector */}
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-sm font-medium text-gray-600">Sección:</span>
-              <div className="flex gap-2 items-center">
-                {sections.map((sec) => (
-                  <div key={sec} className="relative group">
-                    <button
-                      onClick={() => setSelectedSection(sec)}
-                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                        selectedSection === sec
-                          ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {sec}
-                    </button>
-                    {sections.length > 1 && (
-                      <button
-                        onClick={() => handleRemoveSection(sec)}
-                        className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                        title={`Eliminar sección ${sec}`}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  onClick={handleAddSection}
-                  className="px-2 py-1.5 text-sm bg-gray-100 text-gray-500 border border-dashed border-gray-300 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors"
-                  title="Agregar sección"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            <ScheduleControlBar
+              sections={sections}
+              selectedSection={selectedSection}
+              onSelectSection={setSelectedSection}
+              onAddSection={handleAddSection}
+              onRemoveSection={handleRemoveSection}
+            />
 
             <ScheduleBuilder
               semesterNumber={selectedSemester}
