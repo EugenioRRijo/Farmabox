@@ -108,10 +108,16 @@ create index if not exists idx_prof_subjects_subject on professor_subjects(subje
 create index if not exists idx_academic_load_prof on academic_load(professor_id);
 
 -- ── RLS: la app usa la anon key (sin login) → permitir CRUD anónimo ─
+-- POSTURA DE SEGURIDAD (ver docs/SEGURIDAD.md):
+--   Estas políticas son ABIERTAS: cualquiera con la anon key (extraíble del .exe)
+--   puede leer/escribir/borrar. Es aceptable para una herramienta interna de LAN,
+--   pero es el único riesgo real del proyecto. Para endurecer sin rehacer la app:
+--   añadir un passcode a nivel de app antes de escribir, o migrar a Supabase Auth
+--   y reemplazar `using (true)` por políticas basadas en `auth.uid()` / rol.
 do $$
 declare t text;
 begin
-  foreach t in array array['professors','subjects','professor_subjects','academic_load','schedule_blocks','logs']
+  foreach t in array array['professors','subjects','professor_subjects','academic_load','schedule_blocks','logs','semesters']
   loop
     execute format('alter table %I enable row level security;', t);
     execute format('drop policy if exists anon_all on %I;', t);
