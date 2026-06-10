@@ -7,7 +7,6 @@ import {
   Edit2,
   UserPlus,
   Users,
-  RotateCcw,
   X,
   LayoutGrid,
   List as ListIcon,
@@ -35,7 +34,6 @@ export function ProfessorsPage() {
     handleAddProfessor: onAdd,
     handleUpdateProfessor: onUpdate,
     handleDeleteProfessor: onDelete,
-    handleResetProfessors: onReset,
     academicLoad,
     handleUpdateLoad: onUpdateLoad
   } = useAppData();
@@ -235,16 +233,6 @@ export function ProfessorsPage() {
                 <Copy className="w-4 h-4" />
                 {emailsCopied ? '¡Copiado!' : 'Copiar Correos'}
             </Button>
-            {onReset && (
-                <Button
-                    onClick={onReset}
-                    variant="outline"
-                    className="flex items-center gap-2 text-gray-600"
-                >
-                    <RotateCcw className="w-4 h-4" />
-                    Vaciar lista
-                </Button>
-            )}
             <Button
                 onClick={() => setShowImport(true)}
                 variant="outline"
