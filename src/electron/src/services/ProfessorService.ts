@@ -2,7 +2,6 @@
  * ProfessorService — Lógica de dominio para profesores (CRUD).
  * Recibe IStorageService inyectado (Dependency Inversion).
  */
-import { PROFESSORS_DATA } from '@scheduler/shared';
 import type { Professor } from '@scheduler/shared';
 import type { IStorageService } from './IStorageService';
 
@@ -48,9 +47,11 @@ export class ProfessorService {
     return true;
   }
 
+  /** Vacía la lista de profesores (tombstones → se sincronizan a la nube).
+   *  Antes restauraba 45 profesores hardcodeados; ya no se siembra nada. */
   reset(): Professor[] {
-    this.storage.saveProfessors(PROFESSORS_DATA);
-    return PROFESSORS_DATA;
+    this.storage.saveProfessors([]);
+    return [];
   }
 
   /** Importación en lote: crea/actualiza profesores (upsert por id; genera id si falta). */

@@ -242,7 +242,7 @@ export function ProfessorsPage() {
                     className="flex items-center gap-2 text-gray-600"
                 >
                     <RotateCcw className="w-4 h-4" />
-                    Restaurar Lista
+                    Vaciar lista
                 </Button>
             )}
             <Button

@@ -125,8 +125,9 @@ const buildSchedulePage = (
     const getProfNames = (ids?: string[] | string) => {
        const safeIds = Array.isArray(ids) ? ids : (typeof ids === 'string' ? [ids] : []);
        if (safeIds.length === 0) return '';
-       if (!professors || professors.length === 0) return safeIds.join(', ');
-       return safeIds.map(id => professors.find(p => p.id === id)?.fullName || id).join(', ');
+       if (!professors || professors.length === 0) return '';
+       // Omite ids colgantes (profesor borrado) en vez de imprimir el id crudo.
+       return safeIds.map(id => professors.find(p => p.id === id)?.fullName).filter(Boolean).join(', ');
     };
 
     summaryBody.push([

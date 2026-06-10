@@ -27,14 +27,14 @@ export function SettingsPage() {
   // ── Handlers ─────────────────────────────────────────
 
   const handleResetProfessors = async () => {
-    if (!window.confirm('¿Estás seguro de que deseas restablecer la lista de profesores? Esta acción no se puede deshacer.')) {
+    if (!window.confirm('¿Vaciar la lista de profesores? Se borrarán todos (y en las demás PC al sincronizar). Esta acción no se puede deshacer.')) {
       return;
     }
 
     try {
       setIsResetting(true);
       await BackendService.resetProfessors();
-      alert('Profesores restablecidos correctamente. Por favor recarga la página.');
+      alert('Lista de profesores vaciada. Por favor recarga la página.');
       window.location.reload();
     } catch (error) {
       console.error('Error resetting professors:', error);
@@ -388,8 +388,8 @@ export function SettingsPage() {
                 
                 <div className="flex items-center justify-between py-4">
                     <div>
-                        <p className="font-medium text-gray-900">Restablecer Profesores</p>
-                        <p className="text-sm text-gray-500">Vuelve a la lista original de profesores predeterminados.</p>
+                        <p className="font-medium text-gray-900">Vaciar profesores</p>
+                        <p className="text-sm text-gray-500">Borra TODOS los profesores (y sus asignaciones) en todas las PC al sincronizar. Útil para empezar de cero con datos reales.</p>
                     </div>
                     <button
                         onClick={handleResetProfessors}
@@ -397,7 +397,7 @@ export function SettingsPage() {
                         className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                     >
                         <RotateCcw className="w-4 h-4" />
-                        {isResetting ? 'Restableciendo...' : 'Restablecer Fábrica'}
+                        {isResetting ? 'Vaciando...' : 'Vaciar profesores'}
                     </button>
                 </div>
             </div>

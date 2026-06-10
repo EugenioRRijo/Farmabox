@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { 
-  Professor, 
-  Semester, 
+import {
+  Professor,
+  Semester,
   PensumSubject,
-  PROFESSORS_DATA,
   PENSUM_DATA
 } from '../../../shared/src/index';
 import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
@@ -36,7 +35,9 @@ interface AppDataContextType {
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [professors, setProfessors] = useState<Professor[]>(PROFESSORS_DATA || []);
+  // Profesores: SIN seed hardcodeado. Arranca vacío y se llena con los datos
+  // reales del backend (Supabase). Antes mostraba 45 profesores ficticios.
+  const [professors, setProfessors] = useState<Professor[]>([]);
   const [pensum, setPensum] = useState<Semester[]>(PENSUM_DATA || []);
   const [academicLoad, setAcademicLoad] = useState<AcademicLoad>({});
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
@@ -152,7 +153,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [professors]);
 
   const handleResetProfessors = useCallback(async () => {
-    setProfessors(PROFESSORS_DATA);
+    if (
+      !window.confirm(
+        '¿Vaciar la lista de profesores? Se borrarán todos (y en las demás PC al sincronizar). Esta acción no se puede deshacer.',
+      )
+    )
+      return;
     try {
       const reset = await Backend.resetProfessors();
       setProfessors(reset as unknown as Professor[]);

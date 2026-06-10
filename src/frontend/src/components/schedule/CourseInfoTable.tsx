@@ -10,8 +10,13 @@ interface CourseInfoTableProps {
 export function CourseInfoTable({ subjects, academicLoad, professors }: CourseInfoTableProps) {
     const getProfNames = (ids?: string[] | string) => {
         const safeIds = Array.isArray(ids) ? ids : (typeof ids === 'string' ? [ids] : []);
-        if (safeIds.length === 0) return <span className="text-red-400 italic">Sin Asignar</span>;
-        return safeIds.map(id => professors.find(p => p.id === id)?.fullName || id).join(', ');
+        // Solo nombres que resuelven a un profesor vivo; un id colgante
+        // (p. ej. "prof-001" de un profesor borrado) NO se muestra crudo.
+        const names = safeIds
+            .map(id => professors.find(p => p.id === id)?.fullName)
+            .filter((n): n is string => !!n);
+        if (names.length === 0) return <span className="text-red-400 italic">Sin Asignar</span>;
+        return names.join(', ');
     };
 
     if (!subjects || subjects.length === 0) return null;

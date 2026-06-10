@@ -6,7 +6,6 @@
  * escrituras de la web sean consistentes con el merge offline-first del escritorio.
  */
 import { requireSupabase } from './supabaseClient';
-import { PROFESSORS_DATA } from '@scheduler/shared';
 import type {
   Professor,
   PensumSubject,
@@ -140,15 +139,15 @@ export async function deleteProfessor(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** "Vaciar lista": borra enlaces + carga académica y marca como borrados (tombstone)
+ *  a TODOS los profesores vivos. Antes sembraba 45 profesores hardcodeados. */
 export async function resetProfessors(): Promise<Professor[]> {
   const sb = requireSupabase();
-  const rows = PROFESSORS_DATA.map((p) => profRow(p));
-  if (rows.length) {
-    const { error } = await sb.from('professors').upsert(await stripProf(rows));
-    if (error) throw error;
-    for (const p of PROFESSORS_DATA) await setProfessorLinks(p.id, p.subjects ?? []);
-  }
-  return PROFESSORS_DATA;
+  await sb.from('professor_subjects').delete().not('professor_id', 'is', null);
+  await sb.from('academic_load').delete().not('professor_id', 'is', null);
+  const { error } = await sb.from('professors').update({ deleted_at: now() }).is('deleted_at', null);
+  if (error) throw error;
+  return [];
 }
 
 export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Promise<Professor[]> {
