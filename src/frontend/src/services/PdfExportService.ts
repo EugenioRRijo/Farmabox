@@ -3,6 +3,7 @@ import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces';
 import { PensumSubject, Professor } from '../../../shared/src/index';
 import { ScheduleBlock, AcademicLoad } from '@/types/schedule';
+import { slotLabel, turnoForSemester, defaultWindowForTurno } from '../lib/timeSlots';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (pdfMake as any).vfs = (pdfFonts as any).pdfMake?.vfs ?? pdfFonts;
@@ -47,13 +48,15 @@ const buildSchedulePage = (
     section = 'A'
   } = config;
 
-  // ── Time Slots ──────────────────────────────────────
-  const timeSlots = [
-    '7:00-7:45', '7:45-8:30', '8:30-9:15', '9:15-10:00',
-    '10:00-10:45', '10:45-11:30', '11:30-12:15', '12:15-1:00',
-    '1:00-1:45', '1:45-2:30', '2:30-3:15', '3:15-4:00',
-    '4:00-4:45', '4:45-5:30'
-  ];
+  // ── Rango de filas: ventana del turno + lo que usen los bloques (sin sobra) ──
+  const win = defaultWindowForTurno(turnoForSemester(semesterNumber));
+  let rowLo = win.start;
+  let rowHi = win.end;
+  for (const b of blocks) {
+    if (b.startHour < rowLo) rowLo = b.startHour;
+    const end = b.startHour + b.duration - 1;
+    if (end > rowHi) rowHi = end;
+  }
 
   const days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
 
@@ -66,9 +69,9 @@ const buildSchedulePage = (
     ...days.map(d => ({ text: d, style: 'tableHeader', alignment: 'center' as const }))
   ]);
 
-  timeSlots.forEach((timeLabel, rowIndex) => {
+  for (let rowIndex = rowLo; rowIndex <= rowHi; rowIndex++) {
     const row: TableCell[] = [
-      { text: timeLabel, alignment: 'center', fontSize: 7 }
+      { text: slotLabel(rowIndex), alignment: 'center', fontSize: 7 }
     ];
 
     for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
@@ -104,7 +107,7 @@ const buildSchedulePage = (
     }
 
     scheduleBody.push(row);
-  });
+  }
 
   // ── Build Summary Table ─────────────────────────────
   const summaryBody: TableCell[][] = [];
@@ -133,7 +136,8 @@ const buildSchedulePage = (
       { text: subject.code, alignment: 'center', fontSize: 7 },
       { text: subject.name, alignment: 'center', fontSize: 7 },
       { text: getProfNames(load.theory), alignment: 'center', fontSize: 7 },
-      { text: getProfNames(load.lab), alignment: 'center', fontSize: 7 },
+      // Materias teóricas (sin laboratorio) dejan la columna de práctica vacía.
+      { text: subject.hoursLab > 0 ? getProfNames(load.lab) : '', alignment: 'center', fontSize: 7 },
       { text: subject.labNumber || '', alignment: 'center', fontSize: 7 },
       { text: subject.prerequisites.join('\n') || '', alignment: 'center', fontSize: 7 },
     ]);
@@ -251,14 +255,17 @@ const buildProfessorPage = (
   subjects: PensumSubject[],
   logoDataUrl: string | null
 ): Content[] => {
-  const timeSlots = [
-    '7:00-7:45', '7:45-8:30', '8:30-9:15', '9:15-10:00',
-    '10:00-10:45', '10:45-11:30', '11:30-12:15', '12:15-1:00',
-    '1:00-1:45', '1:45-2:30', '2:30-3:15', '3:15-4:00',
-    '4:00-4:45', '4:45-5:30', '5:30-6:15', '6:15-7:00',
-  ];
   const days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
   const myBlocks = blocks.filter((b) => b.professorId === professor.id);
+
+  // Rango de filas según las clases del profesor (puede incluir noche). Fallback 7am-7pm.
+  let rowLo = Infinity, rowHi = -Infinity;
+  for (const b of myBlocks) {
+    if (b.startHour < rowLo) rowLo = b.startHour;
+    const end = b.startHour + b.duration - 1;
+    if (end > rowHi) rowHi = end;
+  }
+  if (!myBlocks.length) { rowLo = 0; rowHi = 15; }
 
   const covered: Record<string, boolean> = {};
   const body: TableCell[][] = [];
@@ -267,8 +274,8 @@ const buildProfessorPage = (
     ...days.map((d) => ({ text: d, style: 'tableHeader', alignment: 'center' as const })),
   ]);
 
-  timeSlots.forEach((label, row) => {
-    const r: TableCell[] = [{ text: label, alignment: 'center', fontSize: 7 }];
+  for (let row = rowLo; row <= rowHi; row++) {
+    const r: TableCell[] = [{ text: slotLabel(row), alignment: 'center', fontSize: 7 }];
     for (let d = 0; d < 5; d++) {
       const key = `${d}-${row}`;
       if (covered[key]) {
@@ -292,7 +299,7 @@ const buildProfessorPage = (
       }
     }
     body.push(r);
-  });
+  }
 
   // Total de horas semanales = suma de las duraciones de sus bloques.
   const totalHoras = myBlocks.reduce((sum, b) => sum + (b.duration || 0), 0);
