@@ -24,7 +24,7 @@ export function PeriodManager({ currentPeriod = "2026-01", onChange }: PeriodMan
       {onChange && (
         <button 
           className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-md transition-colors"
-          onClick={() => console.log('Change period clicked')}
+          onClick={() => onChange?.(currentPeriod)}
         >
           Cambiar Periodo
         </button>

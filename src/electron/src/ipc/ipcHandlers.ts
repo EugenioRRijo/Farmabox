@@ -5,16 +5,15 @@
  * Cada handler usa ipcMain.handle (respuesta Promise) y devuelve la envoltura
  * { data } | { error }. Llamar una sola vez desde main.ts.
  *
- * NOTA: los canales de sincronización en la nube (supabase:*) se añadirán en la
- * Fase 2 junto con CloudStorageService/SupabaseKeepaliveService.
+ * NOTA: la sincronización con Supabase es automática (CloudStorageService guarda
+ * tras cada cambio y al cerrar). No hay canales IPC de sync.
  */
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, dialog } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 import log from 'electron-log';
 import type { Professor } from '@scheduler/shared';
 import type { PensumSubject } from '@scheduler/shared';
 import type { IStorageService } from '../services/IStorageService';
-import type { CloudStorageService } from '../services/CloudStorageService';
 import type { ProfessorService } from '../services/ProfessorService';
 import type { SubjectService } from '../services/SubjectService';
 import type { ScheduleService } from '../services/ScheduleService';
@@ -23,10 +22,10 @@ import type { AcademicLoad, ScheduleBlockData, RestorePayload } from '../types';
 import { GeminiService } from '../services/GeminiService';
 import type { ChatMessage } from '../services/GeminiService';
 import { buildChatContext, localFallback } from '../chat/context';
+import { getSharedDir, setSharedDir } from '../config/appConfig';
 
 export interface AppServices {
   storageService: IStorageService;
-  cloud: CloudStorageService;
   professorService: ProfessorService;
   subjectService: SubjectService;
   scheduleService: ScheduleService;
@@ -40,7 +39,7 @@ type SubjectCreateInput = Partial<PensumSubject> & {
 };
 
 export function registerIpcHandlers(services: AppServices): void {
-  const { professorService, subjectService, scheduleService, logService, storageService, cloud } = services;
+  const { professorService, subjectService, scheduleService, logService, storageService } = services;
   const gemini = new GeminiService();
 
   // ── App ────────────────────────────────────────────────────────────────
@@ -90,6 +89,14 @@ export function registerIpcHandlers(services: AppServices): void {
     } catch (err) {
       log.error('[IPC professors:reset]', err);
       return { error: 'Error resetting professors' };
+    }
+  });
+  ipcMain.handle('professors:bulkUpsert', (_e: IpcMainInvokeEvent, data: Partial<Professor>[]) => {
+    try {
+      return { data: professorService.bulkUpsert(Array.isArray(data) ? data : []) };
+    } catch (err) {
+      log.error('[IPC professors:bulkUpsert]', err);
+      return { error: 'Error importing professors' };
     }
   });
 
@@ -152,6 +159,17 @@ export function registerIpcHandlers(services: AppServices): void {
       return { error: 'Error resetting pensum' };
     }
   });
+  ipcMain.handle(
+    'subjects:bulkUpsert',
+    (_e: IpcMainInvokeEvent, data: Array<Partial<PensumSubject> & { code: string; semester: number | string }>) => {
+      try {
+        return { data: subjectService.bulkUpsert(Array.isArray(data) ? data : []) };
+      } catch (err) {
+        log.error('[IPC subjects:bulkUpsert]', err);
+        return { error: 'Error importing subjects' };
+      }
+    },
+  );
 
   // ── Schedule Blocks ────────────────────────────────────────────────────
   ipcMain.handle('schedule:getBlocks', () => {
@@ -241,57 +259,39 @@ export function registerIpcHandlers(services: AppServices): void {
     }
   });
 
-  // ── Sincronización / Historial de versiones ──────────────────────────────
-  ipcMain.handle('sync:status', async () => {
+  // La sincronización es automática (el storage guarda tras cada cambio y al
+  // cerrar). No hay canales IPC de sync; solo de configuración del backend.
+
+  // ── Configuración de almacenamiento (Supabase ↔ carpeta compartida) ──────
+  ipcMain.handle('config:getStorage', () => {
     try {
-      return { data: await cloud.getSyncStatus() };
+      const sharedDir = getSharedDir();
+      return { data: { mode: sharedDir ? 'shared' : 'cloud', sharedDir } };
     } catch (err) {
-      log.error('[IPC sync:status]', err);
-      return { error: 'Error obteniendo estado de sincronización' };
+      log.error('[IPC config:getStorage]', err);
+      return { error: 'Error obteniendo la configuración de almacenamiento' };
     }
   });
-  ipcMain.handle('sync:diff', () => {
+  ipcMain.handle('config:setSharedDir', (_e: IpcMainInvokeEvent, dir: string | null) => {
     try {
-      return { data: cloud.getPendingDiff() };
+      setSharedDir(typeof dir === 'string' ? dir : null);
+      // El cambio de backend se aplica al reiniciar la app.
+      return { data: { ok: true, sharedDir: getSharedDir() } };
     } catch (err) {
-      log.error('[IPC sync:diff]', err);
-      return { error: 'Error calculando cambios pendientes' };
+      log.error('[IPC config:setSharedDir]', err);
+      return { error: 'No se pudo guardar la carpeta compartida' };
     }
   });
-  ipcMain.handle('sync:push', async (_e: IpcMainInvokeEvent, label?: string) => {
+  ipcMain.handle('config:pickFolder', async () => {
     try {
-      const r = await cloud.pushSession(typeof label === 'string' ? label : undefined);
-      if (!r.ok) return { error: r.error ?? 'Error al subir' };
-      return { data: { summary: r.summary } };
+      const res = await dialog.showOpenDialog({
+        title: 'Elegí la carpeta compartida (red local)',
+        properties: ['openDirectory'],
+      });
+      return { data: { path: res.canceled || !res.filePaths.length ? null : res.filePaths[0] } };
     } catch (err) {
-      log.error('[IPC sync:push]', err);
-      return { error: 'Error al subir cambios' };
-    }
-  });
-  ipcMain.handle('sync:pull', async () => {
-    try {
-      return { data: await cloud.pullNow() };
-    } catch (err) {
-      log.error('[IPC sync:pull]', err);
-      return { error: 'Error al buscar cambios' };
-    }
-  });
-  ipcMain.handle('sync:history', async () => {
-    try {
-      return { data: await cloud.getVersionHistory() };
-    } catch (err) {
-      log.error('[IPC sync:history]', err);
-      return { error: 'Error obteniendo el historial' };
-    }
-  });
-  ipcMain.handle('sync:restore', async (_e: IpcMainInvokeEvent, id: number) => {
-    try {
-      const r = await cloud.restoreVersion(Number(id));
-      if (!r.ok) return { error: r.error ?? 'Error al restaurar' };
-      return { data: { success: true } };
-    } catch (err) {
-      log.error('[IPC sync:restore]', err);
-      return { error: 'Error al restaurar la versión' };
+      log.error('[IPC config:pickFolder]', err);
+      return { error: 'No se pudo abrir el selector de carpeta' };
     }
   });
 

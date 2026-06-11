@@ -1,0 +1,39 @@
+name: Supabase keep-alive
+
+# Mantiene vivo el proyecto de Supabase (plan free): Supabase PAUSA el proyecto
+# tras ~7 días sin actividad. Esta acción le hace una consulta liviana cada pocos
+# días para que la base de datos NO se pause ni se borre. Corre en GitHub, sin
+# depender de que alguien abra la app.
+#
+# Requiere dos "Secrets" en el repo (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL        ej: https://xxxxxxxx.supabase.co
+#   SUPABASE_ANON_KEY   la anon/publishable key del proyecto
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *' # cada 3 días a las 06:00 UTC (margen de sobra antes de los 7 días)
+  workflow_dispatch: {} # permite ejecutarlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar la base (mantiene viva la base)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Faltan los secrets SUPABASE_URL / SUPABASE_ANON_KEY en el repo."
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/professors?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          echo "Supabase respondió HTTP $code"
+          # 2xx (ok) y 4xx (tabla vacía / RLS) sirven como actividad. Solo fallamos si no respondió.
+          if [ "$code" -ge 500 ] || [ "$code" -eq 000 ]; then
+            echo "::error::Supabase no respondió correctamente (HTTP $code)"
+            exit 1
+          fi

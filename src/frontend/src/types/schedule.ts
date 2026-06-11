@@ -9,6 +9,7 @@ export interface AcademicLoad {
 export interface ScheduleBlock {
   id: string;
   subjectCode: string;
+  semester?: number; // FK al semestre (tabla semesters)
   day: number; // 0=Mon, 1=Tue...
   startHour: number; // 7, 8...
   duration: number; // in hours

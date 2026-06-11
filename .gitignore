@@ -12,6 +12,11 @@ USM-Scheduler-Portable/
 src/electron/frontend/
 *.tsbuildinfo
 
+# vite.config compilado: NO debe existir, eclipsa a vite.config.ts
+# (sin base:'./' → rutas absolutas → pantalla en blanco en el .exe)
+src/frontend/vite.config.js
+src/frontend/vite.config.d.ts
+
 # Secretos: NUNCA se commitean (ni el plano ni el cifrado).
 # El .exe distribuido ya los lleva embebidos. Para reconstruir:
 #   1) crear secrets.plain.json (desde secrets.plain.example.json) con las keys reales

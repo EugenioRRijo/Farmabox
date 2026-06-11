@@ -1,44 +1,93 @@
 import { useState, useMemo } from 'react';
 import { 
-  Search, 
-  Mail, 
-  BookOpen, 
+  Search,
+  Mail,
+  BookOpen,
+  Beaker,
   GraduationCap,
   Edit2,
   UserPlus,
   Users,
-  RotateCcw,
   X,
   LayoutGrid,
   List as ListIcon,
   Trash2,
-  Copy
+  Copy,
+  Upload,
+  CalendarDays
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dialog, DialogContent } from '@/components/ui/Dialog';
+import { normalizeText } from '@/lib/utils';
 
 import { Professor, Semester, PensumSubject } from '../../../../shared/src/index';
 import { useAppData } from '../../context/AppDataContext';
+import { ImportModal } from '@/components/common/ImportModal';
+import { generateProfessorSchedulePdf } from '../../services/PdfExportService';
+import toast from 'react-hot-toast';
+
+// Deterministic avatar gradient per professor — adds warmth and makes cards
+// easier to tell apart at a glance. Full literal strings so Tailwind JIT keeps them.
+const AVATAR_GRADIENTS = [
+  'from-purple-500 to-purple-600',
+  'from-blue-500 to-indigo-600',
+  'from-emerald-500 to-teal-600',
+  'from-amber-500 to-orange-600',
+  'from-rose-500 to-pink-600',
+  'from-cyan-500 to-blue-600',
+  'from-violet-500 to-fuchsia-600',
+  'from-sky-500 to-blue-600',
+];
+function avatarGradient(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+}
 
 export function ProfessorsPage() {
-  const { 
-    professors, 
-    pensum, 
-    handleAddProfessor: onAdd, 
-    handleUpdateProfessor: onUpdate, 
-    handleDeleteProfessor: onDelete, 
-    handleResetProfessors: onReset, 
-    academicLoad, 
-    handleUpdateLoad: onUpdateLoad 
+  const {
+    professors,
+    pensum,
+    scheduleBlocks,
+    handleAddProfessor: onAdd,
+    handleUpdateProfessor: onUpdate,
+    handleDeleteProfessor: onDelete,
+    academicLoad,
+    handleUpdateLoad: onUpdateLoad
   } = useAppData();
+  const [showImport, setShowImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Exporta el horario de UN profesor a PDF, con avisos claros.
+  const handleExportProfessorPdf = async (prof: Professor) => {
+    const myBlocks = scheduleBlocks.filter((b) => b.professorId === prof.id);
+    if (myBlocks.length === 0) {
+      toast.error(
+        `${prof.fullName} no tiene clases asignadas en ningún horario todavía. Andá a "Horarios", asignale el profesor a sus bloques, y volvé a exportar.`,
+        { duration: 6000 },
+      );
+      return;
+    }
+    try {
+      await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects));
+      toast.success(`Horario de ${prof.fullName} exportado (${myBlocks.length} bloque(s)).`);
+    } catch (e) {
+      toast.error('No se pudo generar el PDF: ' + (e instanceof Error ? e.message : 'error desconocido'));
+    }
+  };
   const [sortOption, setSortOption] = useState<string>('alpha-asc');
   const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Professor>>({});
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(
+    () => (localStorage.getItem('professors-view') as 'grid' | 'list') || 'list',
+  );
+  const setViewMode = (m: 'grid' | 'list') => {
+    localStorage.setItem('professors-view', m);
+    setViewModeState(m);
+  };
   const [emailsCopied, setEmailsCopied] = useState(false);
   
   // State for Subject Autocomplete in Modal
@@ -77,12 +126,12 @@ export function ProfessorsPage() {
             ...formData as Professor 
         });
     } else {
-        // Add
+        // Add — spread para incluir cédula, profesión, email, etc.
         const newProf: Professor = {
+            ...formData,
             id: `prof-${Date.now()}`,
             fullName: formData.fullName || 'Nuevo Profesor',
             title: formData.title || 'Prof.',
-            email: formData.email,
             subjects: formData.subjects || [],
             type: formData.type || 'both'
         } as Professor;
@@ -97,17 +146,17 @@ export function ProfessorsPage() {
     
     // 1. Filtrar
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeText(searchQuery);
       result = result.filter(
         (prof) =>
-          prof.fullName.toLowerCase().includes(query) ||
-          prof.title.toLowerCase().includes(query) ||
-          prof.email?.toLowerCase().includes(query) ||
+          normalizeText(prof.fullName).includes(query) ||
+          normalizeText(prof.title).includes(query) ||
+          normalizeText(prof.email).includes(query) ||
           prof.subjects.some((code: string) => {
             const subject = pensum.flatMap((s: Semester) => s.subjects).find(
               (sub: PensumSubject) => sub.code === code
             );
-            return subject?.name.toLowerCase().includes(query);
+            return normalizeText(subject?.name).includes(query);
           })
       );
     }
@@ -204,16 +253,14 @@ export function ProfessorsPage() {
                 <Copy className="w-4 h-4" />
                 {emailsCopied ? '¡Copiado!' : 'Copiar Correos'}
             </Button>
-            {onReset && (
-                <Button
-                    onClick={onReset}
-                    variant="outline"
-                    className="flex items-center gap-2 text-gray-600"
-                >
-                    <RotateCcw className="w-4 h-4" />
-                    Restaurar Lista
-                </Button>
-            )}
+            <Button
+                onClick={() => setShowImport(true)}
+                variant="outline"
+                className="flex items-center gap-2 text-gray-600"
+            >
+                <Upload className="w-4 h-4" />
+                Importar
+            </Button>
             <Button
                 onClick={() => handleOpenDialog()}
                 className="flex items-center gap-2"
@@ -324,67 +371,81 @@ export function ProfessorsPage() {
       ) : (
          viewMode === 'grid' ? (
             // ── Grid View ──────────────────────────────────
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProfessors.map((professor: Professor) => (
               <div
                key={professor.id}
-               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+               className="group bg-white rounded-xl shadow-sm border border-gray-200 p-4 transition-all duration-200 hover:shadow-lg hover:border-gray-300 hover:-translate-y-0.5"
              >
                {/* Professor Header */}
-               <div className="flex items-start justify-between mb-4">
-                 <div className="flex-1">
-                   <div className="flex items-center gap-2 mb-1">
-                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                       {professor.fullName
-                         .split(' ')
-                         .map((n: string) => n[0])
-                         .join('')
-                         .toUpperCase()
-                         .slice(0, 2)}
-                     </div>
-                     <div>
-                       <h3 className="font-bold text-gray-900 text-lg">
-                         {professor.title} {professor.fullName}
-                       </h3>
-                       {professor.cedula && (
-                         <div className="text-xs text-gray-500 mt-0.5 font-mono">C.I: {professor.cedula}</div>
-                       )}
-                       {professor.email && (
-                         <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                           <Mail className="w-3 h-3" />
-                           <span>{professor.email}</span>
-                         </div>
-                       )}
-                     </div>
-                   </div>
+               <div className="flex items-start gap-3 mb-3">
+                 <div className={`w-10 h-10 shrink-0 rounded-full bg-gradient-to-br ${avatarGradient(professor.id || professor.fullName)} flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-white`}>
+                   {professor.fullName
+                     .split(' ')
+                     .map((n: string) => n[0])
+                     .join('')
+                     .toUpperCase()
+                     .slice(0, 2)}
                  </div>
+                 <div className="min-w-0 flex-1">
+                   <h3 className="font-semibold text-gray-900 text-base leading-tight truncate" title={`${professor.title} ${professor.fullName}`}>
+                     {professor.title} {professor.fullName}
+                   </h3>
+                   <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500 mt-0.5">
+                     {professor.profession && (
+                       <span className="text-brand-accent font-medium truncate max-w-full">{professor.profession}</span>
+                     )}
+                     {professor.cedula && (
+                       <span className="font-mono">C.I {professor.cedula}</span>
+                     )}
+                   </div>
+                   {professor.email && (
+                     <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5 min-w-0">
+                       <Mail className="w-3 h-3 shrink-0" />
+                       <span className="truncate">{professor.email}</span>
+                     </div>
+                   )}
+                 </div>
+                 <div className="flex shrink-0 -mr-1">
                    <Button
                        variant="ghost"
                        size="icon"
+                       title="Editar profesor"
                        onClick={() => handleOpenDialog(professor)}
-                       className="flex-shrink-0"
+                       className="flex-shrink-0 h-8 w-8"
                    >
                     <Edit2 className="w-4 h-4" />
                    </Button>
-                 <Button
-                   variant="ghost"
-                   size="icon"
-                   onClick={() => {
-                     if (window.confirm('¿Estás seguro de que deseas eliminar a este profesor?')) {
-                         onDelete(professor.id);
-                     }
-                   }}
-                   className="flex-shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                 >
-                   <Trash2 className="w-4 h-4" /> 
-                 </Button>
+                   <Button
+                     variant="ghost"
+                     size="icon"
+                     title="Descargar horario del profesor (PDF)"
+                     onClick={() => handleExportProfessorPdf(professor)}
+                     className="flex-shrink-0 h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                   >
+                     <CalendarDays className="w-4 h-4" />
+                   </Button>
+                   <Button
+                     variant="ghost"
+                     size="icon"
+                     title="Eliminar profesor"
+                     onClick={() => {
+                       if (window.confirm('¿Estás seguro de que deseas eliminar a este profesor?')) {
+                           onDelete(professor.id);
+                       }
+                     }}
+                     className="flex-shrink-0 h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                   >
+                     <Trash2 className="w-4 h-4" />
+                   </Button>
+                 </div>
                </div>
  
                {/* Feature #4: Type badges removed — assignment buttons below remain */}
  
                {/* Subjects List */}
-               <div className="border-t border-gray-200 pt-4">
-                  <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+               <div className="border-t border-gray-200 pt-3">
+                  <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
                     <div className="flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-gray-400" />
                         <span className="text-sm font-medium text-gray-700">
@@ -417,48 +478,50 @@ export function ProfessorsPage() {
                         </button>
                     )}
                   </div>
-                 <div className="space-y-4">
+                 {professor.subjects.length === 0 ? (
+                   <div className="py-5 text-center">
+                     <BookOpen className="w-7 h-7 text-gray-300 mx-auto mb-1.5" />
+                     <p className="text-xs text-gray-400">Sin materias asignadas todavía</p>
+                   </div>
+                 ) : (
+                 <div className="space-y-0.5 max-h-72 overflow-y-auto custom-scrollbar -mr-1 pr-1">
                    {professor.subjects.map((subjectCode: string) => {
                       const subject = pensum.flatMap((s) => s.subjects).find((s) => s.code === subjectCode);
                       const hasLab = subject?.hasLab;
                       const isTheoryAssigned = academicLoad[subjectCode]?.theory?.includes(professor.id);
                       const isLabAssigned = academicLoad[subjectCode]?.lab?.includes(professor.id);
- 
+                      const hasAnyAssignment = isTheoryAssigned || isLabAssigned;
+                      const semNum = pensum.find((s) => s.subjects.some((sub) => sub.code === subjectCode))?.number;
+
                       return (
                      <div
                        key={subjectCode}
-                       className="text-sm bg-gray-50 rounded px-3 py-3 border border-gray-200"
+                       className={`flex items-center gap-2 rounded-lg px-2 py-2 transition-colors ${
+                         hasAnyAssignment ? 'bg-emerald-50/70' : 'hover:bg-gray-50'
+                       }`}
                      >
-                       <div className="flex justify-between items-start mb-2">
-                           <div>
-                             <div className="flex items-center gap-2">
-                               <div className="font-medium text-gray-900">
-                                   {getSubjectName(subjectCode)}
-                               </div>
-                               {(() => {
-                                   const semNum = pensum.find((s) => s.subjects.some((sub) => sub.code === subjectCode))?.number;
-                                   return semNum ? (
-                                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
-                                           Sem. {semNum}
-                                       </Badge>
-                                   ) : null;
-                               })()}
-                             </div>
-                             <div className="text-xs text-gray-500 font-mono mt-0.5">
-                                 {subjectCode}
-                             </div>
-                           </div>
+                       <div className="min-w-0 flex-1">
+                         <div className="flex items-baseline gap-1.5">
+                           <span className="truncate text-sm font-medium text-gray-800" title={`${getSubjectName(subjectCode)} · ${subjectCode}`}>
+                               {getSubjectName(subjectCode)}
+                           </span>
+                           {semNum && (
+                             <span className="shrink-0 text-[10px] font-semibold tabular-nums text-gray-400" title={`Semestre ${semNum}`}>
+                               S{semNum}
+                             </span>
+                           )}
+                         </div>
                        </div>
-                       
+
                        {/* Assignment Toggles */}
-                       <div className="flex gap-2 mt-2">
+                       <div className="flex shrink-0 gap-1">
                          <button
+                             aria-label={isTheoryAssigned ? `Quitar teoría de ${getSubjectName(subjectCode)}` : `Asignar teoría de ${getSubjectName(subjectCode)}`}
+                             title={isTheoryAssigned ? 'Teoría asignada — clic para quitar' : 'Asignar teoría'}
                              onClick={() => {
                                  const newLoad = { ...academicLoad };
                                  if (!newLoad[subjectCode]) newLoad[subjectCode] = {};
-                                 
                                  if (!newLoad[subjectCode].theory) newLoad[subjectCode].theory = [];
-                                 
                                  // Toggle Theory
                                  const t = newLoad[subjectCode].theory as string[];
                                  if (t.includes(professor.id)) {
@@ -468,23 +531,23 @@ export function ProfessorsPage() {
                                  }
                                  onUpdateLoad(newLoad);
                              }}
-                             className={`px-2 py-1 text-xs rounded border transition-colors ${
-                                 isTheoryAssigned 
-                                 ? 'bg-blue-100 text-blue-700 border-blue-200 font-medium' 
-                                 : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                             className={`w-7 h-7 flex items-center justify-center rounded-md border transition-colors ${
+                                 isTheoryAssigned
+                                 ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                 : 'bg-white text-gray-400 border-gray-200 hover:bg-blue-50 hover:text-blue-500 hover:border-blue-300'
                              }`}
                          >
-                             {isTheoryAssigned ? '✓ Teoría' : 'Asignar Teoría'}
+                             <BookOpen className="w-3.5 h-3.5" />
                          </button>
-                         
+
                          {hasLab && (
                               <button
+                                 aria-label={isLabAssigned ? `Quitar laboratorio de ${getSubjectName(subjectCode)}` : `Asignar laboratorio de ${getSubjectName(subjectCode)}`}
+                                 title={isLabAssigned ? 'Laboratorio asignado — clic para quitar' : 'Asignar laboratorio'}
                                  onClick={() => {
                                      const newLoad = { ...academicLoad };
                                      if (!newLoad[subjectCode]) newLoad[subjectCode] = {};
-                                     
                                      if (!newLoad[subjectCode].lab) newLoad[subjectCode].lab = [];
-                                     
                                      // Toggle Lab
                                      const l = newLoad[subjectCode].lab as string[];
                                      if (l.includes(professor.id)) {
@@ -494,19 +557,20 @@ export function ProfessorsPage() {
                                      }
                                      onUpdateLoad(newLoad);
                                  }}
-                                 className={`px-2 py-1 text-xs rounded border transition-colors ${
-                                     isLabAssigned 
-                                     ? 'bg-purple-100 text-purple-700 border-purple-200 font-medium' 
-                                     : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                                 className={`w-7 h-7 flex items-center justify-center rounded-md border transition-colors ${
+                                     isLabAssigned
+                                     ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                     : 'bg-white text-gray-400 border-gray-200 hover:bg-purple-50 hover:text-purple-500 hover:border-purple-300'
                                  }`}
                              >
-                                 {isLabAssigned ? '✓ Lab' : 'Asignar Lab'}
+                                 <Beaker className="w-3.5 h-3.5" />
                              </button>
                          )}
                        </div>
                      </div>
                    )})}
                  </div>
+                 )}
                </div>
              </div>
            ))}
@@ -552,13 +616,36 @@ export function ProfessorsPage() {
                                         <div className="flex flex-wrap gap-1">
                                             {prof.subjects.map((code: string) => {
                                                 const semNum = pensum.find(s => s.subjects.some(sub => sub.code === code))?.number;
+                                                const isTheory = academicLoad[code]?.theory?.includes(prof.id);
+                                                const isLab = academicLoad[code]?.lab?.includes(prof.id);
                                                 return (
-                                                    <Badge key={code} variant="outline" className="text-xs font-normal bg-gray-50 hover:bg-gray-100 transition-colors">
-                                                        <span className="truncate max-w-[120px]" title={getSubjectName(code)}>
+                                                    <span
+                                                        key={code}
+                                                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white pl-2.5 pr-2 py-0.5 text-xs hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        <span className="truncate max-w-[140px] font-medium text-gray-700" title={getSubjectName(code)}>
                                                             {getSubjectName(code)}
                                                         </span>
-                                                        {semNum && <span className="text-blue-600 font-medium ml-1">S{semNum}</span>}
-                                                    </Badge>
+                                                        {(semNum || isTheory || isLab) && (
+                                                            <span className="inline-flex items-center gap-1 pl-1.5 border-l border-gray-200">
+                                                                {semNum && (
+                                                                    <span className="text-[10px] font-semibold tabular-nums text-gray-400" title={`Semestre ${semNum}`}>
+                                                                        S{semNum}
+                                                                    </span>
+                                                                )}
+                                                                {isTheory && (
+                                                                    <span title="Teoría" className="inline-flex">
+                                                                        <BookOpen className="w-3 h-3 text-blue-500" />
+                                                                    </span>
+                                                                )}
+                                                                {isLab && (
+                                                                    <span title="Laboratorio" className="inline-flex">
+                                                                        <Beaker className="w-3 h-3 text-purple-500" />
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 );
                                             })}
                                         </div>
@@ -568,16 +655,25 @@ export function ProfessorsPage() {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div className="flex justify-end gap-2">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             onClick={() => handleOpenDialog(prof)}
                                             className="h-8 w-8"
                                         >
                                             <Edit2 className="w-4 h-4 text-blue-600" />
                                         </Button>
-                                        <Button 
-                                            variant="ghost" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            title="Descargar horario del profesor (PDF)"
+                                            onClick={() => handleExportProfessorPdf(prof)}
+                                            className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                        >
+                                            <CalendarDays className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
                                             size="icon"
                                             onClick={() => {
                                                 if (window.confirm('¿Estás seguro de que deseas eliminar a este profesor?')) {
@@ -620,12 +716,18 @@ export function ProfessorsPage() {
                 value={formData.cedula || ''}
                 onChange={(e) => setFormData({...formData, cedula: e.target.value})}
               />
-              <Input 
-                label="Email" 
-                type="email" 
-                placeholder="ejemplo@usm.edu.ve" 
+              <Input
+                label="Email"
+                type="email"
+                placeholder="ejemplo@usm.edu.ve"
                 value={formData.email || ''}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+              <Input
+                label="Profesión"
+                placeholder="Ej: Farmacéutico, Químico, Bioanalista..."
+                value={formData.profession || ''}
+                onChange={(e) => setFormData({...formData, profession: e.target.value})}
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -727,6 +829,14 @@ export function ProfessorsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {showImport && (
+        <ImportModal
+          kind="professors"
+          onClose={() => setShowImport(false)}
+          onDone={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }

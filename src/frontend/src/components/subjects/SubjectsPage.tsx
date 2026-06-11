@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronUp, Beaker, Clock, GraduationCap, Link2, Plus, X, User, Trash2, Edit, CheckSquare, Square, LayoutGrid, List as ListIcon, Search } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Beaker, Clock, GraduationCap, Link2, Plus, X, User, Trash2, Edit, CheckSquare, Square, LayoutGrid, List as ListIcon, Search, Upload } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
+import { ImportModal } from '@/components/common/ImportModal';
 import { Badge } from '@/components/ui/Badge';
+import { normalizeText } from '@/lib/utils';
 import { Professor, PensumSubject, Semester } from '../../../../shared/src/index';
 
 import { useAppData } from '../../context/AppDataContext';
@@ -12,12 +15,23 @@ export function SubjectsPage() {
   const [expandedSemesters, setExpandedSemesters] = useState<Set<number>>(new Set([1]));
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showImport, setShowImport] = useState(false);
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(
+    () => (localStorage.getItem('subjects-view') as 'grid' | 'list') || 'list',
+  );
+  const setViewMode = (m: 'grid' | 'list') => {
+    localStorage.setItem('subjects-view', m);
+    setViewModeState(m);
+  };
   
   // State for Professor Assignment Modal
   const [isProfModalOpen, setIsProfModalOpen] = useState(false);
   const [selectedSubjectforProf, setSelectedSubjectforProf] = useState<string | null>(null);
   const [selectedProfIds, setSelectedProfIds] = useState<string[]>([]);
+  // Snapshot of professors already assigned when the modal opens — used to keep them
+  // pinned at the top of the list (stable order, doesn't reshuffle while toggling).
+  const [initialAssignedProfIds, setInitialAssignedProfIds] = useState<string[]>([]);
+  const [profSearch, setProfSearch] = useState('');
 
   // State for Prerequisite Autocomplete
   const [prereqSearch, setPrereqSearch] = useState('');
@@ -49,6 +63,8 @@ export function SubjectsPage() {
       setSelectedSubjectforProf(subjectCode);
       const currentProfs = professors.filter(p => p.subjects.includes(subjectCode)).map(p => p.id);
       setSelectedProfIds(currentProfs);
+      setInitialAssignedProfIds(currentProfs);
+      setProfSearch('');
       setIsProfModalOpen(true);
   };
 
@@ -174,9 +190,29 @@ export function SubjectsPage() {
 
   // Prerequisite Autocomplete Suggestions
   const prereqSuggestions = allSubjects.filter(
-    s => s.name.toLowerCase().includes(prereqSearch.toLowerCase()) || 
+    s => s.name.toLowerCase().includes(prereqSearch.toLowerCase()) ||
          s.code.toLowerCase().includes(prereqSearch.toLowerCase())
   ).filter(s => !formData.prerequisites.includes(s.code)); // Exclude already selected
+
+  // Professor Modal: filter by search + pin originally-assigned professors at the top
+  const visibleProfessors = React.useMemo(() => {
+    const q = normalizeText(profSearch.trim());
+    const matches = professors.filter(p => {
+      if (!q) return true;
+      return (
+        normalizeText(p.fullName).includes(q) ||
+        normalizeText(p.email).includes(q) ||
+        normalizeText(p.profession).includes(q) ||
+        normalizeText(p.title).includes(q)
+      );
+    });
+    return matches.sort((a, b) => {
+      const aAssigned = initialAssignedProfIds.includes(a.id) ? 0 : 1;
+      const bAssigned = initialAssignedProfIds.includes(b.id) ? 0 : 1;
+      if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+      return a.fullName.localeCompare(b.fullName);
+    });
+  }, [professors, profSearch, initialAssignedProfIds]);
 
   return (
     <div className="space-y-6 relative">
@@ -193,6 +229,13 @@ export function SubjectsPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button
+                onClick={() => setShowImport(true)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+            >
+                <Upload className="w-4 h-4" />
+                Importar
+            </button>
             <button
                 onClick={() => setIsModalOpen(true)}
                 className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
@@ -456,8 +499,8 @@ export function SubjectsPage() {
       </div>
 
       {/* Add Subject Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {isModalOpen && createPortal((
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
                 <button 
                     onClick={() => setIsModalOpen(false)}
@@ -507,8 +550,8 @@ export function SubjectsPage() {
                                 value={formData.semester}
                                 onChange={e => setFormData({...formData, semester: parseInt(e.target.value)})}
                             >
-                                {pensum.map(s => (
-                                    <option key={s.number} value={s.number}>Semestre {s.number}</option>
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                    <option key={n} value={n}>Semestre {n}</option>
                                 ))}
                             </select>
                         </div>
@@ -540,19 +583,6 @@ export function SubjectsPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Horas Laboratorio</label>
-                            <input 
-                                type="number" 
-                                min="0"
-                                className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                value={formData.hoursLab}
-                                onChange={e => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    setFormData({...formData, hoursLab: val, hasLab: val > 0});
-                                }}
-                            />
-                        </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Salón de Laboratorio</label>
                             <input 
@@ -641,11 +671,11 @@ export function SubjectsPage() {
                 </form>
             </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Professor Management Modal (Reuse existing logic) */}
-      {isProfModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {isProfModalOpen && createPortal((
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
               <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 relative max-h-[80vh] flex flex-col">
                   <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-bold text-gray-900">Asignar Profesores</h2>
@@ -654,54 +684,107 @@ export function SubjectsPage() {
                       </button>
                   </div>
                   
-                  <p className="text-sm text-gray-500 mb-4">
-                      Selecciona los profesores que imparten la materia <strong>{selectedSubjectforProf}</strong>.
+                  <p className="text-sm text-gray-600 mb-3">
+                      Selecciona los profesores que imparten la materia <strong className="text-gray-900">{selectedSubjectforProf}</strong>.
                   </p>
 
-                  <div className="overflow-y-auto flex-1 border border-gray-200 rounded-md p-2 space-y-1">
-                      {professors
-                          .sort((a, b) => a.fullName.localeCompare(b.fullName))
-                          .map(prof => {
-                              const isSelected = selectedProfIds.includes(prof.id);
-                              return (
-                                  <div 
-                                      key={prof.id}
-                                      onClick={() => toggleProfSelection(prof.id)}
-                                      className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}`}
-                                  >
-                                      {isSelected ? (
-                                          <CheckSquare className="w-5 h-5 text-blue-600" />
-                                      ) : (
-                                          <Square className="w-5 h-5 text-gray-400" />
-                                      )}
-                                      <div>
-                                          <div className="font-medium text-gray-900">{prof.title} {prof.fullName}</div>
-                                          <div className="text-xs text-gray-500">{prof.email || 'Sin email'}</div>
-                                      </div>
-                                  </div>
-                              );
-                          })
-                      }
+                  {/* Search box */}
+                  <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                          type="text"
+                          autoFocus
+                          value={profSearch}
+                          onChange={(e) => setProfSearch(e.target.value)}
+                          placeholder="Buscar profesor por nombre, profesión o email..."
+                          className="w-full px-4 py-2 pl-9 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 transition-colors hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      />
+                      {profSearch && (
+                          <button
+                              onClick={() => setProfSearch('')}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                              <X className="w-4 h-4" />
+                          </button>
+                      )}
                   </div>
 
-                  <div className="mt-4 flex gap-2 justify-end">
-                      <button 
+                  <div className="overflow-y-auto flex-1 border border-gray-200 rounded-md p-2 space-y-1">
+                      {visibleProfessors.length === 0 ? (
+                          <div className="py-8 text-center text-sm text-gray-500 italic">
+                              No se encontraron profesores
+                          </div>
+                      ) : (
+                          visibleProfessors.map((prof, index) => {
+                              const isSelected = selectedProfIds.includes(prof.id);
+                              const wasAssigned = initialAssignedProfIds.includes(prof.id);
+                              // Insert a divider between the pinned (assigned) group and the rest.
+                              const prev = visibleProfessors[index - 1];
+                              const showDivider =
+                                  !profSearch &&
+                                  prev &&
+                                  initialAssignedProfIds.includes(prev.id) &&
+                                  !wasAssigned;
+                              return (
+                                  <React.Fragment key={prof.id}>
+                                      {showDivider && (
+                                          <div className="flex items-center gap-2 px-1 pt-3 pb-1">
+                                              <div className="h-px flex-1 bg-gray-300" />
+                                              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Otros profesores</span>
+                                              <div className="h-px flex-1 bg-gray-300" />
+                                          </div>
+                                      )}
+                                      <div
+                                          onClick={() => toggleProfSelection(prof.id)}
+                                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-100 border border-blue-400' : 'hover:bg-gray-100 border border-transparent'}`}
+                                      >
+                                          {isSelected ? (
+                                              <CheckSquare className="w-5 h-5 text-blue-700 flex-shrink-0" />
+                                          ) : (
+                                              <Square className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                          )}
+                                          <div className="min-w-0">
+                                              <div className={`font-medium flex items-center gap-2 ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                                                  <span className="truncate">{prof.title} {prof.fullName}</span>
+                                                  {wasAssigned && (
+                                                      <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-green-600 text-white">Asignado</span>
+                                                  )}
+                                              </div>
+                                              <div className={`text-xs truncate ${isSelected ? 'text-blue-700' : 'text-gray-600'}`}>{prof.profession || prof.email || 'Sin información'}</div>
+                                          </div>
+                                      </div>
+                                  </React.Fragment>
+                              );
+                          })
+                      )}
+                  </div>
+
+                  <div className="mt-4 flex gap-2 justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">
+                          <span className="text-blue-700 font-bold">{selectedProfIds.length}</span> {selectedProfIds.length === 1 ? 'profesor seleccionado' : 'profesores seleccionados'}
+                      </span>
+                      <div className="flex gap-2">
+                      <button
                           onClick={() => setIsProfModalOpen(false)}
-                          className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                          className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg font-medium"
                       >
                           Cancelar
                       </button>
-                      <button 
+                      <button
                           onClick={handleSaveProfessors}
                           className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium"
                       >
                           Guardar Asignación
                       </button>
+                      </div>
                   </div>
               </div>
           </div>
-      )}
+      ), document.body)}
 
+      {showImport && (
+        <ImportModal kind="subjects" onClose={() => setShowImport(false)} onDone={() => window.location.reload()} />
+      )}
 
     </div>
   );

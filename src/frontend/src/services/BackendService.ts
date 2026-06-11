@@ -2,15 +2,14 @@
  * BackendService — Capa de transporte única del frontend.
  *
  * Detecta el entorno en tiempo de ejecución:
- *   - En Electron (window.electronAPI presente) → usa IPC (sin Express).
- *   - En web/dev (sin electronAPI)               → usa HTTP al Express local.
+ *   - En Electron (window.electronAPI presente) → usa IPC (proceso de Electron).
+ *   - En web/dev (sin electronAPI)               → usa Supabase directo (supabaseWeb).
  *
- * Toda operación de profesores, materias, carga académica y bloques de horario
- * pasa por aquí, de modo que los consumidores (AppDataContext, componentes) no
- * cambian al alternar de transporte.
+ * En ambos casos los datos terminan en las MISMAS tablas relacionales de Supabase:
+ * un solo backend, sin duplicar lógica (ya no hay servidor Express).
  */
 
-const API_BASE = 'http://localhost:3001/api';
+import * as web from './supabaseWeb';
 
 // Referencia al puente IPC (undefined en modo web).
 const ipc = typeof window !== 'undefined' ? window.electronAPI : undefined;
@@ -24,19 +23,6 @@ async function unwrap<T>(p: Promise<{ data: T } | { error: string }>): Promise<T
   return (res as { data: T }).data;
 }
 
-/** Cliente HTTP para el modo web (Express). */
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error || `API error: ${res.status}`);
-  }
-  return res.json();
-}
-
 // ── Professor types (mirrors backend) ──────────────────
 export interface Professor {
   id: string;
@@ -44,6 +30,7 @@ export interface Professor {
   title: 'Prof.' | 'Dr.' | 'Dra.' | 'MSc.' | 'Lic.';
   email?: string;
   cedula?: string;
+  profession?: string;
   subjects: string[];
   type: 'theory' | 'practice' | 'both';
 }
@@ -56,6 +43,7 @@ export interface PensumSubject {
   hoursTheory: number;
   hoursLab: number;
   prerequisites: string[];
+  professors?: string[];
   labNumber?: string;
 }
 
@@ -74,6 +62,7 @@ export interface AcademicLoad {
 export interface ScheduleBlockData {
   id: string;
   subjectCode: string;
+  semester?: number;
   day: number;
   startHour: number;
   duration: number;
@@ -87,17 +76,17 @@ export interface ScheduleBlockData {
 // ── Professors ─────────────────────────────────────────
 export async function getProfessors(): Promise<Professor[]> {
   if (ipc) return unwrap(ipc.professors.getAll());
-  return request<Professor[]>('/professors');
+  return web.getProfessors();
 }
 
 export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Professor> {
   if (ipc) return unwrap(ipc.professors.create(data));
-  return request<Professor>('/professors', { method: 'POST', body: JSON.stringify(data) });
+  return web.createProfessor(data);
 }
 
 export async function updateProfessor(id: string, data: Partial<Professor>): Promise<Professor> {
   if (ipc) return unwrap(ipc.professors.update(id, data));
-  return request<Professor>(`/professors/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  return web.updateProfessor(id, data);
 }
 
 export async function deleteProfessor(id: string): Promise<void> {
@@ -105,31 +94,33 @@ export async function deleteProfessor(id: string): Promise<void> {
     await unwrap(ipc.professors.delete(id));
     return;
   }
-  await request(`/professors/${id}`, { method: 'DELETE' });
+  await web.deleteProfessor(id);
 }
 
 export async function resetProfessors(): Promise<Professor[]> {
   if (ipc) return unwrap(ipc.professors.reset());
-  return request<Professor[]>('/professors/reset', { method: 'POST' });
+  return web.resetProfessors();
+}
+
+export async function bulkUpsertProfessors(data: Partial<Professor>[]): Promise<Professor[]> {
+  if (ipc) return unwrap(ipc.professors.bulkUpsert(data));
+  return web.bulkUpsertProfessors(data);
 }
 
 // ── Subjects / Pensum ──────────────────────────────────
 export async function getSubjects(): Promise<Semester[]> {
   if (ipc) return unwrap(ipc.subjects.getAll());
-  return request<Semester[]>('/subjects');
+  return web.getSubjects();
 }
 
 export async function addSubject(data: PensumSubject & { semester: number }): Promise<PensumSubject> {
   if (ipc) return unwrap(ipc.subjects.create(data));
-  return request<PensumSubject>('/subjects', { method: 'POST', body: JSON.stringify(data) });
+  return web.addSubject(data);
 }
 
 export async function updateSubject(code: string, data: Partial<PensumSubject>): Promise<PensumSubject> {
   if (ipc) return unwrap(ipc.subjects.update(code, data));
-  return request<PensumSubject>(`/subjects/${encodeURIComponent(code)}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  return web.updateSubject(code, data);
 }
 
 export async function updateSubjectProfessors(
@@ -140,10 +131,7 @@ export async function updateSubjectProfessors(
     await unwrap(ipc.subjects.updateProfessors(subjectCode, professorIds));
     return;
   }
-  await request(`/subjects/${subjectCode}/professors`, {
-    method: 'PUT',
-    body: JSON.stringify({ professorIds }),
-  });
+  await web.updateSubjectProfessors(subjectCode, professorIds);
 }
 
 export async function deleteSubject(code: string): Promise<void> {
@@ -151,13 +139,20 @@ export async function deleteSubject(code: string): Promise<void> {
     await unwrap(ipc.subjects.delete(code));
     return;
   }
-  await request(`/subjects/${code}`, { method: 'DELETE' });
+  await web.deleteSubject(code);
+}
+
+export async function bulkUpsertSubjects(
+  data: Array<Partial<PensumSubject> & { code: string; semester: number | string }>,
+): Promise<Semester[]> {
+  if (ipc) return unwrap(ipc.subjects.bulkUpsert(data));
+  return web.bulkUpsertSubjects(data);
 }
 
 // ── Academic Load ──────────────────────────────────────
 export async function getAcademicLoad(): Promise<AcademicLoad> {
   if (ipc) return unwrap(ipc.schedule.getLoad());
-  return request<AcademicLoad>('/academic-load');
+  return web.getAcademicLoad();
 }
 
 export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
@@ -165,13 +160,13 @@ export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
     await unwrap(ipc.schedule.saveLoad(load));
     return;
   }
-  await request('/academic-load', { method: 'PUT', body: JSON.stringify(load) });
+  await web.saveAcademicLoad(load);
 }
 
 // ── Schedule Blocks ────────────────────────────────────
 export async function getScheduleBlocks(): Promise<ScheduleBlockData[]> {
   if (ipc) return unwrap(ipc.schedule.getBlocks());
-  return request<ScheduleBlockData[]>('/schedule-blocks');
+  return web.getScheduleBlocks();
 }
 
 export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<void> {
@@ -179,7 +174,7 @@ export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<v
     await unwrap(ipc.schedule.saveBlocks(blocks));
     return;
   }
-  await request('/schedule-blocks', { method: 'PUT', body: JSON.stringify(blocks) });
+  await web.saveScheduleBlocks(blocks);
 }
 
 // ── Logs / Reports ─────────────────────────────────────
@@ -192,12 +187,12 @@ export interface LogEntry {
 
 export async function getLogs(): Promise<LogEntry[]> {
   if (ipc) return unwrap(ipc.logs.getAll());
-  return request<LogEntry[]>('/logs');
+  return web.getLogs();
 }
 
 export async function createLog(action: string, details: string): Promise<LogEntry> {
   if (ipc) return unwrap(ipc.logs.create(action, details));
-  return request<LogEntry>('/logs', { method: 'POST', body: JSON.stringify({ action, details }) });
+  return web.createLog(action, details);
 }
 
 // ── Admin / Restore ────────────────────────────────────
@@ -213,64 +208,62 @@ export async function restoreData(data: BackupData): Promise<void> {
     await unwrap(ipc.system.restore(data));
     return;
   }
-  await request('/admin/restore', { method: 'POST', body: JSON.stringify(data) });
+  await web.restoreData(data);
 }
 
-// ── Sincronización / Historial de versiones (solo escritorio/IPC) ──────────
-export interface SyncStatus {
-  configured: boolean;
-  online: boolean;
-  lastSyncAt: string | null;
-  pendingCount: number;
-}
-export interface DatasetDiff {
-  added: number;
-  modified: number;
-  removed: number;
-}
-export interface PendingDiff {
-  datasets: {
-    professors: DatasetDiff;
-    scheduleBlocks: DatasetDiff;
-    subjects: DatasetDiff;
-    academicLoad: DatasetDiff;
-    logs: DatasetDiff;
-  };
-  total: number;
-  summary: string;
-}
-export interface VersionMeta {
-  id: number;
-  created_at: string;
-  device: string | null;
-  label: string | null;
-  summary: string | null;
+// ── Configuración de almacenamiento (solo escritorio/IPC) ──────────────────
+export interface StorageInfo {
+  mode: 'cloud' | 'shared';
+  sharedDir: string | null;
 }
 
-/** La sincronización es una feature de escritorio (Electron). En web no aplica. */
-export function isSyncAvailable(): boolean {
+/** La configuración de almacenamiento es una feature de escritorio (Electron). */
+export function isStorageConfigAvailable(): boolean {
   return !!ipc;
 }
-function syncApi() {
-  if (!ipc) throw new Error('La sincronización solo está disponible en la app de escritorio.');
-  return ipc.sync;
+function configApi() {
+  if (!ipc) throw new Error('La configuración solo está disponible en la app de escritorio.');
+  return ipc.config;
+}
+
+export async function getStorageInfo(): Promise<StorageInfo> {
+  return unwrap(configApi().getStorage());
+}
+export async function setSharedDir(
+  dir: string | null,
+): Promise<{ ok: boolean; sharedDir: string | null }> {
+  return unwrap(configApi().setSharedDir(dir));
+}
+export async function pickSharedFolder(): Promise<{ path: string | null }> {
+  return unwrap(configApi().pickFolder());
+}
+
+/** Se dispara cuando el pull periódico (multi-PC) trae cambios de otra PC. Devuelve unsubscribe. */
+export function onRemoteDataChanged(callback: () => void): () => void {
+  if (!ipc || typeof ipc.onDataChanged !== 'function') return () => {};
+  return ipc.onDataChanged(callback);
+}
+
+// ── Sincronización manual ("Sincronizar ahora") ────────────────────────────
+export interface SyncResult {
+  ok: boolean;
+  changed: boolean;
+  online: boolean;
+  at?: string;
+}
+export interface SyncStatus {
+  online: boolean;
+  mode: 'cloud' | 'folder';
+}
+
+/** Fuerza subir lo pendiente + bajar cambios (.exe). En web no hay nada que subir
+ *  (las escrituras ya van directo a Supabase); el caller re-lee con reload(). */
+export async function syncNow(): Promise<SyncResult> {
+  if (ipc) return unwrap(ipc.sync.now());
+  return { ok: true, changed: false, online: typeof navigator !== 'undefined' ? navigator.onLine : true };
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {
-  return unwrap(syncApi().status());
-}
-export async function getSyncDiff(): Promise<PendingDiff> {
-  return unwrap(syncApi().diff());
-}
-export async function pushSession(label?: string): Promise<{ summary: string }> {
-  return unwrap(syncApi().push(label));
-}
-export async function pullNow(): Promise<{ ok: boolean; merged: string[] }> {
-  return unwrap(syncApi().pull());
-}
-export async function getVersionHistory(): Promise<VersionMeta[]> {
-  return unwrap(syncApi().history());
-}
-export async function restoreVersion(id: number): Promise<void> {
-  await unwrap(syncApi().restore(id));
+  if (ipc) return unwrap(ipc.sync.status());
+  return { online: typeof navigator !== 'undefined' ? navigator.onLine : true, mode: 'cloud' };
 }

@@ -16,11 +16,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:3001',
-        changeOrigin: true,
-      },
-    },
+    host: true, // bind IPv4 (0.0.0.0) para que el túnel/red local lo alcancen
+    // Permite exponer el dev server por un túnel (Cloudflare *.trycloudflare.com, etc.).
+    allowedHosts: true,
   },
 });

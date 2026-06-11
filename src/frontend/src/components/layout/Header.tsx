@@ -2,8 +2,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui';
-import { SyncIndicator } from '@/components/sync/SyncIndicator';
 import { MESSAGES } from '@/constants';
+import { SyncButton } from './SyncButton';
+import { SyncStatusBadge } from './SyncStatusBadge';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -47,7 +48,8 @@ export function Header({ onSearch }: HeaderProps) {
           </form>
         )}
 
-        <SyncIndicator />
+        <SyncStatusBadge />
+        <SyncButton />
       </div>
     </motion.header>
   );

@@ -7,12 +7,12 @@ import {
   Settings,
   FileText,
   Home,
-  Eye,
-  RefreshCw
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
 import { Link, useLocation } from 'react-router-dom';
+import appLogo from '@/assets/logo.png';
 
 interface SidebarItem {
   id: string; // Used as the path now
@@ -33,7 +33,6 @@ const sidebarItems: SidebarItem[] = [
   { id: '/subjects', label: 'Materias', icon: <BookOpen className="w-5 h-5" /> },
   { id: '/professors', label: 'Profesores', icon: <Users className="w-5 h-5" /> },
   { id: '/reports', label: 'Reportes', icon: <FileText className="w-5 h-5" /> },
-  { id: '/sync', label: 'Sincronización', icon: <RefreshCw className="w-5 h-5" /> },
   { id: '/settings', label: 'Configuración', icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -58,14 +57,18 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       {/* Logo/Brand */}
       <div className="flex h-16 items-center justify-center border-b border-brand-light/20 px-4">
         {collapsed ? (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-accent text-white font-bold text-lg">
-            USM
-          </div>
+          <img
+            src={appLogo}
+            alt="Farmabox"
+            className="h-10 w-10 object-contain rounded-lg ring-1 ring-white/15"
+          />
         ) : (
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-accent text-white font-bold">
-              USM
-            </div>
+            <img
+              src={appLogo}
+              alt="Farmabox"
+              className="h-10 w-10 object-contain rounded-lg ring-1 ring-white/15"
+            />
             <div className="flex flex-col">
               <span className="text-sm font-bold text-white">Farmabox</span>
               <span className="text-xs text-brand-light">USM Farmacia</span>

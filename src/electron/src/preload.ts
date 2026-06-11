@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (id: string, data: unknown) => invoke('professors:update', id, data),
     delete: (id: string) => invoke('professors:delete', id),
     reset: () => invoke('professors:reset'),
+    bulkUpsert: (data: unknown) => invoke('professors:bulkUpsert', data),
   },
 
   // ── Subjects ─────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateProfessors: (code: string, professorIds: string[]) =>
       invoke('subjects:updateProfessors', code, professorIds),
     resetPensum: () => invoke('subjects:resetPensum'),
+    bulkUpsert: (data: unknown) => invoke('subjects:bulkUpsert', data),
   },
 
   // ── Schedule ─────────────────────────────────────────────────────────
@@ -60,13 +62,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     send: (messages: unknown) => invoke('chat:send', messages),
   },
 
-  // ── Sincronización / Historial ───────────────────────────────────────
+  // ── Configuración de almacenamiento ──────────────────────────────────
+  config: {
+    getStorage: () => invoke('config:getStorage'),
+    setSharedDir: (dir: string | null) => invoke('config:setSharedDir', dir),
+    pickFolder: () => invoke('config:pickFolder'),
+  },
+
+  // ── Sincronización manual (botón "Sincronizar ahora") ────────────────
   sync: {
+    now: () => invoke('sync:now'),
     status: () => invoke('sync:status'),
-    diff: () => invoke('sync:diff'),
-    push: (label?: string) => invoke('sync:push', label),
-    pull: () => invoke('sync:pull'),
-    history: () => invoke('sync:history'),
-    restore: (id: number) => invoke('sync:restore', id),
+  },
+
+  // ── Mantenimiento (keepalive de Supabase + backups locales) ──────────
+  maintenance: {
+    keepaliveStatus: () => invoke('maintenance:keepaliveStatus'),
+    pingNow: () => invoke('maintenance:pingNow'),
+    createBackup: () => invoke('maintenance:createBackup'),
+  },
+
+  // ── Aviso de cambios traídos por el pull periódico (multi-PC) ─────────
+  onDataChanged: (callback: () => void) => {
+    const listener = (): void => callback();
+    ipcRenderer.on('data-changed', listener);
+    return () => ipcRenderer.removeListener('data-changed', listener);
   },
 });

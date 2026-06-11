@@ -1,7 +1,7 @@
 /**
  * Tipado de la API expuesta por el preload de Electron (window.electronAPI).
  * Cada canal devuelve la envoltura { data } | { error }.
- * Si window.electronAPI es undefined → la app corre en modo web (HTTP a Express).
+ * Si window.electronAPI es undefined → la app corre en modo web (Supabase directo).
  */
 import type {
   Professor,
@@ -11,13 +11,27 @@ import type {
   ScheduleBlockData,
   LogEntry,
   BackupData,
-  SyncStatus,
-  PendingDiff,
-  VersionMeta,
+  StorageInfo,
 } from '../services/BackendService';
 
 type Envelope<T> = { data: T } | { error: string };
 type Ok = { success: boolean };
+
+export interface PingResult {
+  success: boolean;
+  timestamp: string;
+  statusCode?: number;
+  latencyMs?: number;
+  error?: string;
+}
+
+export interface KeepaliveStatus {
+  configured: boolean;
+  lastPing?: PingResult;
+  nextPingAt?: string;
+  pingCount: number;
+  autoKeepAlive: boolean;
+}
 
 export interface ElectronAPI {
   getAppVersion(): Promise<string>;
@@ -29,6 +43,7 @@ export interface ElectronAPI {
     update(id: string, data: Partial<Professor>): Promise<Envelope<Professor>>;
     delete(id: string): Promise<Envelope<Ok>>;
     reset(): Promise<Envelope<Professor[]>>;
+    bulkUpsert(data: Partial<Professor>[]): Promise<Envelope<Professor[]>>;
   };
 
   subjects: {
@@ -38,6 +53,9 @@ export interface ElectronAPI {
     delete(code: string): Promise<Envelope<Ok>>;
     updateProfessors(code: string, professorIds: string[]): Promise<Envelope<Ok>>;
     resetPensum(): Promise<Envelope<Semester[]>>;
+    bulkUpsert(
+      data: Array<Partial<PensumSubject> & { code: string; semester: number | string }>,
+    ): Promise<Envelope<Semester[]>>;
   };
 
   schedule: {
@@ -62,14 +80,25 @@ export interface ElectronAPI {
     ): Promise<Envelope<{ reply: string; offline: boolean }>>;
   };
 
-  sync: {
-    status(): Promise<Envelope<SyncStatus>>;
-    diff(): Promise<Envelope<PendingDiff>>;
-    push(label?: string): Promise<Envelope<{ summary: string }>>;
-    pull(): Promise<Envelope<{ ok: boolean; merged: string[] }>>;
-    history(): Promise<Envelope<VersionMeta[]>>;
-    restore(id: number): Promise<Envelope<Ok>>;
+  config: {
+    getStorage(): Promise<Envelope<StorageInfo>>;
+    setSharedDir(dir: string | null): Promise<Envelope<{ ok: boolean; sharedDir: string | null }>>;
+    pickFolder(): Promise<Envelope<{ path: string | null }>>;
   };
+
+  sync: {
+    now(): Promise<Envelope<{ ok: boolean; changed: boolean; online: boolean; at?: string }>>;
+    status(): Promise<Envelope<{ online: boolean; mode: 'cloud' | 'folder' }>>;
+  };
+
+  maintenance: {
+    keepaliveStatus(): Promise<Envelope<KeepaliveStatus | null>>;
+    pingNow(): Promise<Envelope<PingResult>>;
+    createBackup(): Promise<Envelope<{ ok: boolean }>>;
+  };
+
+  /** Suscribe a cambios traídos por el pull periódico (multi-PC). Devuelve un unsubscribe. */
+  onDataChanged(callback: () => void): () => void;
 }
 
 declare global {

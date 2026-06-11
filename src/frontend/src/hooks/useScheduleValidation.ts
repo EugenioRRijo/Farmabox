@@ -41,6 +41,7 @@ export function useScheduleValidation() {
       section: string;
       professorId?: string;
       labGroupId?: string;
+      subjectRooms?: Record<string, string>;
     }): ValidationResult => {
       const {
         newBlock,
@@ -51,6 +52,7 @@ export function useScheduleValidation() {
         section,
         professorId,
         labGroupId,
+        subjectRooms,
       } = params;
 
       const validatableBlock: ValidatableBlock = {
@@ -76,6 +78,7 @@ export function useScheduleValidation() {
         assignmentType,
         section,
         labGroupId,
+        subjectRooms,
       };
 
       // Hour limit + section collision checks use semester blocks

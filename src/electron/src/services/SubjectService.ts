@@ -3,7 +3,6 @@
  * Maneja el pensum por semestres y la asignación de profesores a materias
  * (que actualiza el array `subjects` de cada Professor).
  */
-import { PENSUM_DATA } from '@scheduler/shared';
 import type { Semester, PensumSubject } from '@scheduler/shared';
 import type { IStorageService } from './IStorageService';
 
@@ -23,10 +22,40 @@ export class SubjectService {
     return this.subjectStorage.loadPensum();
   }
 
-  /** Fuerza la escritura del pensum canónico, descartando datos stale. */
+  /** Vacía el pensum (tombstones → se sincronizan). Ya no re-siembra datos hardcodeados. */
   resetPensum(): Semester[] {
-    this.subjectStorage.savePensum(PENSUM_DATA);
-    return PENSUM_DATA;
+    this.subjectStorage.savePensum([]);
+    return [];
+  }
+
+  /** Importación en lote: crea/actualiza materias por código (upsert). */
+  bulkUpsert(incoming: (Partial<PensumSubject> & { code: string; semester: number | string })[]): Semester[] {
+    const pensum = this.subjectStorage.loadPensum();
+    for (const raw of incoming) {
+      if (!raw.code) continue;
+      const semNum = Number(raw.semester) || 1;
+      const sub: PensumSubject = {
+        code: String(raw.code).trim(),
+        name: raw.name ?? String(raw.code),
+        credits: Number(raw.credits) || 0,
+        hasLab: Number(raw.hoursLab) > 0 || !!raw.hasLab,
+        hoursTheory: Number(raw.hoursTheory) || 0,
+        hoursLab: Number(raw.hoursLab) || 0,
+        prerequisites: raw.prerequisites ?? [],
+        ...(raw.labNumber ? { labNumber: String(raw.labNumber) } : {}),
+      };
+      // Quitar el código de cualquier semestre (por si cambió) y reubicar.
+      for (const s of pensum) s.subjects = s.subjects.filter((x) => x.code !== sub.code);
+      let sem = pensum.find((s) => s.number === semNum);
+      if (!sem) {
+        sem = { number: semNum, subjects: [] };
+        pensum.push(sem);
+      }
+      sem.subjects.push(sub);
+    }
+    const cleaned = pensum.filter((s) => s.subjects.length > 0).sort((a, b) => a.number - b.number);
+    this.subjectStorage.savePensum(cleaned);
+    return cleaned;
   }
 
   create(data: CreateSubjectInput): PensumSubject | { error: string } {

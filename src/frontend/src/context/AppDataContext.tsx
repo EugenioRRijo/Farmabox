@@ -1,10 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Professor, 
-  Semester, 
-  PensumSubject,
-  PROFESSORS_DATA,
-  PENSUM_DATA
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  Professor,
+  Semester,
+  PensumSubject
 } from '../../../shared/src/index';
 import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
 import * as Backend from '../services/BackendService';
@@ -16,6 +14,9 @@ interface AppDataContextType {
   scheduleBlocks: ScheduleBlock[];
   loading: boolean;
   error: string | null;
+  isSaving: boolean;
+  lastSaved: Date | null;
+  saveError: string | null;
   selectedSemester: number;
   setSelectedSemester: (sem: number) => void;
   handleAddProfessor: (prof: Professor) => Promise<void>;
@@ -28,37 +29,49 @@ interface AppDataContextType {
   handleBlocksChange: (blocks: ScheduleBlock[]) => void;
   logScheduleChange: (action: string, details: string) => Promise<void>;
   availableSubjects: PensumSubject[];
+  reload: (silent?: boolean) => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [professors, setProfessors] = useState<Professor[]>(PROFESSORS_DATA || []);
-  const [pensum, setPensum] = useState<Semester[]>(PENSUM_DATA || []);
+  // Profesores y pensum: SIN seed hardcodeado. Arrancan vacíos y se llenan con
+  // los datos reales del backend (Supabase = única fuente de la verdad).
+  const [professors, setProfessors] = useState<Professor[]>([]);
+  const [pensum, setPensum] = useState<Semester[]>([]);
   const [academicLoad, setAcademicLoad] = useState<AcademicLoad>({});
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [selectedSemester, setSelectedSemester] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load from backend on mount
-  useEffect(() => {
-    async function loadAll() {
-      try {
+  // Carga desde el backend. Reutilizable: al montar y al recibir cambios de otra PC.
+  const reload = useCallback(async (silent = false) => {
+    try {
+      {
         const [profs, subs, load, blocks] = await Promise.all([
           Backend.getProfessors(),
           Backend.getSubjects(),
           Backend.getAcademicLoad(),
           Backend.getScheduleBlocks()
         ]);
-        
+
         if (profs) setProfessors(profs as unknown as Professor[]);
         if (subs) setPensum(subs as Semester[]);
         if (load) {
           const finalLoad = { ...(load as AcademicLoad) };
           Object.keys(finalLoad).forEach(code => {
+            // Guard: si la entrada no es un objeto válido, descartarla (evita crash).
+            const entry = finalLoad[code] as unknown;
+            if (!entry || typeof entry !== 'object') {
+              delete finalLoad[code];
+              return;
+            }
             // Cleanup corrupted string-spread elements (like "p", "r", "o", "f")
             if (Array.isArray(finalLoad[code].theory)) {
               finalLoad[code].theory = finalLoad[code].theory.filter(id => id.length > 3);
@@ -80,15 +93,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         }
         if (blocks) setScheduleBlocks(blocks as unknown as ScheduleBlock[]);
         setError(null);
-      } catch (e) {
-        console.warn('Backend not available, using defaults:', e);
-        setError('Backend no disponible — usando datos locales');
-      } finally {
-        setLoading(false);
       }
+    } catch (e) {
+      console.warn('Backend not available, using defaults:', e);
+      setError('Backend no disponible — usando datos locales');
+    } finally {
+      if (!silent) setLoading(false);
     }
-    loadAll();
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Pull periódico multi-PC: cuando otra PC cambió algo, recargar en silencio.
+  useEffect(() => {
+    const unsub = Backend.onRemoteDataChanged(() => reload(true));
+    return unsub;
+  }, [reload]);
+
+  // En la WEB no hay pull periódico nativo (la .exe sí lo tiene cada ~60s),
+  // así que acá refrescamos solos cada 30s para ver cambios de otras PCs.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI) return;
+    const id = setInterval(() => reload(true), 30000);
+    return () => clearInterval(id);
+  }, [reload]);
 
   const handleAddProfessor = useCallback(async (prof: Professor) => {
     setProfessors(prev => [...prev, prof]);
@@ -124,7 +154,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [professors]);
 
   const handleResetProfessors = useCallback(async () => {
-    setProfessors(PROFESSORS_DATA);
+    if (
+      !window.confirm(
+        '¿Vaciar la lista de profesores? Se borrarán todos (y en las demás PC al sincronizar). Esta acción no se puede deshacer.',
+      )
+    )
+      return;
     try {
       const reset = await Backend.resetProfessors();
       setProfessors(reset as unknown as Professor[]);
@@ -135,10 +170,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const handleUpdateLoad = useCallback(async (load: AcademicLoad) => {
     setAcademicLoad(load);
+    setSaveError(null);
     try {
       await Backend.saveAcademicLoad(load as Backend.AcademicLoad);
     } catch (e) {
       console.error('Failed to save academic load:', e);
+      setSaveError(e instanceof Error ? e.message : 'Error al guardar la carga académica');
     }
   }, []);
 
@@ -185,20 +222,26 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const handleBlocksChange = useCallback((blocks: ScheduleBlock[]) => {
     setScheduleBlocks(blocks);
-    
+    setIsSaving(true); // indicador REAL: guardando hasta que termine el guardado debounced
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
+    setSaveError(null);
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         await Backend.saveScheduleBlocks(blocks as unknown as Backend.ScheduleBlockData[]);
-        // General backup log
         await Backend.createLog('Guardar Horario Estado', `Se actualizó el estado a ${blocks.length} bloques totales`);
+        setLastSaved(new Date());
+        setSaveError(null);
       } catch (e) {
         console.error('Failed to save schedule blocks:', e);
+        setSaveError(e instanceof Error ? e.message : 'Error al guardar el horario');
+      } finally {
+        setIsSaving(false);
       }
-    }, 5000); // 5 seconds debounce
+    }, 1500); // debounce 1.5s
   }, []);
 
   const logScheduleChange = useCallback(async (action: string, details: string) => {
@@ -209,7 +252,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const availableSubjects = pensum.find((s) => s.number === selectedSemester)?.subjects || [];
+  const availableSubjects = useMemo(
+    () => pensum.find((s) => s.number === selectedSemester)?.subjects || [],
+    [pensum, selectedSemester],
+  );
 
   const value = {
     professors,
@@ -218,6 +264,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     scheduleBlocks,
     loading,
     error,
+    isSaving,
+    lastSaved,
+    saveError,
     selectedSemester,
     setSelectedSemester,
     handleAddProfessor,
@@ -230,6 +279,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     handleBlocksChange,
     logScheduleChange,
     availableSubjects,
+    reload,
   };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

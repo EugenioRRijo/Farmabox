@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import log from 'electron-log';
-import { PROFESSORS_DATA, PENSUM_DATA } from '@scheduler/shared';
 import type { Professor, Semester } from '@scheduler/shared';
 import type { AcademicLoad, ScheduleBlockData, LogEntry } from '../types';
 import type { IStorageService } from './IStorageService';
@@ -46,14 +45,18 @@ export class StorageService implements IStorageService {
   }
 
   loadProfessors(): Professor[] {
-    return this.loadJSON<Professor[]>('professors.json', PROFESSORS_DATA);
+    // Sin seed hardcodeado: una instalación nueva arranca SIN profesores (el
+    // usuario carga los suyos). Antes el fallback inyectaba 45 profesores
+    // ficticios que terminaban propagándose a Supabase.
+    return this.loadJSON<Professor[]>('professors.json', []);
   }
   saveProfessors(professors: Professor[]): void {
     this.saveJSON('professors.json', professors);
   }
 
   loadPensum(): Semester[] {
-    return this.loadJSON<Semester[]>('pensum.json', PENSUM_DATA);
+    // Sin seed hardcodeado: el pensum vive en Supabase (única fuente de verdad).
+    return this.loadJSON<Semester[]>('pensum.json', []);
   }
   savePensum(pensum: Semester[]): void {
     this.saveJSON('pensum.json', pensum);

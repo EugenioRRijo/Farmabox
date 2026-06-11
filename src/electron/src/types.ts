@@ -21,6 +21,7 @@ export interface AcademicLoad {
 export interface ScheduleBlockData {
   id: string;
   subjectCode: string;
+  semester?: number; // FK al semestre (tabla semesters)
   day: number; // 0 = Lunes
   startHour: number; // 7, 8, ...
   duration: number; // en horas

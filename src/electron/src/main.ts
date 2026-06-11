@@ -8,16 +8,20 @@
  *   4. Splash screen con logo + ventana principal
  *   5. Ciclo de vida + sincronización (inicio y cierre de sesión)
  */
-import { app, BrowserWindow, Menu, dialog } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
 import path from 'path';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
+import type { SyncStorageBase } from './services/SyncStorageBase';
+import { getSharedDir, setSharedDir } from './config/appConfig';
 import { ProfessorService } from './services/ProfessorService';
 import { SubjectService } from './services/SubjectService';
 import { ScheduleService } from './services/ScheduleService';
 import { LogService } from './services/LogService';
+import { SupabaseKeepaliveService } from './services/SupabaseKeepaliveService';
+import { BackupService } from './services/BackupService';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
 import type { AppServices } from './ipc/ipcHandlers';
 
@@ -27,7 +31,9 @@ log.info('Application starting...');
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
-let cloud: CloudStorageService | null = null;
+let store: SyncStorageBase | null = null;
+let keepalive: SupabaseKeepaliveService | null = null;
+let backup: BackupService | null = null;
 let isQuitting = false;
 const IS_DEV = !app.isPackaged || process.env.NODE_ENV === 'development';
 const VITE_DEV_URL = 'http://localhost:5173';
@@ -37,12 +43,25 @@ const LOGO_PATH = path.join(__dirname, '..', 'assets', 'logo.png');
 const SPLASH_PATH = path.join(__dirname, '..', 'splash.html');
 
 // ── Composición de servicios (DI manual) ───────────────────────────────────
-function buildServices(storage: CloudStorageService): AppServices {
+function buildServices(storage: SyncStorageBase): AppServices {
   const professorService = new ProfessorService(storage);
   const subjectService = new SubjectService(storage, storage);
   const scheduleService = new ScheduleService(storage);
   const logService = new LogService(storage);
-  return { storageService: storage, cloud: storage, professorService, subjectService, scheduleService, logService };
+  return { storageService: storage, professorService, subjectService, scheduleService, logService };
+}
+
+/** Elige el backend de sincronización: carpeta compartida si está configurada, si no Supabase. */
+function buildStorage(): SyncStorageBase {
+  const local = new StorageService();
+  // Carpeta compartida RETIRADA: siempre nube (Supabase). Si quedó una config
+  // previa de carpeta, la limpiamos para que el .exe vuelva a sincronizar por la nube.
+  if (getSharedDir()) {
+    log.info('[Storage] Carpeta compartida retirada → forzando nube y limpiando config previa.');
+    setSharedDir(null);
+  }
+  log.info('[Storage] Modo nube (Supabase).');
+  return new CloudStorageService(local);
 }
 
 // ── Splash screen ───────────────────────────────────────────────────────────
@@ -161,25 +180,110 @@ function setupAutoUpdater(): void {
   autoUpdater.checkForUpdates().catch((e) => log.error('[Updater] checkForUpdates falló:', e));
 }
 
+// ── Pull periódico: trae cambios de otras PCs durante la sesión ──────────────
+function setupPeriodicSync(): void {
+  setInterval(() => {
+    if (!store || !store.isRemoteEnabled()) return;
+    store
+      .syncNow()
+      .then((r) => {
+        if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
+          log.info('[Sync] Pull periódico trajo cambios → avisando al renderer.');
+          mainWindow.webContents.send('data-changed');
+        }
+      })
+      .catch((e) => log.error('[Sync] Pull periódico falló:', e));
+  }, 60000); // cada 60 s
+}
+
+// ── Sincronización manual (botón "Sincronizar ahora") + estado ──────────────
+function registerSyncIpc(): void {
+  ipcMain.handle('sync:now', async () => {
+    try {
+      if (!store || !store.isRemoteEnabled()) {
+        return { data: { ok: false, changed: false, online: false } };
+      }
+      await store.flush(); // sube lo pendiente
+      const r = await store.syncNow(); // baja + fusiona
+      if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('data-changed');
+      }
+      return { data: { ok: r.ok, changed: r.changed, online: true, at: new Date().toISOString() } };
+    } catch (e) {
+      log.error('[IPC sync:now]', e);
+      return { error: 'No se pudo sincronizar' };
+    }
+  });
+
+  ipcMain.handle('sync:status', () => {
+    const online = !!store && store.isRemoteEnabled();
+    return { data: { online, mode: getSharedDir() ? 'folder' : 'cloud' } };
+  });
+}
+
+// ── Mantenimiento: keepalive de Supabase + backups locales ──────────────────
+function registerMaintenanceIpc(): void {
+  ipcMain.handle('maintenance:keepaliveStatus', () => {
+    return { data: keepalive ? keepalive.getStatus() : null };
+  });
+
+  ipcMain.handle('maintenance:pingNow', async () => {
+    try {
+      if (!keepalive) return { error: 'Keepalive no inicializado' };
+      return { data: await keepalive.ping() };
+    } catch (e) {
+      log.error('[IPC maintenance:pingNow]', e);
+      return { error: 'No se pudo hacer ping a Supabase' };
+    }
+  });
+
+  ipcMain.handle('maintenance:createBackup', async () => {
+    try {
+      if (!backup) return { error: 'Backup no inicializado' };
+      return { data: { ok: await backup.createBackup() } };
+    } catch (e) {
+      log.error('[IPC maintenance:createBackup]', e);
+      return { error: 'No se pudo crear el backup' };
+    }
+  });
+}
+
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
-  const localStore = new StorageService();
-  cloud = new CloudStorageService(localStore);
-  const services = buildServices(cloud);
+  store = buildStorage();
+  // Si el merge previo a un guardado trae cambios de otra PC, avisar al renderer.
+  store.setOnMerged(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('data-changed');
+    }
+  });
+  const services = buildServices(store);
   registerIpcHandlers(services);
+  registerSyncIpc();
+  registerMaintenanceIpc();
   log.info('[IPC] All handlers registered.');
 
+  // Mantenimiento: evita que el proyecto Supabase (free-tier) se pause por
+  // inactividad y crea backups locales periódicos como red de seguridad.
+  keepalive = new SupabaseKeepaliveService();
+  keepalive.startAutoKeepAlive();
+  backup = new BackupService(store);
+  backup.startAutoBackup();
+
   // Sincronizar (pull + merge) al iniciar, antes de mostrar la UI.
-  if (cloud.isCloudEnabled()) {
-    log.info('[Cloud] Sincronizando al iniciar...');
-    await cloud.syncFromCloud();
+  if (store.isRemoteEnabled()) {
+    log.info('[Sync] Sincronizando al iniciar...');
+    await store.syncNow();
   }
 
   createWindow();
 
   // Chequear actualizaciones (solo en la app instalada).
   setupAutoUpdater();
+
+  // Traer cambios de otras PCs cada minuto (avisa al renderer si hubo cambios).
+  setupPeriodicSync();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -188,43 +292,16 @@ app.whenReady().then(async () => {
   });
 });
 
-// ── Cierre de sesión: si hay cambios sin subir, preguntar antes de salir ────
+// ── Cierre de sesión: guardar lo último pendiente al remoto (silencioso) ────
 app.on('before-quit', async (e) => {
-  if (isQuitting || !cloud || !cloud.isCloudEnabled()) return;
-
-  let pending = 0;
-  let summary = '';
-  try {
-    const diff = cloud.getPendingDiff();
-    pending = diff.total;
-    summary = diff.summary;
-  } catch {
-    pending = 0;
-  }
-  if (pending <= 0) return; // nada que subir → salir normal
-
+  if (isQuitting || !store || !store.isRemoteEnabled()) return;
   e.preventDefault();
-  const choice = dialog.showMessageBoxSync({
-    type: 'question',
-    buttons: ['Subir y salir', 'Salir sin subir', 'Cancelar'],
-    defaultId: 0,
-    cancelId: 2,
-    title: 'Cambios sin subir',
-    message: `Tenés ${pending} cambio${pending === 1 ? '' : 's'} sin subir.`,
-    detail: summary
-      ? `${summary}\n\n¿Querés subirlos a la nube antes de salir?`
-      : '¿Querés subirlos a la nube antes de salir?',
-  });
-
-  if (choice === 2) return; // Cancelar → no salir
   isQuitting = true;
-  if (choice === 0) {
-    log.info('[Cloud] Subiendo cambios antes de salir...');
-    try {
-      await cloud.pushSession('Cierre de sesión');
-    } catch (err) {
-      log.error('[Cloud] Push de cierre falló:', err);
-    }
+  try {
+    log.info('[Sync] Guardando antes de salir...');
+    await store.flush();
+  } catch (err) {
+    log.error('[Sync] Guardado de cierre falló:', err);
   }
   app.quit();
 });

@@ -40,13 +40,15 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
   const collisions = useMemo(() => {
     if (!scheduleBlocks.length || !pensum.length) return [];
 
-    // Map subject code to Semester Number & Name
-    const subjectMap = new Map<string, { semester: number, name: string }>();
-    pensum.forEach((sem: { number: number, subjects: { code: string, name: string }[] }) => {
+    // Map subject code to Semester Number, Name & lab room (salón)
+    const subjectMap = new Map<string, { semester: number, name: string, room: string }>();
+    pensum.forEach((sem: { number: number, subjects: { code: string, name: string, labNumber?: string }[] }) => {
       sem.subjects.forEach(sub => {
-        subjectMap.set(sub.code, { semester: sem.number, name: sub.name });
+        subjectMap.set(sub.code, { semester: sem.number, name: sub.name, room: (sub.labNumber || '').trim() });
       });
     });
+
+    const normRoom = (room: string) => room.trim().toLowerCase();
 
     const detected: Array<{
       blockA: ScheduleBlock;
@@ -55,6 +57,8 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
       nameB: string;
       semA: number;
       semB: number;
+      sectionA: string;
+      sectionB: string;
       section: string;
       type: 'PROFESOR' | 'LABORATORIO' | 'TEORIA';
       professorName?: string;
@@ -66,52 +70,61 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
             const b1 = scheduleBlocks[i];
             const b2 = scheduleBlocks[j];
 
-            const b1Section = b1.section || 'A';
-            const b2Section = b2.section || 'A';
-            
-            // Only compare blocks within the SAME day and SAME section
-            if (b1.day !== b2.day || b1Section !== b2Section) continue;
-            
+            // Compare blocks on the SAME day that overlap in time
+            if (b1.day !== b2.day) continue;
+
             const b1End = b1.startHour + b1.duration;
             const b2End = b2.startHour + b2.duration;
-
             const overlap = (b1.startHour < b2End) && (b2.startHour < b1End);
-            
-            if (overlap) {
-                const info1 = subjectMap.get(b1.subjectCode);
-                const info2 = subjectMap.get(b2.subjectCode);
+            if (!overlap) continue;
 
-                if (!info1 || !info2) continue;
+            const info1 = subjectMap.get(b1.subjectCode);
+            const info2 = subjectMap.get(b2.subjectCode);
+            if (!info1 || !info2) continue;
 
-                // Rule 1: Professor Collision (Any Semester)
-                const isProfCollision = b1.professorId && b2.professorId && b1.professorId === b2.professorId;
-                
-                // Rule 2: Lab Collision (same subject, same section, same time)
-                // Since they are the same subject Code and same section (from earlier), any overlap is a collision
-                const isLabCollision = b1.type === 'LAB' && b2.type === 'LAB' && info1.semester === info2.semester && b1.subjectCode === b2.subjectCode;
+            const b1Section = b1.section || 'A';
+            const b2Section = b2.section || 'A';
+            const sameSem = info1.semester === info2.semester;
+            const sameSec = b1Section === b2Section;
 
-                // Rule 3: Theory Collision (Same semester, students can't be in 2 theory classes)
-                const isTheoryCollision = b1.type === 'THEORY' && b2.type === 'THEORY' && info1.semester === info2.semester;
+            // Professor: a professor is one person — clash anywhere (any semester/section)
+            const isProfCollision = !!b1.professorId && !!b2.professorId && b1.professorId === b2.professorId;
 
-                if (isProfCollision || isLabCollision || isTheoryCollision) {
-                    const prof = isProfCollision ? professors.find(p => p.id === b1.professorId) : undefined;
-                    
-                    let collisionType: 'PROFESOR' | 'LABORATORIO' | 'TEORIA' = 'TEORIA';
-                    if (isProfCollision) collisionType = 'PROFESOR';
-                    else if (isLabCollision) collisionType = 'LABORATORIO';
+            // Theory: same student cohort (same semester + section) can't attend two theories
+            const isTheoryCollision = b1.type === 'THEORY' && b2.type === 'THEORY' && sameSem && sameSec;
 
-                    detected.push({
-                        blockA: b1,
-                        blockB: b2,
-                        nameA: info1.name,
-                        nameB: info2.name,
-                        semA: info1.semester,
-                        semB: info2.semester,
-                        section: b1Section,
-                        type: collisionType,
-                        professorName: prof?.fullName
-                    });
+            // Lab: two DIFFERENT lab subjects overlapping.
+            //  - different semester → always a clash (a lab can't be shared by two cohorts at once)
+            //  - same semester → clash only if they use the SAME physical room (salón)
+            let isLabCollision = false;
+            if (b1.type === 'LAB' && b2.type === 'LAB' && b1.subjectCode !== b2.subjectCode) {
+                if (!sameSem) {
+                    isLabCollision = true;
+                } else {
+                    isLabCollision = !!info1.room && !!info2.room && normRoom(info1.room) === normRoom(info2.room);
                 }
+            }
+
+            if (isProfCollision || isLabCollision || isTheoryCollision) {
+                const prof = isProfCollision ? professors.find(p => p.id === b1.professorId) : undefined;
+
+                let collisionType: 'PROFESOR' | 'LABORATORIO' | 'TEORIA' = 'TEORIA';
+                if (isProfCollision) collisionType = 'PROFESOR';
+                else if (isLabCollision) collisionType = 'LABORATORIO';
+
+                detected.push({
+                    blockA: b1,
+                    blockB: b2,
+                    nameA: info1.name,
+                    nameB: info2.name,
+                    semA: info1.semester,
+                    semB: info2.semester,
+                    sectionA: b1Section,
+                    sectionB: b2Section,
+                    section: sameSec ? b1Section : `${b1Section}/${b2Section}`,
+                    type: collisionType,
+                    professorName: prof?.fullName
+                });
             }
         }
     }
@@ -138,7 +151,7 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
         result = result.filter(c => c.semA === filterSemester || c.semB === filterSemester);
     }
     if (filterSection !== 'all') {
-        result = result.filter(c => c.section === filterSection);
+        result = result.filter(c => c.sectionA === filterSection || c.sectionB === filterSection);
     }
     return result;
   }, [collisions, filterSemester, filterSection]);
@@ -318,9 +331,10 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
                           <p className="font-bold flex items-center gap-2 mb-1"> <Activity className="w-4 h-4"/> Cómo funciona</p>
                           <p className="opacity-90">
                               El sistema evalúa <strong>todas las secciones y semestres</strong> para detectar imposibilidades físicas:
-                              <br/>1. Dos clases teóricas del mismo semestre a la misma hora.
-                              <br/>2. Dos prácticas de laboratorio del mismo semestre en el MISMO salón a la misma hora.
-                              <br/>3. Un profesor dictando dos materias distintas a la misma hora.
+                              <br/>1. Dos clases teóricas del mismo semestre y sección a la misma hora.
+                              <br/>2. Dos laboratorios del <strong>mismo semestre</strong> en el MISMO salón a la misma hora.
+                              <br/>3. Dos laboratorios de <strong>semestres distintos</strong> a la misma hora.
+                              <br/>4. Un profesor dictando dos materias a la misma hora.
                           </p>
                       </div>
                   </div>
@@ -363,7 +377,7 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
                                                                     <div className="text-xs text-blue-700 uppercase font-bold mb-1">{c.type === 'PROFESOR' ? `Choque de Profesor${c.professorName ? `: ${c.professorName}` : ''}` : c.type === 'LABORATORIO' ? 'Choque de LAB' : 'Choque de TEORÍA'}</div>
                                                                     <div className="font-bold text-gray-900 leading-tight">{c.nameA}</div>
                                                                     <div className="text-xs text-gray-500 mt-1 flex justify-between">
-                                                                        <span className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold">Sem {c.semA}</span>
+                                                                        <span className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold">Sem {c.semA} · Sec {c.sectionA}</span>
                                                                         <span className="font-mono">{formatBlockTime(c.blockA.startHour, c.blockA.duration)}</span>
                                                                     </div>
                                                                 </div>
@@ -372,7 +386,7 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
                                                                 <div className="bg-white p-3 rounded-lg border-l-4 border-orange-400 relative shadow-sm">
                                                                     <div className="font-bold text-gray-900 leading-tight">{c.nameB}</div>
                                                                     <div className="text-xs text-gray-500 mt-1 flex justify-between">
-                                                                        <span className="bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded text-[10px] font-bold">Sem {c.semB}</span>
+                                                                        <span className="bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded text-[10px] font-bold">Sem {c.semB} · Sec {c.sectionB}</span>
                                                                         <span className="font-mono">{formatBlockTime(c.blockB.startHour, c.blockB.duration)}</span>
                                                                     </div>
                                                                 </div>

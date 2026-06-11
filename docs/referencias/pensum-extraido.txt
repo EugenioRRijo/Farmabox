@@ -1,0 +1,132 @@
+FACULTAD DE FARMACIA
+PENSUM DE ESTUDIOS
+PERIODO 2023-01
+Código: 3307
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+1 3307011103 Física Aplicada I 2 3 3
+1 3307011105 Matemática Aplicada I 3 3
+1 3307011108 Biología I 2 3 3
+1 3307011101 Orientación Farmacéutica I 2 2
+1 3307012101 Química Básica I 4 3 6
+1 3307014213 Botánica Aplicada I 2 2
+Total: 15 0 9 19
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+2 3307021104 Física Aplicada II 2 3 3 3307011103
+2 3307021106 Matemática Aplicada II 3 3 3307011105
+2 3307021109 Biología II 2 3 3 3307011108
+2 3307021102 Orientación Farmacéutica II 2 2 3307011101
+2 3307022102 Química Básica II 4 3 6 3307012101
+2 3307024214 Botánica Aplicada II 2 2 3307014213
+Total: 15 0 9 19
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+3 3307032211 Análisis Químico I 4 3 5 3307022102
+3 3307037101 Estadística I 2 2 3307021106
+3 3307038107 Atención Farmacéutica I 2 2 3307021102
+3 3307032213 Fisicoquímica I 2 3 3 3307021104
+3 3307033101 Fisiología y Anatomía I 2 3 3 3307021109
+3 3307033211 Parasitología 2 2 3307021109
+3 3307032103 Química Inorgánica I 2 3 3 3307022102
+3 3307032107 Química Orgánica I 3 3 4 3307022102
+3 3307031107 Estudio y Comprensión del Hombre 2 2
+Total: 21 0 15 26
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+4 3307042212 Análisis Químico II 4 4 6 3307032211
+4 3307047102 Estadística II 2 2 3307037101
+4 3307048108 Atención Farmacéutica II 2 2 3307038107
+4 3307042214 Fisicoquímica II 2 3 3 3307032213
+4 3307043102 Fisiología y Anatomía II 2 3 3 3307033101
+4 3307047105 Metodología de la Investigación 2 2 3307037101
+4 3307042104 Química Inorgánica II 2 3 3 3307032103
+4 3307042108 Química Orgánica II 4 3 5 3307032107
+Total: 20 0 16 26
+
+-- 1 of 3 --
+
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+5 3307052209 Análisis Instrumental I 2 3 3 3307042212
+5 3307054101 Bioquímica I 2 3 3 3307042214
+5 3307055105 Farmacotecnia I 2 3 3 3307048108
+5 3307053103 Fisiopatología I 2 3 3307043102
+5 3307056107 Legislación Farmacéutica I 2 2
+5 3307057103 Diseño de Proyectos I 2 2 3307047102
+5 3307052105 Química Medicinal I 2 3 3 3307042108
+5 3307053205 Salud Pública I 2 2 3307033211
+Total: 16 0 12 21
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+6 3307062210 Análisis Instrumental II 2 3 3 3307052209
+6 3307064102 Bioquímica II 2 3 3 3307054101
+6 3307065106 Farmacotecnia II 2 3 3 3307055105
+6 3307063104 Fisiopatología II 2 3 3307053103
+6 3307066108 Legislación Farmacéutica II 2 2 3307056107
+6 3307067104 Diseño de Proyectos II 2 2 3307057103
+6 3307062106 Química Medicinal II 2 3 3 3307052105
+6 3307063206 Salud Pública II 2 2 3307053205
+Total: 16 0 12 21
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+7 3307074209 Biofarmacia I 2 3 3 3307062210
+7 3307076101 Economía Aplicada 2 2
+7 3307074107 Farmacognosia I 2 3 3 3307062106
+7 3307074103 Farmacología I 2 3 3 3307063104
+7 3307073207 Microbiología I 2 3 3 3307063206
+7 3307075103 Procesos Unitarios I 2 1 3 3307062210
+7 3307075109 Higiene y Seguridad Industrial I 2 2
+7 3307074105 Toxicología I 2 3 3 3307064102
+7 3307078101 Orientación Pasantías Oficina
+de Farmacia 2 2 3307065106
+Total: 18 1 15 24
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+8 3307084210 Biofarmacia II 2 3 3 3307074209
+8 3307086102 Administración Aplicada 2 2 3307076101
+8 3307084108 Farmacognosia II 2 3 3 3307074107
+8 3307084104 Farmacología II 2 3 3 3307074103
+8 3307083208 Microbiología II 2 3 3 3307073207
+8 3307085104 Procesos Unitarios II 2 1 3 3307075103
+8 3307085110 Higiene y Seguridad Industrial II 2 2 3307075109
+8 3307084106 Toxicología II 2 3 3 3307074105
+8 3307088102 Pasantías I Oficina de Farmacia 2 2 3307078101
+Total: 18 1 15 24
+
+-- 2 of 3 --
+
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+9 3307095101 Bromatología I 2 3 3 3307083208
+9 3307095107 Farmacotecnia III 2 3 3 3307085104
+9 3307094211 Farmacoterapéutica I 2 2 3307084104
+9 3307096103 Mercadotecnia I 2 2
+9 3307098103 Orientación Pasantías Industriales-
+Empresas 2 2 3307088102
+9 3307093209 Primeros Auxilios I 2 2 3 3307084106
+9 3307096105 Técnicas Gerenciales I 2 2 3307086102
+9 3307098105 Farmacia Hospitalaria I 2 2 3307084104
+9 3307095111 Dermocosmética I 2 3 3 3307084108
+9 3307097106 Seminario Trabajo Especial de Grado I 2 2 3307067104
+Total: 20 2 9 24
+SEMESTRE CÓDIGO CÁTEDRA H/T H/P H/L UC PRELACIÓN
+10 3307105102 Bromatología II 2 3 3 3307095101
+10 3307105108 Farmacotecnia IV 2 3 3 3307095107
+10 3307104212 Farmacoterapéutica II 2 2 3307094211
+10 3307106104 Mercadotecnia II 2 2 3307096103
+10 3307108104 Pasantías II Industriales-Empresas 2 2 3307098103
+10 3307103210 Primeros Auxilios II 2 2 3 3307093209
+10 3307106106 Técnicas Gerenciales II 2 2 3307096105
+10 3307108106 Farmacia Hospitalaria II 2 2 3307098105
+10 3307105112 Dermocosmética II 2 3 3 3307095111
+10 3307107107 Seminario Trabajo Especial de Grado II 2 2 3307097106
+Total: 20 2 9 24
+10 3307107108 Trabajo Especial de Grado 2 3307107107
+Total: 179 6 121 230
+Total Horas: 306
+HT: Horas Teóricas HP: Horas Prácticas HL: Horas Laboratorio UC: Unidades de Crédito
+NOTA:
+1. El alumno debe realizar las Pasantías en la Oficina de Farmacia en el octavo (8°) semestre, con una duración
+mínima de 240 horas.
+2. El alumno debe realizar las Pasantías en la Industria/Empresas en el décimo (10°) semestre, con una duración
+mínima de 240 horas.
+3. Para obtener el Título de Farmacéutico debe presentar, defender y aprobar el Trabajo Especial De Grado, en
+el décimo (10°) semestre.
+4. El alumno deberá realizar y aprobar el Servicio Comunitario, conforme a lo establecido en la Ley del Servicio
+Comunitario para los Estudiantes Universitarios y el Reglamento del Servicio Comunitario de la Universidad
+Santa María con una duración de 120 horas, las cuales debe cumplir a partir el sexto (6°) semestre.
+
+-- 3 of 3 --
+

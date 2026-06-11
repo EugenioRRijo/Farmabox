@@ -1,29 +1,26 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProfessorsPage } from '@/components/professors/ProfessorsPage';
 import { SubjectsPage } from '@/components/subjects/SubjectsPage';
 import { ScheduleBuilder } from '@/components/schedule/ScheduleBuilder';
+import { ScheduleControlBar } from '@/components/schedule/ScheduleControlBar';
 import { ScheduleVisualization } from '@/components/visualization/ScheduleVisualization';
 import { ReportsPage } from '@/components/reports/ReportsPage';
 import { HomePage } from '@/components/home/HomePage';
 import { SettingsPage } from '@/components/settings/SettingsPage';
-import { SyncPage } from '@/components/sync/SyncPage';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { Toaster } from 'react-hot-toast';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { AppDataProvider, useAppData } from '@/context/AppDataContext';
-import { Semester } from '../../shared/src/index';
 
 
 function AppContent() {
-  const { 
-    loading, 
-    error, 
-    pensum,
+  const {
+    loading,
+    error,
     selectedSemester,
-    setSelectedSemester,
     availableSubjects,
   } = useAppData();
 
@@ -49,10 +46,11 @@ function AppContent() {
 
 
   const handleAddSection = () => {
-    const nextLetter = String.fromCharCode(65 + sections.length);
-    if (sections.length < 26) {
-      setSections([...sections, nextLetter]);
-    }
+    if (sections.length >= 26) return;
+    // Buscar la primera letra libre (evita duplicar al borrar una del medio).
+    let i = 0;
+    while (sections.includes(String.fromCharCode(65 + i))) i++;
+    setSections([...sections, String.fromCharCode(65 + i)]);
   };
 
   const handleRemoveSection = (sectionToRemove: string) => {
@@ -64,10 +62,6 @@ function AppContent() {
     }
   };
 
-  useEffect(() => {
-    console.log('App Mounted');
-  }, []);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-brand-pale/20">
@@ -76,20 +70,8 @@ function AppContent() {
     );
   }
 
-  if (!pensum || pensum.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-brand-pale/20 text-red-500">
-         <h2 className="text-xl font-bold mb-2">Error de Datos</h2>
-         <p>No se ha podido cargar el pensum. Revise la consola para más detalles.</p>
-         <button 
-           onClick={() => window.location.reload()}
-           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-         >
-           Recargar
-         </button>
-      </div>
-    );
-  }
+  // Nota: un pensum vacío es un estado VÁLIDO (la app arranca en blanco y el
+  // usuario carga materias/profesores). No se bloquea la app por estar vacío.
 
   return (
     <MainLayout>
@@ -105,62 +87,13 @@ function AppContent() {
         <Route path="/subjects" element={<SubjectsPage />} />
         <Route path="/schedule" element={
           <>
-            {/* Semester selector */}
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-sm font-medium text-gray-600">Semestre:</span>
-              <div className="flex gap-2">
-                {pensum.map((s: Semester) => (
-                  <button
-                    key={s.number}
-                    onClick={() => setSelectedSemester(s.number)}
-                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                      selectedSemester === s.number
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {s.number}°
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Section selector */}
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-sm font-medium text-gray-600">Sección:</span>
-              <div className="flex gap-2 items-center">
-                {sections.map((sec) => (
-                  <div key={sec} className="relative group">
-                    <button
-                      onClick={() => setSelectedSection(sec)}
-                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                        selectedSection === sec
-                          ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {sec}
-                    </button>
-                    {sections.length > 1 && (
-                      <button
-                        onClick={() => handleRemoveSection(sec)}
-                        className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                        title={`Eliminar sección ${sec}`}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  onClick={handleAddSection}
-                  className="px-2 py-1.5 text-sm bg-gray-100 text-gray-500 border border-dashed border-gray-300 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors"
-                  title="Agregar sección"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            <ScheduleControlBar
+              sections={sections}
+              selectedSection={selectedSection}
+              onSelectSection={setSelectedSection}
+              onAddSection={handleAddSection}
+              onRemoveSection={handleRemoveSection}
+            />
 
             <ScheduleBuilder
               semesterNumber={selectedSemester}
@@ -173,7 +106,6 @@ function AppContent() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/collisions" element={<ReportsPage initialTab="collisions" />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/sync" element={<SyncPage />} />
         <Route path="*" element={
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-gray-400 mb-2">404</h2>
@@ -196,7 +128,7 @@ function MotionWrapper({ children }: { children: ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <SettingsProvider>
         <MotionWrapper>
           <AppDataProvider>
@@ -204,7 +136,7 @@ function App() {
           </AppDataProvider>
         </MotionWrapper>
       </SettingsProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

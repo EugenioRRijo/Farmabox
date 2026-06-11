@@ -2,7 +2,6 @@
  * ProfessorService — Lógica de dominio para profesores (CRUD).
  * Recibe IStorageService inyectado (Dependency Inversion).
  */
-import { PROFESSORS_DATA } from '@scheduler/shared';
 import type { Professor } from '@scheduler/shared';
 import type { IStorageService } from './IStorageService';
 
@@ -20,6 +19,8 @@ export class ProfessorService {
       fullName: data.fullName ?? 'Nuevo Profesor',
       title: data.title ?? 'Prof.',
       email: data.email,
+      cedula: data.cedula,
+      profession: data.profession,
       subjects: data.subjects ?? [],
       type: data.type ?? 'both',
     };
@@ -46,8 +47,33 @@ export class ProfessorService {
     return true;
   }
 
+  /** Vacía la lista de profesores (tombstones → se sincronizan a la nube).
+   *  Antes restauraba 45 profesores hardcodeados; ya no se siembra nada. */
   reset(): Professor[] {
-    this.storage.saveProfessors(PROFESSORS_DATA);
-    return PROFESSORS_DATA;
+    this.storage.saveProfessors([]);
+    return [];
+  }
+
+  /** Importación en lote: crea/actualiza profesores (upsert por id; genera id si falta). */
+  bulkUpsert(incoming: Partial<Professor>[]): Professor[] {
+    const existing = this.storage.loadProfessors();
+    const byId = new Map(existing.map((p) => [p.id, p]));
+    let i = 0;
+    for (const raw of incoming) {
+      const id = raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${i++}`;
+      byId.set(id, {
+        id,
+        fullName: raw.fullName ?? 'Sin nombre',
+        title: raw.title ?? 'Prof.',
+        email: raw.email,
+        cedula: raw.cedula,
+        profession: raw.profession,
+        subjects: raw.subjects ?? [],
+        type: raw.type ?? 'both',
+      });
+    }
+    const merged = [...byId.values()];
+    this.storage.saveProfessors(merged);
+    return merged;
   }
 }
