@@ -49,8 +49,16 @@ export function sameContent(a: unknown, b: unknown): boolean {
 
 export abstract class SyncStorageBase implements IStorageService {
   private autoPushTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Notifica al proceso main cuando un pull-merge (antes de subir) trajo cambios,
+   *  para que avise al renderer (data-changed) y la UI no quede desactualizada. */
+  private onMerged: (() => void) | null = null;
 
   constructor(protected readonly local: IStorageService) {}
+
+  /** Lo cablea main.ts para reenviar 'data-changed' al renderer. */
+  setOnMerged(cb: (() => void) | null): void {
+    this.onMerged = cb;
+  }
 
   // ── Contrato del transporte (lo define cada backend) ─────────────────────
   /** ¿El remoto está disponible/configurado ahora? */
@@ -249,6 +257,17 @@ export abstract class SyncStorageBase implements IStorageService {
   async pushDataOnly(): Promise<{ ok: boolean; error?: string }> {
     if (!this.isRemoteEnabled()) return { ok: false, error: 'Remoto no disponible' };
     try {
+      // FUSIONAR ANTES DE SUBIR (anti-pisado): el push reconstruye academic_load y
+      // professor_subjects borrando de la tabla lo que no esté en esta copia local.
+      // Si otra PC agregó filas que esta todavía no bajó, sin este merge previo las
+      // borraríamos. Bajamos+fusionamos primero para que el push respete lo ajeno.
+      const sync = await this.syncNow();
+      if (!sync.ok) {
+        // No se pudo bajar (transitorio): NO subimos para no pisar; se reintenta luego.
+        log.warn('[Sync] Pull previo al guardado falló; se pospone la subida (se mantiene local).');
+        return { ok: false, error: 'No se pudo sincronizar antes de guardar' };
+      }
+      if (sync.changed) this.onMerged?.();
       await this.pushRemote(this.localRaw());
       log.info('[Sync] Guardado al remoto OK.');
       return { ok: true };

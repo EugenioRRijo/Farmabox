@@ -252,6 +252,12 @@ function registerMaintenanceIpc(): void {
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
   store = buildStorage();
+  // Si el merge previo a un guardado trae cambios de otra PC, avisar al renderer.
+  store.setOnMerged(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('data-changed');
+    }
+  });
   const services = buildServices(store);
   registerIpcHandlers(services);
   registerSyncIpc();
