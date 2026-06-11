@@ -77,7 +77,8 @@ export function CourseInfoTable({ subjects, academicLoad, professors, editable =
                                     {getProfNames(load.theory)}
                                 </td>
                                 <td className="px-2 py-3 text-center text-xs text-black bg-white" style={{ border: '1px solid black' }}>
-                                    {getProfNames(load.lab)}
+                                    {/* Materias teóricas (sin laboratorio) no muestran "Sin Asignar": el rol no aplica. */}
+                                    {hasLab ? getProfNames(load.lab) : ''}
                                 </td>
                                 {/* N° Laboratorio — asignar/editar salón inline (solo materias con lab) */}
                                 <td className="px-2 py-3 text-center text-xs text-black bg-white" style={{ border: '1px solid black' }}>

@@ -456,16 +456,23 @@ export function ProfessorsPage() {
                         <button
                             onClick={() => {
                                 const newLoad = { ...academicLoad };
+                                // Respeta el tipo del profesor: teoría → columna Teoría,
+                                // práctica → columna Práctica, ambos → las dos. Así no se
+                                // duplica el mismo profesor en ambas columnas.
+                                const givesTheory = professor.type === 'theory' || professor.type === 'both';
+                                const givesLab = professor.type === 'practice' || professor.type === 'both';
                                 professor.subjects.forEach((code: string) => {
                                     if (!newLoad[code]) newLoad[code] = {};
                                     if (!newLoad[code].theory) newLoad[code].theory = [];
                                     if (!newLoad[code].lab) newLoad[code].lab = [];
-                                    
-                                    const t = newLoad[code].theory as string[];
-                                    if (!t.includes(professor.id)) newLoad[code].theory = [...t, professor.id];
-                                    
+
                                     const subject = pensum.flatMap((s) => s.subjects).find((s) => s.code === code);
-                                    if (subject?.hasLab) {
+
+                                    if (givesTheory) {
+                                        const t = newLoad[code].theory as string[];
+                                        if (!t.includes(professor.id)) newLoad[code].theory = [...t, professor.id];
+                                    }
+                                    if (givesLab && subject?.hasLab) {
                                         const l = newLoad[code].lab as string[];
                                         if (!l.includes(professor.id)) newLoad[code].lab = [...l, professor.id];
                                     }
