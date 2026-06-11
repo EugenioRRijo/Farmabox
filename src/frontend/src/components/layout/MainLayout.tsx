@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { ConnectionBanner } from './ConnectionBanner';
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
@@ -35,6 +36,7 @@ export function MainLayout({
         )}
       >
         {showHeader && <Header />}
+        <ConnectionBanner />
 
         <main className="min-h-[calc(100vh-4rem)] p-4 md:p-6">
             {children}

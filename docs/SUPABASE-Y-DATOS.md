@@ -39,15 +39,38 @@ PCs, y políticas RLS que permiten a la app (anon key) leer/escribir.
 
 ---
 
-## 2. Keep-alive (que la base no se borre)
+## 2. Keep-alive (que la base no se pause)
 
-El plan free de Supabase **pausa** el proyecto tras ~7 días sin actividad. El
-workflow [`.github/workflows/supabase-keepalive.yml`](../.github/workflows/supabase-keepalive.yml)
-consulta la base cada 3 días desde GitHub (no depende de abrir la app).
+El plan free de Supabase **pausa** el proyecto tras ~7 días sin actividad. Una vez
+pausado, las lecturas/escrituras fallan y parece que "no se guarda". Hay **tres capas**
+para evitarlo:
+
+1. **Keep-alive in-app (escritorio):** la `.exe` consulta la base mientras está abierta
+   (`SupabaseKeepaliveService`). Con uso casi diario, alcanza para mantenerla viva.
+2. **Keep-alive en GitHub (independiente de abrir la app):** el workflow
+   `supabase-keepalive.yml` consulta la base cada 3 días. Cubre los períodos sin uso
+   (vacaciones/recesos), que es cuando el plan free se pausa.
+3. **Respaldo externo (opcional):** un cron-ping gratuito (p. ej. **cron-job.org**)
+   apuntando a `${SUPABASE_URL}/rest/v1/professors?select=id&limit=1` con headers
+   `apikey` y `Authorization: Bearer <anon key>`, como redundancia si la Action se
+   desactivara.
+
+> ⚠️ **Para que el keepalive de GitHub realmente corra** (el archivo ya está en
+> `.github/workflows/` en la raíz del repo **Farmabox**, que es lo correcto), hacen falta
+> tres cosas:
+> 1. **Los 2 Secrets cargados** (`SUPABASE_URL` / `SUPABASE_ANON_KEY`) — sin ellos el job
+>    hace `exit 1` y **no** hace el ping → la base se pausa igual.
+> 2. **El workflow en la rama por defecto** del repo en GitHub (los cron solo corren desde
+>    la rama default, normalmente `main`).
+> 3. **Actions habilitado**: GitHub **deshabilita los cron automáticamente tras ~60 días sin
+>    actividad** en el repo. Si pasó, reactivalo en la pestaña **Actions**.
+>
+> Mientras la `.exe` se abra con cierta frecuencia, el keepalive in-app ya mantiene viva la
+> base; el de GitHub es el respaldo para los períodos largos sin uso.
 
 Para que funcione, agregá dos **Secrets** en el repo:
 
-GitHub → repo **Farmabox** → **Settings** → **Secrets and variables** → **Actions**
+GitHub → repo → **Settings** → **Secrets and variables** → **Actions**
 → **New repository secret**:
 
 | Nombre              | Valor                                   |
@@ -58,6 +81,21 @@ GitHub → repo **Farmabox** → **Settings** → **Secrets and variables** → 
 (Son los mismos valores de `src/electron/secrets.plain.json`.)
 
 Para probarlo sin esperar: pestaña **Actions** → *Supabase keep-alive* → **Run workflow**.
+Debe terminar en verde con `Supabase respondió HTTP 200` (un 4xx por RLS también vale).
+
+### Verificar / despausar
+
+- **¿Está activo?** Abrí el dashboard de Supabase. Si el proyecto dice **"Paused"**,
+  reactivalo con **Restore / Resume**. Tras reactivar, los datos siguen ahí (no se borran
+  al pausar, solo al inactivar por mucho más tiempo).
+- **Salud rápida:** correr el workflow a mano (Actions → Run workflow) y ver el HTTP de
+  respuesta, o cargar la app y mirar el badge de estado en el header ("Nube conectada").
+
+### Estado siempre visible (en la app)
+
+El header muestra un **badge de estado** ("Nube conectada · Guardado" / "Guardando…" /
+"Sin conexión" / "Error al guardar"). Si la base no responde, aparece además un **banner**
+superior. Así nunca hay un fallo de guardado en silencio.
 
 ---
 

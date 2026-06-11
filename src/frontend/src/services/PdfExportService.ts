@@ -1,7 +1,6 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces';
-import { saveAs } from 'file-saver';
 import { PensumSubject, Professor } from '../../../shared/src/index';
 import { ScheduleBlock, AcademicLoad } from '@/types/schedule';
 
@@ -244,14 +243,14 @@ export const generateSchedulePdf = async (
   pdfMake.createPdf(docDefinition).download(finalName);
 };
 
-/** Horario semanal de UN profesor (todos sus bloques, todas las secciones/semestres). */
-export const generateProfessorSchedulePdf = async (
+/** Contenido (una página) del horario semanal de UN profesor. Reutilizado por la
+ *  exportación individual y la de todos los profesores. */
+const buildProfessorPage = (
   professor: Professor,
   blocks: ScheduleBlock[],
   subjects: PensumSubject[],
-) => {
-  const logoDataUrl = await loadLogo();
-
+  logoDataUrl: string | null
+): Content[] => {
   const timeSlots = [
     '7:00-7:45', '7:45-8:30', '8:30-9:15', '9:15-10:00',
     '10:00-10:45', '10:45-11:30', '11:30-12:15', '12:15-1:00',
@@ -295,44 +294,89 @@ export const generateProfessorSchedulePdf = async (
     body.push(r);
   });
 
+  // Total de horas semanales = suma de las duraciones de sus bloques.
+  const totalHoras = myBlocks.reduce((sum, b) => sum + (b.duration || 0), 0);
+
   const content: Content[] = [];
   if (logoDataUrl) content.push({ image: logoDataUrl, width: 50, alignment: 'center', margin: [0, 0, 0, 5] });
   content.push(
     { text: 'FACULTAD DE FARMACIA', style: 'docHeader', alignment: 'center' },
-    { text: 'HORARIO DEL PROFESOR', style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 4] },
-    { text: `${professor.title} ${professor.fullName}`, bold: true, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 8] },
-    {
-      table: { headerRows: 1, widths: [45, '*', '*', '*', '*', '*'], body },
-      layout: {
-        hLineWidth: () => 0.5,
-        vLineWidth: () => 0.5,
-        hLineColor: () => '#999999',
-        vLineColor: () => '#999999',
-        paddingLeft: () => 3,
-        paddingRight: () => 3,
-        paddingTop: () => 2,
-        paddingBottom: () => 2,
-      },
-    },
+    { text: 'HORARIO DEL PROFESOR', style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 8] },
   );
+  // Identificación alineada a la izquierda: nombre arriba, cédula debajo.
+  content.push({ text: `${professor.title} ${professor.fullName}`, bold: true, fontSize: 12, alignment: 'left' });
+  if (professor.cedula) {
+    content.push({ text: `C.I. ${professor.cedula}`, fontSize: 9, color: '#555555', alignment: 'left', margin: [0, 1, 0, 0] });
+  }
+  content.push({
+    table: { headerRows: 1, widths: [45, '*', '*', '*', '*', '*'], body },
+    margin: [0, 8, 0, 0],
+    layout: {
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      hLineColor: () => '#999999',
+      vLineColor: () => '#999999',
+      paddingLeft: () => 3,
+      paddingRight: () => 3,
+      paddingTop: () => 2,
+      paddingBottom: () => 2,
+    },
+  });
+  // Total de horas, debajo del horario.
+  content.push({
+    text: `Total de horas semanales: ${totalHoras}`,
+    bold: true,
+    fontSize: 10,
+    alignment: 'right',
+    margin: [0, 8, 0, 0],
+  });
 
+  return content;
+};
+
+/** Horario semanal de UN profesor (todos sus bloques, todas las secciones/semestres). */
+export const generateProfessorSchedulePdf = async (
+  professor: Professor,
+  blocks: ScheduleBlock[],
+  subjects: PensumSubject[],
+) => {
+  const logoDataUrl = await loadLogo();
   const docDefinition = getBaseDocDefinition();
-  docDefinition.content = content;
+  docDefinition.content = buildProfessorPage(professor, blocks, subjects, logoDataUrl);
   const safe = professor.fullName.replace(/[^a-zA-Z0-9]+/g, '_');
 
-  // getBlob + file-saver: descarga confiable en navegador/Electron y permite
-  // await + manejo de errores (a diferencia de .download(), que es fire-and-forget).
-  await new Promise<void>((resolve, reject) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (pdfMake.createPdf(docDefinition) as any).getBlob((blob: Blob) => {
-        saveAs(blob, `Horario_${safe}.pdf`);
-        resolve();
-      });
-    } catch (e) {
-      reject(e instanceof Error ? e : new Error(String(e)));
+  // pdfmake 0.3.x: download() es async y usa file-saver internamente. Se mantiene
+  // el await para propagar errores al llamador (a diferencia del antiguo
+  // getBlob(callback), que en 0.3.x ya no recibe callback y no descargaba nada).
+  await pdfMake.createPdf(docDefinition).download(`Horario_${safe}.pdf`);
+};
+
+/** Horario individual de CADA profesor (una página por profesor con bloques). */
+export const generateAllProfessorsSchedulesPdf = async (
+  professors: Professor[],
+  blocks: ScheduleBlock[],
+  subjects: PensumSubject[],
+  filename: string = 'Horarios_Profesores'
+) => {
+  const logoDataUrl = await loadLogo();
+  // Solo profesores que tienen al menos un bloque asignado.
+  const withBlocks = professors.filter((p) => blocks.some((b) => b.professorId === p.id));
+  if (withBlocks.length === 0) {
+    throw new Error('Ningún profesor tiene clases asignadas.');
+  }
+
+  const allContent: Content[] = [];
+  withBlocks.forEach((prof, index) => {
+    allContent.push(...buildProfessorPage(prof, blocks, subjects, logoDataUrl));
+    if (index < withBlocks.length - 1) {
+      allContent.push({ text: '', pageBreak: 'before' });
     }
   });
+
+  const docDefinition = getBaseDocDefinition();
+  docDefinition.content = allContent;
+  const finalName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+  await pdfMake.createPdf(docDefinition).download(finalName);
 };
 
 export const generateAllSchedulesPdf = async (

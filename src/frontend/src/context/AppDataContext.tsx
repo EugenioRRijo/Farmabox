@@ -16,6 +16,7 @@ interface AppDataContextType {
   error: string | null;
   isSaving: boolean;
   lastSaved: Date | null;
+  saveError: string | null;
   selectedSemester: number;
   setSelectedSemester: (sem: number) => void;
   handleAddProfessor: (prof: Professor) => Promise<void>;
@@ -45,6 +46,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -168,10 +170,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const handleUpdateLoad = useCallback(async (load: AcademicLoad) => {
     setAcademicLoad(load);
+    setSaveError(null);
     try {
       await Backend.saveAcademicLoad(load as Backend.AcademicLoad);
     } catch (e) {
       console.error('Failed to save academic load:', e);
+      setSaveError(e instanceof Error ? e.message : 'Error al guardar la carga académica');
     }
   }, []);
 
@@ -224,13 +228,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(saveTimeoutRef.current);
     }
 
+    setSaveError(null);
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         await Backend.saveScheduleBlocks(blocks as unknown as Backend.ScheduleBlockData[]);
         await Backend.createLog('Guardar Horario Estado', `Se actualizó el estado a ${blocks.length} bloques totales`);
         setLastSaved(new Date());
+        setSaveError(null);
       } catch (e) {
         console.error('Failed to save schedule blocks:', e);
+        setSaveError(e instanceof Error ? e.message : 'Error al guardar el horario');
       } finally {
         setIsSaving(false);
       }
@@ -259,6 +266,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     error,
     isSaving,
     lastSaved,
+    saveError,
     selectedSemester,
     setSelectedSemester,
     handleAddProfessor,

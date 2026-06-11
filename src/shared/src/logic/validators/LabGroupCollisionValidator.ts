@@ -21,11 +21,17 @@ import { blocksOverlap } from './utils';
  *     └── Child: Group 3 (Mon 10:00-11:30)
  *     ...
  *
- * ### Collision Rules (UPDATED):
- * - Lab vs Lab (SAME subject, different groups) → ✅ ALLOWED (rotation)
- * - Lab vs Lab (DIFFERENT subject, SAME semester) → ❌ COLLISION
- * - Lab vs Lab (DIFFERENT subject, DIFFERENT semester) → ✅ ALLOWED
- * - Lab vs Theory (any subject) → ✅ ALLOWED (Theory overlaps now allowed)
+ * ### Collision Rules (room-based):
+ * A laboratory is a single physical room (`labNumber` / "salón"). Two labs may run at
+ * the same time as long as they use DIFFERENT rooms.
+ * - Lab vs Lab (SAME subject, different groups) → ✅ ALLOWED (rotation, same room)
+ * - Lab vs Lab (DIFFERENT subject, DIFFERENT room) → ✅ ALLOWED (distinct rooms)
+ * - Lab vs Lab (DIFFERENT subject, SAME room) → ❌ COLLISION (room double-booked)
+ * - Lab vs Lab (DIFFERENT subject, room unknown on either side) → ✅ ALLOWED (can't prove a clash)
+ * - Lab vs Theory (any subject) → ✅ ALLOWED
+ *
+ * Scope: this add-time check looks at the CURRENT section only. Cross-section /
+ * cross-semester room clashes surface in the Collisions report.
  */
 export class LabGroupCollisionValidator implements IScheduleValidator {
   readonly name = 'LabGroupCollisionValidator';
@@ -39,7 +45,12 @@ export class LabGroupCollisionValidator implements IScheduleValidator {
       return { isValid: true }; // Not our responsibility
     }
 
-    const { section } = context;
+    const { section, subjectRooms = {} } = context;
+    const norm = (room?: string) => (room ?? '').trim().toLowerCase();
+
+    // Room of the new block: prefer the subject in context, fall back to the rooms map.
+    const rawNewRoom = context.subject?.labNumber ?? subjectRooms[newBlock.subjectCode];
+    const newRoom = norm(rawNewRoom);
 
     // Find all blocks on the same day & section that overlap with the new block
     const collidingBlocks = existingBlocks.filter(
@@ -50,29 +61,24 @@ export class LabGroupCollisionValidator implements IScheduleValidator {
     );
 
     for (const existing of collidingBlocks) {
-      // Rule 1: Lab vs Lab, SAME subject → ALLOWED (rotation groups)
-      if (
-        existing.type === 'LAB' &&
-        existing.subjectCode === newBlock.subjectCode
-      ) {
-        continue; // Same lab subject, different group — this is fine
+      // SAME lab subject (rotation groups, same room) → ALLOWED
+      if (existing.type === 'LAB' && existing.subjectCode === newBlock.subjectCode) {
+        continue;
       }
 
-      // Rule 2 & 3: We ONLY care if the existing block is also a LAB
+      // We ONLY care about other LAB blocks
       if (existing.type !== 'LAB') {
         continue;
       }
 
-      // Rule 4: Lab vs Lab, DIFFERENT subject.
-      // They only collide if they try to use the SAME physical laboratory room.
-      const newRoom = context.subject?.labNumber ? `Lab ${context.subject.labNumber}` : `Lab-${newBlock.subjectCode}`;
-      const existingRoom = `Lab-${existing.subjectCode}`;
-
-      if (newRoom === existingRoom) {
+      // DIFFERENT lab subjects collide ONLY if they share the SAME physical room.
+      // If either room is unknown (empty), we can't prove a clash → allow.
+      const existingRoom = norm(subjectRooms[existing.subjectCode]);
+      if (newRoom && existingRoom && newRoom === existingRoom) {
         return {
           isValid: false,
           errorMessage:
-            `Choque de laboratorio: El salón ${existingRoom} ya está ocupado a esta hora por ${existing.subjectCode}.`,
+            `Choque de laboratorio: el salón "${(rawNewRoom ?? '').trim()}" ya está ocupado a esta hora por otra materia.`,
         };
       }
     }

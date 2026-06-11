@@ -30,6 +30,8 @@ export interface ValidationContext {
   section: string;
   /** Optional lab group id for rotation tracking */
   labGroupId?: string;
+  /** Map subjectCode → lab room (salón). Used to detect same-room lab clashes. */
+  subjectRooms?: Record<string, string>;
 }
 
 /**

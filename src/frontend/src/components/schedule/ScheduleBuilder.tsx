@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Plus, FlaskConical, Clock, ChevronDown } from 'lucide-react';
 import { PensumSubject, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
 import { ExportButton } from './ExportButton';
@@ -16,7 +16,7 @@ interface ScheduleBuilderProps {
   availableSubjects: PensumSubject[];
   section: string;
   readOnly?: boolean;
-  filterProfessorId?: string;
+  filterProfessorIds?: string[];
 }
 
 const TIME_SLOTS = [
@@ -28,14 +28,23 @@ const TIME_SLOTS = [
 
 const DAYS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
 
-// Colores suaves para las materias, similar al documento
+// Paleta de colores BIEN distintos para las materias: hues separados en el
+// círculo cromático y ordenados para que materias contiguas contrasten al
+// máximo. Tono -100 (más saturado que -50, que se veían casi iguales entre sí).
+// Con 12 colores ningún color se repite dentro de un semestre.
 const COLORS = [
-    { bg: 'bg-blue-50', text: 'text-blue-900', border: 'border-blue-200' },
-    { bg: 'bg-green-50', text: 'text-green-900', border: 'border-green-200' },
-    { bg: 'bg-yellow-50', text: 'text-yellow-900', border: 'border-yellow-200' },
-    { bg: 'bg-purple-50', text: 'text-purple-900', border: 'border-purple-200' },
-    { bg: 'bg-pink-50', text: 'text-pink-900', border: 'border-pink-200' },
-    { bg: 'bg-orange-50', text: 'text-orange-900', border: 'border-orange-200' },
+    { bg: 'bg-blue-100', text: 'text-blue-900', border: 'border-blue-300' },
+    { bg: 'bg-orange-100', text: 'text-orange-900', border: 'border-orange-300' },
+    { bg: 'bg-teal-100', text: 'text-teal-900', border: 'border-teal-300' },
+    { bg: 'bg-rose-100', text: 'text-rose-900', border: 'border-rose-300' },
+    { bg: 'bg-amber-100', text: 'text-amber-900', border: 'border-amber-300' },
+    { bg: 'bg-indigo-100', text: 'text-indigo-900', border: 'border-indigo-300' },
+    { bg: 'bg-green-100', text: 'text-green-900', border: 'border-green-300' },
+    { bg: 'bg-fuchsia-100', text: 'text-fuchsia-900', border: 'border-fuchsia-300' },
+    { bg: 'bg-cyan-100', text: 'text-cyan-900', border: 'border-cyan-300' },
+    { bg: 'bg-red-100', text: 'text-red-900', border: 'border-red-300' },
+    { bg: 'bg-violet-100', text: 'text-violet-900', border: 'border-violet-300' },
+    { bg: 'bg-lime-100', text: 'text-lime-900', border: 'border-lime-300' },
 ];
 
 interface CellData {
@@ -44,7 +53,7 @@ interface CellData {
     isEmpty: boolean;
 }
 
-export function ScheduleBuilder({ semesterNumber, availableSubjects, section, readOnly = false, filterProfessorId = 'all' }: ScheduleBuilderProps) {
+export function ScheduleBuilder({ semesterNumber, availableSubjects, section, readOnly = false, filterProfessorIds = [] }: ScheduleBuilderProps) {
     const { academicPeriod, setAcademicPeriod } = useSettings();
     const {
         professors,
@@ -52,6 +61,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         pensum,
         academicLoad,
         handleBlocksChange: onBlocksChange,
+        handleUpdateSubject,
         logScheduleChange,
         isSaving,
         lastSaved
@@ -69,6 +79,8 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
     const [isDragging, setIsDragging] = useState(false);
     // Detalle de una celda ocupada (al hacer click): muestra qué bloques/labs tiene.
     const [detailCell, setDetailCell] = useState<{ day: number; row: number; blocks: ScheduleBlock[] } | null>(null);
+    // Materia elegida para "agregar otro laboratorio en este horario" (desde el detalle).
+    const [quickAddCode, setQuickAddCode] = useState<string>('');
 
     // Filter blocks by current semester's subjects and CURRENT SECTION
     const currentSemesterBlocks = useMemo(() => {
@@ -83,14 +95,33 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
     // handleUpdateCourseInfo removed
 
+    // Orden ESTABLE de materias (por código). El backend no garantiza el orden de
+    // filas y, tras un UPDATE (p. ej. asignar salón), las devuelve en otro orden →
+    // la lista "saltaba". Ordenar por código fija el orden para siempre.
+    const orderedSubjects = useMemo(
+        () => [...availableSubjects].sort((a, b) => a.code.localeCompare(b.code)),
+        [availableSubjects],
+    );
+
     // Assign a persistent color index to each subject code
     const subjectColors = useMemo(() => {
         const map: Record<string, number> = {};
-        availableSubjects.forEach((sub, index) => {
+        orderedSubjects.forEach((sub, index) => {
             map[sub.code] = index % COLORS.length;
         });
         return map;
-    }, [availableSubjects]);
+    }, [orderedSubjects]);
+
+    // Map subjectCode → lab room (salón). Used to detect same-room lab clashes.
+    const subjectRooms = useMemo(() => {
+        const map: Record<string, string> = {};
+        pensum.forEach((sem) => {
+            sem.subjects.forEach((sub) => {
+                if (sub.labNumber) map[sub.code] = sub.labNumber;
+            });
+        });
+        return map;
+    }, [pensum]);
 
     // Auto-select first subject
     useEffect(() => {
@@ -117,11 +148,15 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
     }, [selectedSubjectCode, assignmentType, academicLoad]);
 
     const blocksToDisplay = useMemo(() => {
-        if (filterProfessorId !== 'all') {
-            return scheduleBlocks.filter(b => b.professorId === filterProfessorId);
+        // Filtro por profesor: se restringe a los bloques de ESTE semestre/sección
+        // que pertenezcan a alguno de los profesores seleccionados (no cruza grillas).
+        if (filterProfessorIds.length > 0) {
+            return currentSemesterBlocks.filter(
+                b => !!b.professorId && filterProfessorIds.includes(b.professorId)
+            );
         }
         return currentSemesterBlocks;
-    }, [filterProfessorId, scheduleBlocks, currentSemesterBlocks]);
+    }, [filterProfessorIds, currentSemesterBlocks]);
 
     const tableData = useMemo(() => {
         const data: CellData[][] = TIME_SLOTS.map(() =>
@@ -268,6 +303,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
             assignmentType,
             section,
             professorId: selectedProfessorId || undefined,
+            subjectRooms,
         });
 
         if (!result.isValid) {
@@ -299,7 +335,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         setIsDragging(false);
         setSelectionStart(null);
         setSelectionEnd(null);
-    }, [isDragging, selectionStart, selectionEnd, selectedSubjectCode, currentSemesterBlocks, scheduleBlocks, assignmentType, onBlocksChange, getSubject, selectedProfessorId, section, validateBlock, logScheduleChange]);
+    }, [isDragging, selectionStart, selectionEnd, selectedSubjectCode, currentSemesterBlocks, scheduleBlocks, assignmentType, onBlocksChange, getSubject, selectedProfessorId, section, validateBlock, logScheduleChange, subjectRooms]);
 
     // Eliminar un bloque concreto desde el modal de detalle de la celda.
     const removeBlockFromDetail = useCallback((b: ScheduleBlock) => {
@@ -314,6 +350,53 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
             return remaining.length ? { ...prev, blocks: remaining } : null;
         });
     }, [scheduleBlocks, getSubject, logScheduleChange, onBlocksChange]);
+
+    // Agregar otro laboratorio en el mismo día/rango desde el modal de detalle.
+    // Permite apilar labs en el mismo horario (distinto salón); valida choques de salón.
+    const addLabAtRange = useCallback((day: number, startRow: number, duration: number, subjectCode: string) => {
+        const subject = getSubject(subjectCode);
+        if (!subject) return;
+
+        const rawLab = academicLoad[subjectCode]?.lab;
+        const labProfs = Array.isArray(rawLab) ? rawLab : (typeof rawLab === 'string' ? [rawLab] : []);
+        const professorId = labProfs.length > 0 ? labProfs[0] : undefined;
+
+        const result = validateBlock({
+            newBlock: { subjectCode, day, startHour: startRow, duration, type: 'LAB', professorId, section },
+            currentSemesterBlocks,
+            allBlocks: scheduleBlocks,
+            subject,
+            assignmentType: 'LAB',
+            section,
+            professorId,
+            subjectRooms,
+        });
+
+        if (!result.isValid) {
+            toast.error(result.errorMessage || 'Error de validación');
+            return;
+        }
+
+        const newBlock: ScheduleBlock = {
+            id: Math.random().toString(36).substr(2, 9),
+            subjectCode,
+            semester: semesterNumber,
+            day,
+            startHour: startRow,
+            duration,
+            color: 'default',
+            type: 'LAB',
+            professorId,
+            section,
+        };
+
+        const time = TIME_SLOTS[startRow].split('-')[0];
+        logScheduleChange('Agregar Bloque', `Se agregó laboratorio de ${subject.name} el día ${DAYS[day]} a las ${time}`);
+        onBlocksChange([...scheduleBlocks, newBlock]);
+        // Reflejar el nuevo lab en el modal para poder seguir apilando.
+        setDetailCell((prev) => (prev ? { ...prev, blocks: [...prev.blocks, newBlock] } : prev));
+        toast.success(`Laboratorio agregado: ${subject.name}`);
+    }, [getSubject, academicLoad, validateBlock, currentSemesterBlocks, scheduleBlocks, section, semesterNumber, subjectRooms, onBlocksChange, logScheduleChange]);
 
     // Helper to visualize selection
     const isCellSelected = (day: number, row: number) => {
@@ -387,33 +470,11 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                              </button>
                         </div>
 
-                        {/* Feature #14: Dynamic Professor Assignment Dropdown */}
-                        <div className="mt-3">
-                            <label className="block text-xs font-bold text-gray-700 mb-1">Profesor Asignado al Bloque:</label>
-                            <select
-                                value={selectedProfessorId || ''}
-                                onChange={(e) => setSelectedProfessorId(e.target.value || null)}
-                                className="w-full text-xs font-medium border border-gray-300 rounded px-2 py-1.5 focus:border-brand-accent focus:outline-none bg-gray-50 text-gray-800"
-                            >
-                                <option value="">Sin Asignar</option>
-                                {(() => {
-                                    const loadObj = selectedSubjectCode ? academicLoad[selectedSubjectCode] : undefined;
-                                    const rawProfIds = loadObj 
-                                        ? (assignmentType === 'THEORY' ? loadObj.theory : loadObj.lab) 
-                                        : undefined;
-                                    const profIds = Array.isArray(rawProfIds) ? Array.from(rawProfIds) : (typeof rawProfIds === 'string' ? [rawProfIds] : []);
-                                    
-                                    return (profIds || []).map((id: string) => {
-                                        const p = professors.find(prof => prof.id === id);
-                                        return p ? <option key={p.id} value={p.id}>{p.fullName}</option> : null;
-                                    });
-                                })()}
-                            </select>
-                            <p className="text-[9px] text-gray-500 mt-1 italic leading-tight">Cambiará automáticamente según tu Carga Académica al seleccionar una materia, pero puedes elegir otro manual.</p>
-                        </div>
+                        {/* El profesor del bloque sale SIEMPRE de la Carga Académica
+                            (fuente única de verdad); no hay selección manual por bloque. */}
 
                         <div className="space-y-2 max-h-[calc(100vh-250px)] lg:max-h-[calc(100vh-200px)] overflow-y-auto p-2">
-                            {availableSubjects
+                            {orderedSubjects
                                 .filter((sub: PensumSubject) => {
                                     // Show subjects with 0/0 hours always (e.g. TEG)
                                     if (sub.hoursTheory === 0 && sub.hoursLab === 0) return true;
@@ -621,15 +682,20 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                 const allSameSubject = hasBlocks && blocks.every((b) => b.subjectCode === blocks[0].subjectCode);
                                                 const subject = primary ? getSubject(primary.subjectCode) : null;
                                                 const color = primary && subject ? getSubjectColor(subject.code) : null;
-                                                const classroomDisplay = subject?.labNumber ? `Lab ${subject.labNumber}` : 'Aula-F1';
+                                                // Salón: solo para LAB con número asignado (no inventamos aula para teoría).
+                                                const roomLabel = primary?.type === 'LAB' && subject?.labNumber ? `Salón ${subject.labNumber}` : null;
+                                                // Salones presentes en un cluster de labs agrupados.
+                                                const clusterRooms = isMulti
+                                                    ? Array.from(new Set(blocks.map((b) => getSubject(b.subjectCode)?.labNumber).filter(Boolean)))
+                                                    : [];
                                                 const professor = primary?.professorId
                                                     ? professors.find((p: Professor) => p.id === primary.professorId)
                                                     : null;
 
-                                                // Filtro por profesor: se atenúa si NINGÚN bloque de la celda es de ese profe.
-                                                const isFilteredOut = filterProfessorId !== 'all' &&
+                                                // Filtro por profesor: se atenúa si NINGÚN bloque de la celda es de los profes seleccionados.
+                                                const isFilteredOut = filterProfessorIds.length > 0 &&
                                                                       hasBlocks &&
-                                                                      !blocks.some((b) => b.professorId === filterProfessorId);
+                                                                      !blocks.some((b) => !!b.professorId && filterProfessorIds.includes(b.professorId));
 
                                                 return (
                                                     <td
@@ -676,6 +742,11 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                                     <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold mt-0.5">
                                                                         🧪 {blocks.length} {allLab ? (allSameSubject ? 'grupos' : 'labs') : 'bloques'} · ver
                                                                     </span>
+                                                                    {clusterRooms.length > 0 && (
+                                                                        <span className="text-[8px] font-semibold text-purple-700 mt-0.5">
+                                                                            {clusterRooms.length === 1 ? 'Salón' : 'Salones'} {clusterRooms.join(', ')}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             ) : subject ? (
                                                                 <div className={`flex flex-col justify-center items-center h-full py-1 ${primary!.type === 'LAB' ? 'text-purple-800' : ''}`}>
@@ -686,10 +757,9 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                                         <div className="flex items-center justify-center gap-1 flex-wrap">
                                                                             {primary!.type === 'LAB' && (
                                                                                 <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold">
-                                                                                    LAB {subject.labNumber ? `(${subject.labNumber})` : ''}
+                                                                                    🧪 {roomLabel ?? 'LAB'}
                                                                                 </span>
                                                                             )}
-                                                                            <span>{classroomDisplay}</span>
                                                                         </div>
                                                                         {professor && (
                                                                             <span className="text-[8px] italic">{professor.title} {professor.fullName}</span>
@@ -727,9 +797,11 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
             {/* Resumen de Asignaturas */}
             <CourseInfoTable
-                subjects={availableSubjects}
+                subjects={orderedSubjects}
                 academicLoad={academicLoad}
                 professors={professors}
+                editable={!readOnly}
+                onSetRoom={(code, room) => handleUpdateSubject(code, { labNumber: room })}
             />
 
             {/* Detalle de la celda: qué bloques/labs tiene este horario (al hacer click) */}
@@ -740,57 +812,135 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                     const maxEnd = Math.min(Math.max(...sorted.map((b) => b.startHour + b.duration)), TIME_SLOTS.length);
                     const rangeLabel = `${TIME_SLOTS[minStart].split('-')[0]} – ${TIME_SLOTS[maxEnd - 1].split('-')[1]}`;
                     const allLabs = sorted.length > 1 && sorted.every((b) => b.type === 'LAB');
+                    // Materias de laboratorio disponibles para apilar en este horario.
+                    const labSubjects = orderedSubjects.filter((s) => s.hoursLab > 0);
+                    const addCode = labSubjects.some((s) => s.code === quickAddCode)
+                        ? quickAddCode
+                        : (selectedSubjectCode && labSubjects.some((s) => s.code === selectedSubjectCode)
+                            ? selectedSubjectCode
+                            : (labSubjects[0]?.code ?? ''));
                     return (
                         <div
-                            className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4"
+                            className="fixed inset-0 z-[100] flex items-center justify-center bg-brand-navy/50 p-4 backdrop-blur-sm"
                             onMouseDown={() => setDetailCell(null)}
                         >
-                            <div
-                                className="bg-white rounded-lg shadow-xl w-full max-w-md p-5"
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                transition={{ duration: 0.18, ease: 'easeOut' }}
+                                className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
                                 onMouseDown={(e) => e.stopPropagation()}
                             >
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-bold text-gray-900">{DAYS[detailCell.day]} · {rangeLabel}</h3>
-                                    <button onClick={() => setDetailCell(null)} className="text-gray-400 hover:text-gray-600">
-                                        <X className="w-5 h-5" />
+                                {/* Encabezado institucional */}
+                                <div className="relative flex items-center gap-3 bg-gradient-to-r from-brand-navy to-brand-blue px-5 py-4">
+                                    <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white/15 text-white">
+                                        <Clock className="h-5 w-5" />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-bold leading-tight text-white">{DAYS[detailCell.day]}</h3>
+                                        <p className="text-[11px] text-brand-pale/90">
+                                            {rangeLabel} · {sorted.length} {sorted.length === 1 ? 'bloque' : 'bloques'}
+                                            {allLabs ? ' en paralelo' : ''}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setDetailCell(null)}
+                                        className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                                        aria-label="Cerrar"
+                                    >
+                                        <X className="h-4 w-4" />
                                     </button>
                                 </div>
-                                <p className="text-xs text-gray-500 mb-3">
-                                    {sorted.length} bloque(s){allLabs ? ' — laboratorios juntos' : ''}:
-                                </p>
-                                <div className="space-y-2 max-h-[55vh] overflow-auto">
-                                    {sorted.map((b) => {
-                                        const sub = getSubject(b.subjectCode);
-                                        const prof = b.professorId ? professors.find((p: Professor) => p.id === b.professorId) : null;
-                                        const bEnd = Math.min(b.startHour + b.duration, TIME_SLOTS.length);
-                                        const bTime = `${TIME_SLOTS[b.startHour].split('-')[0]}–${TIME_SLOTS[bEnd - 1].split('-')[1]}`;
-                                        return (
-                                            <div key={b.id} className="flex items-center justify-between border border-gray-200 rounded-lg p-2.5">
-                                                <div className="min-w-0">
-                                                    <div className="font-semibold text-sm text-gray-800 truncate">{sub?.name ?? b.subjectCode}</div>
-                                                    <div className="text-xs text-gray-500 flex gap-2 flex-wrap mt-0.5 items-center">
-                                                        <span className="font-medium text-gray-700">{bTime}</span>
-                                                        <span className={b.type === 'LAB' ? 'text-purple-700 font-medium' : ''}>
-                                                            {b.type === 'LAB' ? `🧪 Lab${sub?.labNumber ? ' ' + sub.labNumber : ''}` : 'Teoría'}
-                                                        </span>
-                                                        {b.section && <span>Sec {b.section}</span>}
-                                                        {prof && <span>{prof.title} {prof.fullName}</span>}
-                                                    </div>
-                                                </div>
-                                                {!readOnly && (
-                                                    <button
-                                                        onClick={() => removeBlockFromDetail(b)}
-                                                        title="Eliminar este bloque"
-                                                        className="flex-shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1.5"
+
+                                <div className="px-5 py-4">
+                                    {/* Lista de bloques */}
+                                    <div className="-mx-1 max-h-[48vh] space-y-2 overflow-auto px-1">
+                                        {sorted.map((b) => {
+                                            const sub = getSubject(b.subjectCode);
+                                            const prof = b.professorId ? professors.find((p: Professor) => p.id === b.professorId) : null;
+                                            const bEnd = Math.min(b.startHour + b.duration, TIME_SLOTS.length);
+                                            const bTime = `${TIME_SLOTS[b.startHour].split('-')[0]}–${TIME_SLOTS[bEnd - 1].split('-')[1]}`;
+                                            const isLab = b.type === 'LAB';
+                                            return (
+                                                <div
+                                                    key={b.id}
+                                                    className={`group flex items-center gap-3 rounded-xl border border-l-4 bg-white p-2.5 transition-shadow hover:shadow-sm ${
+                                                        isLab ? 'border-gray-200 border-l-purple-400' : 'border-gray-200 border-l-brand-accent'
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-xs font-bold ${
+                                                            isLab ? 'bg-purple-100 text-purple-700' : 'bg-brand-pale/40 text-brand-blue'
+                                                        }`}
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                )}
+                                                        {isLab ? <FlaskConical className="h-4 w-4" /> : 'Tª'}
+                                                    </span>
+                                                    <div className="min-w-0 flex-grow">
+                                                        <div className="truncate text-sm font-semibold text-gray-800">{sub?.name ?? b.subjectCode}</div>
+                                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                                            <span className="font-mono font-medium text-gray-600">{bTime}</span>
+                                                            {isLab && (
+                                                                <span className={`rounded-full px-1.5 py-0.5 font-semibold ${sub?.labNumber ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                    {sub?.labNumber ? `Salón ${sub.labNumber}` : 'sin salón'}
+                                                                </span>
+                                                            )}
+                                                            {b.section && <span className="rounded-full bg-gray-100 px-1.5 py-0.5 font-medium text-gray-500">Sec {b.section}</span>}
+                                                            {prof && <span className="truncate text-gray-400">{prof.title} {prof.fullName}</span>}
+                                                        </div>
+                                                    </div>
+                                                    {!readOnly && (
+                                                        <button
+                                                            onClick={() => removeBlockFromDetail(b)}
+                                                            title="Eliminar este bloque"
+                                                            className="flex-shrink-0 rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-600"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Agregar otro laboratorio en este mismo horario */}
+                                    {!readOnly && labSubjects.length > 0 && (
+                                        <div className="mt-4 rounded-xl border border-brand-pale/60 bg-brand-pale/15 p-3">
+                                            <label className="mb-2 flex items-center gap-1.5 text-xs font-bold text-brand-blue">
+                                                <FlaskConical className="h-3.5 w-3.5" />
+                                                Agregar otro laboratorio aquí
+                                            </label>
+                                            <div className="flex gap-2">
+                                                <div className="relative min-w-0 flex-1">
+                                                    <select
+                                                        value={addCode}
+                                                        onChange={(e) => setQuickAddCode(e.target.value)}
+                                                        className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 transition-colors focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                                                    >
+                                                        {labSubjects.map((s) => (
+                                                            <option key={s.code} value={s.code}>
+                                                                {s.name}{s.labNumber ? ` · Salón ${s.labNumber}` : ' · sin salón'}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                                </div>
+                                                <motion.button
+                                                    whileHover={{ scale: addCode ? 1.03 : 1 }}
+                                                    whileTap={{ scale: addCode ? 0.97 : 1 }}
+                                                    onClick={() => addCode && addLabAtRange(detailCell.day, minStart, maxEnd - minStart, addCode)}
+                                                    disabled={!addCode}
+                                                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-brand-accent px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-blue disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
+                                                >
+                                                    <Plus className="h-4 w-4" /> Agregar
+                                                </motion.button>
                                             </div>
-                                        );
-                                    })}
+                                            <p className="mt-2 text-[10px] leading-snug text-gray-500">
+                                                Se agrega en <strong className="text-gray-600">{DAYS[detailCell.day]} {rangeLabel}</strong>. Dos labs pueden coincidir en salones distintos; mismo salón a la misma hora se bloquea.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            </motion.div>
                         </div>
                     );
                 })(),
