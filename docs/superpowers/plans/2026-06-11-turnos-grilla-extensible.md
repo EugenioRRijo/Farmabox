@@ -1,6 +1,6 @@
 # Turnos + grilla de horario extensible — Plan de Implementación
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax.
 
 **Goal:** Que cada horario arranque mostrando solo la franja de su turno (Diurno sem 1-4 / Vespertino sem 5-10) y que la grilla se pueda extender de a 45 min sin tope (hasta la noche).
 
@@ -27,7 +27,7 @@
 - Create: `src/frontend/src/lib/timeSlots.ts`
 - Test: `src/frontend/src/lib/timeSlots.test.ts`
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 ```ts
 // src/frontend/src/lib/timeSlots.test.ts
@@ -68,12 +68,12 @@ describe('defaultWindowForTurno', () => {
 });
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `cd src/frontend && npx vitest run src/lib/timeSlots.test.ts`
 Expected: FAIL — `timeSlots` no existe.
 
-- [ ] **Step 3: Implementar `timeSlots.ts`**
+- [x] **Step 3: Implementar `timeSlots.ts`**
 
 ```ts
 // src/frontend/src/lib/timeSlots.ts
@@ -115,12 +115,12 @@ export function defaultWindowForTurno(t: Turno): { start: number; end: number } 
 export const MIN_SLOT = 0;
 ```
 
-- [ ] **Step 4: Correr el test y verificar que pasa**
+- [x] **Step 4: Correr el test y verificar que pasa**
 
 Run: `cd src/frontend && npx vitest run src/lib/timeSlots.test.ts`
 Expected: PASS (todos los `it`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/frontend/src/lib/timeSlots.ts src/frontend/src/lib/timeSlots.test.ts
@@ -139,7 +139,7 @@ construye con `TIME_SLOTS.map(() => ...)` y filtra `b.startHour < TIME_SLOTS.len
 render hace `TIME_SLOTS.map((timeLabel, rowIndex) => <tr>)` (líneas ~650-665) usando
 `tableData[rowIndex]`. Hay prop `semesterNumber`, `readOnly`.
 
-- [ ] **Step 1: Importar helpers y borrar el TIME_SLOTS fijo**
+- [x] **Step 1: Importar helpers y borrar el TIME_SLOTS fijo**
 
 Reemplazar el bloque `const TIME_SLOTS = [ ... ];` (líneas ~22-27) por un import al inicio del archivo:
 
@@ -149,7 +149,7 @@ import { slotLabel, turnoForSemester, defaultWindowForTurno, MIN_SLOT } from '@/
 
 (Eliminar por completo la constante `TIME_SLOTS` local.)
 
-- [ ] **Step 2: Calcular turno, ventana y rango visible**
+- [x] **Step 2: Calcular turno, ventana y rango visible**
 
 Dentro del componente, después de `blocksToDisplay` (línea ~155), agregar:
 
@@ -182,7 +182,7 @@ Dentro del componente, después de `blocksToDisplay` (línea ~155), agregar:
     const visibleRows = Array.from({ length: visMax - visMin + 1 }, (_, k) => visMin + k);
 ```
 
-- [ ] **Step 3: Ajustar `tableData` para cubrir hasta `visMax`**
+- [x] **Step 3: Ajustar `tableData` para cubrir hasta `visMax`**
 
 En el `useMemo` de `tableData` (línea ~157), cambiar la inicialización y el clamp:
 
@@ -196,7 +196,7 @@ En el `useMemo` de `tableData` (línea ~157), cambiar la inicialización y el cl
 
 y en el filtro de `dayBlocks` reemplazar `b.startHour < TIME_SLOTS.length` por `b.startHour <= visMax`. Reemplazar también cualquier otro uso de `TIME_SLOTS.length` dentro de este memo por `rowCount`. Agregar `visMax` a las dependencias del `useMemo`.
 
-- [ ] **Step 4: Renderizar las filas visibles (no las 16 fijas)**
+- [x] **Step 4: Renderizar las filas visibles (no las 16 fijas)**
 
 Reemplazar `{TIME_SLOTS.map((timeLabel, rowIndex) => (` (línea ~650) por:
 
@@ -221,7 +221,7 @@ Reemplazar `{TIME_SLOTS.map((timeLabel, rowIndex) => (` (línea ~650) por:
 
 (El resto del cuerpo de la fila —el `DAYS.map` con `tableData[rowIndex][dayIndex]`— queda igual, ya que `rowIndex` sigue siendo el índice absoluto.)
 
-- [ ] **Step 5: Botones "+45 min" (solo editable) y badge de turno**
+- [x] **Step 5: Botones "+45 min" (solo editable) y badge de turno**
 
 Badge: en la cabecera, junto a `<span>SEMESTRE {semesterNumber}° SECCIÓN "{section}"</span>` (línea ~599), agregar:
 
@@ -257,12 +257,12 @@ Botón "más tarde" (debajo de la tabla, sin tope): justo después de `</table>`
                             )}
 ```
 
-- [ ] **Step 6: Verificar compilación**
+- [x] **Step 6: Verificar compilación**
 
 Run: `cd src/frontend && npx tsc --noEmit -p tsconfig.json`
 Expected: EXIT 0.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/frontend/src/components/schedule/ScheduleBuilder.tsx
@@ -277,7 +277,7 @@ git commit -m "feat(horarios): grilla con rango por turno + extender +45 min + b
 - Modify: `src/frontend/src/components/reports/ReportsPage.tsx`
 - Modify: `src/frontend/src/components/reports/VisualCollisionGrid.tsx`
 
-- [ ] **Step 1: ReportsPage — usar `slotLabel` en `formatBlockTime`**
+- [x] **Step 1: ReportsPage — usar `slotLabel` en `formatBlockTime`**
 
 En `ReportsPage.tsx`: agregar `import { slotLabel } from '@/lib/timeSlots';`. Borrar la
 constante local `const TIME_SLOTS = [...]` (línea ~172). Reemplazar `formatBlockTime`
@@ -292,7 +292,7 @@ bloque `start + duration - 1`):
   };
 ```
 
-- [ ] **Step 2: VisualCollisionGrid — usar helpers, quitar `GRID_TIME_SLOTS`**
+- [x] **Step 2: VisualCollisionGrid — usar helpers, quitar `GRID_TIME_SLOTS`**
 
 En `VisualCollisionGrid.tsx`: revisar el uso de `GRID_TIME_SLOTS` (línea ~13). Si solo se
 usa para etiquetas/cantidad de filas fijas, reemplazar las etiquetas por `slotLabel(i)` y
@@ -300,12 +300,12 @@ mantener el rango fijo 0..15 que ya usa (esta vista de colisiones puede seguir c
 base; no necesita la extensión nocturna). Importar `slotLabel` y generar las etiquetas con
 `Array.from({ length: 16 }, (_, i) => slotLabel(i))` donde antes usaba `GRID_TIME_SLOTS`.
 
-- [ ] **Step 3: Verificar compilación**
+- [x] **Step 3: Verificar compilación**
 
 Run: `cd src/frontend && npx tsc --noEmit -p tsconfig.json`
 Expected: EXIT 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/frontend/src/components/reports/ReportsPage.tsx src/frontend/src/components/reports/VisualCollisionGrid.tsx
@@ -319,12 +319,12 @@ git commit -m "refactor(horarios): centralizar etiquetas de bloque (quita TIME_S
 **Files:**
 - Modify: `src/frontend/src/services/PdfExportService.ts`
 
-- [ ] **Step 1: Leer la construcción de la tabla del horario en el PDF**
+- [x] **Step 1: Leer la construcción de la tabla del horario en el PDF**
 
 Run: `cd src/frontend && grep -n "TIME_SLOTS\|startHour\|buildSchedulePage\|rows" src/services/PdfExportService.ts`
 Identificar dónde arma las filas de hora (probablemente con un arreglo fijo de 16).
 
-- [ ] **Step 2: Generar filas por rango usado con `slotLabel`**
+- [x] **Step 2: Generar filas por rango usado con `slotLabel`**
 
 Importar `import { slotLabel, turnoForSemester, defaultWindowForTurno } from '../lib/timeSlots';`.
 En `buildSchedulePage`, calcular el rango a partir de los bloques del config:
@@ -334,12 +334,12 @@ filas iterando `i` de `min` a `max` usando `slotLabel(i)` para la columna de hor
 la lista fija. Así el PDF de un horario diurno no incluye filas de tarde/noche vacías y uno
 con clase nocturna llega hasta esa hora.
 
-- [ ] **Step 3: Verificar compilación**
+- [x] **Step 3: Verificar compilación**
 
 Run: `cd src/frontend && npx tsc --noEmit -p tsconfig.json`
 Expected: EXIT 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/frontend/src/services/PdfExportService.ts
