@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useScheduleValidation } from '../../hooks/useScheduleValidation';
+import { slotLabel, turnoForSemester, defaultWindowForTurno, MIN_SLOT } from '@/lib/timeSlots';
 
 interface ScheduleBuilderProps {
   semesterNumber: number;
@@ -18,13 +19,6 @@ interface ScheduleBuilderProps {
   readOnly?: boolean;
   filterProfessorIds?: string[];
 }
-
-const TIME_SLOTS = [
-    "7:00-7:45", "7:45-8:30", "8:30-9:15", "9:15-10:00", 
-    "10:00-10:45", "10:45-11:30", "11:30-12:15", "12:15-1:00",
-    "1:00-1:45", "1:45-2:30", "2:30-3:15", "3:15-4:00",
-    "4:00-4:45", "4:45-5:30", "5:30-6:15", "6:15-7:00"
-];
 
 const DAYS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
 
@@ -158,8 +152,37 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         return currentSemesterBlocks;
     }, [filterProfessorIds, currentSemesterBlocks]);
 
+    // ── Turno + rango visible dinámico ───────────────────────────────────────
+    const turno = turnoForSemester(semesterNumber);
+    const win = defaultWindowForTurno(turno);
+    // Expansión manual del usuario (índices absolutos). Arranca en la ventana del turno.
+    const [expandMin, setExpandMin] = useState(win.start);
+    const [expandMax, setExpandMax] = useState(win.end);
+    // Al cambiar de semestre/turno, resetear la expansión a la ventana nueva.
+    useEffect(() => {
+        const w = defaultWindowForTurno(turnoForSemester(semesterNumber));
+        setExpandMin(w.start);
+        setExpandMax(w.end);
+    }, [semesterNumber]);
+
+    // Rango cubierto por los bloques existentes (para no ocultar ninguna clase).
+    const blockRange = useMemo(() => {
+        let lo = Infinity, hi = -Infinity;
+        for (const b of blocksToDisplay) {
+            if (b.startHour < lo) lo = b.startHour;
+            const end = b.startHour + b.duration - 1;
+            if (end > hi) hi = end;
+        }
+        return blocksToDisplay.length ? { lo, hi } : null;
+    }, [blocksToDisplay]);
+
+    const visMin = Math.max(MIN_SLOT, Math.min(win.start, expandMin, blockRange?.lo ?? win.start));
+    const visMax = Math.max(win.end, expandMax, blockRange?.hi ?? win.end);
+    const visibleRows = Array.from({ length: visMax - visMin + 1 }, (_, k) => visMin + k);
+
     const tableData = useMemo(() => {
-        const data: CellData[][] = TIME_SLOTS.map(() =>
+        const rowCount = visMax + 1; // indexado por índice ABSOLUTO de bloque (0..visMax)
+        const data: CellData[][] = Array.from({ length: rowCount }, () =>
             DAYS.map(() => ({ blocks: [] as ScheduleBlock[], rowspan: 1, isEmpty: true }))
         );
 
@@ -167,7 +190,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
         for (let day = 0; day < DAYS.length; day++) {
             const dayBlocks = blocksToDisplay.filter(
-                (b: ScheduleBlock) => b.day === day && b.startHour < TIME_SLOTS.length,
+                (b: ScheduleBlock) => b.day === day && b.startHour <= visMax,
             );
 
             // 1) CLUSTERS DE LABS: fusiona labs solapados O consecutivos (back-to-back)
@@ -188,7 +211,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                     end = Math.max(end, labs[j].startHour + labs[j].duration);
                     j++;
                 }
-                const clampedEnd = Math.min(end, TIME_SLOTS.length);
+                const clampedEnd = Math.min(end, rowCount);
                 data[start][day].blocks.push(...cluster);
                 data[start][day].isEmpty = false;
                 data[start][day].rowspan = clampedEnd - start;
@@ -204,7 +227,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
             const theories = dayBlocks.filter((b: ScheduleBlock) => b.type !== 'LAB');
             for (const t of theories) {
                 const start = t.startHour;
-                const end = Math.min(start + t.duration, TIME_SLOTS.length);
+                const end = Math.min(start + t.duration, rowCount);
 
                 // Si `start` cae DENTRO del rowspan de un cluster (fila enmascarada), buscar
                 // la celda de inicio de ese cluster para agrupar ahí en vez de perder el bloque.
@@ -226,7 +249,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                 data[owner][day].blocks.push(t);
 
                 // Asegurar que el rowspan del dueño cubra hasta `end`, enmascarando filas nuevas.
-                const clampedEnd = Math.min(Math.max(owner + data[owner][day].rowspan, end), TIME_SLOTS.length);
+                const clampedEnd = Math.min(Math.max(owner + data[owner][day].rowspan, end), rowCount);
                 for (let r = owner + 1; r < clampedEnd; r++) {
                     if (data[r][day].blocks.length === 0) {
                         masked.add(`${day}-${r}`);
@@ -238,7 +261,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         }
 
         return data;
-    }, [blocksToDisplay]);
+    }, [blocksToDisplay, visMax]);
 
     // Helper: Get Subject details globally (for professor filtered view crossing semesters)
     const getSubject = useCallback((code: string) => {
@@ -327,7 +350,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
             section: section
         };
 
-        const time = TIME_SLOTS[startRow].split('-')[0];
+        const time = slotLabel(startRow).split('-')[0];
         logScheduleChange('Agregar Bloque', `Se agregó bloque de ${subject.name} el día ${DAYS[day]} a las ${time}`);
 
         onBlocksChange([...scheduleBlocks, newBlock]);
@@ -341,7 +364,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
     const removeBlockFromDetail = useCallback((b: ScheduleBlock) => {
         const newBlocks = scheduleBlocks.filter((x: ScheduleBlock) => x.id !== b.id);
         const sub = getSubject(b.subjectCode);
-        const time = TIME_SLOTS[b.startHour].split('-')[0];
+        const time = slotLabel(b.startHour).split('-')[0];
         logScheduleChange('Eliminar Bloque', `Se eliminó bloque de ${sub?.name || b.subjectCode} el día ${DAYS[b.day]} a las ${time}`);
         onBlocksChange(newBlocks);
         setDetailCell((prev) => {
@@ -390,7 +413,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
             section,
         };
 
-        const time = TIME_SLOTS[startRow].split('-')[0];
+        const time = slotLabel(startRow).split('-')[0];
         logScheduleChange('Agregar Bloque', `Se agregó laboratorio de ${subject.name} el día ${DAYS[day]} a las ${time}`);
         onBlocksChange([...scheduleBlocks, newBlock]);
         // Reflejar el nuevo lab en el modal para poder seguir apilando.
@@ -595,8 +618,11 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                 </h2>
                                 <div className="flex justify-between items-center border-t-2 border-b-2 border-black py-2 px-2 text-sm font-bold">
                                     <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-2">
                                             <span>SEMESTRE {semesterNumber}° SECCIÓN "{section}"</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${turno === 'Diurno' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                                                {turno}
+                                            </span>
                                         </div>
 
                                         {/* Filter Dropdown removed from here */}
@@ -622,6 +648,14 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
                         {/* Schedule Table - HTML TABLE con formato exacto de la imagen */}
                         <div className="overflow-x-auto bg-white">
+                            {!readOnly && visMin > MIN_SLOT && (
+                                <button
+                                    onClick={() => setExpandMin(Math.max(MIN_SLOT, visMin - 1))}
+                                    className="w-full py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-pale/40 border-b border-dashed border-gray-300 transition-colors"
+                                >
+                                    + 45 min (más temprano)
+                                </button>
+                            )}
                             <table className="w-full border-collapse" style={{ border: '2px solid black' }}>
                                 <thead>
                                     <tr>
@@ -647,7 +681,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {TIME_SLOTS.map((timeLabel, rowIndex) => (
+                                    {visibleRows.map((rowIndex) => (
                                         <tr key={rowIndex}>
                                             {/* Time Column */}
                                             <td
@@ -655,13 +689,13 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                 style={{
                                                     border: '2px solid black',
                                                     borderRight: '2px solid black',
-                                                    borderTop: rowIndex === 0 ? '2px solid black' : '1px solid black',
-                                                    borderBottom: rowIndex === TIME_SLOTS.length - 1 ? '2px solid black' : '1px solid black',
+                                                    borderTop: rowIndex === visMin ? '2px solid black' : '1px solid black',
+                                                    borderBottom: rowIndex === visMax ? '2px solid black' : '1px solid black',
                                                     width: '100px',
                                                     minHeight: '50px'
                                                 }}
                                             >
-                                                {timeLabel}
+                                                {slotLabel(rowIndex)}
                                             </td>
 
                                             {/* Day Columns */}
@@ -728,7 +762,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                             borderLeft: dayIndex === 0 ? '2px solid black' : '1px solid black',
                                                             borderRight: dayIndex === DAYS.length - 1 ? '2px solid black' : '1px solid black',
                                                             borderTop: rowIndex === 0 ? '2px solid black' : '1px solid black',
-                                                            borderBottom: rowIndex === TIME_SLOTS.length - 1 ? '2px solid black' : '1px solid black',
+                                                            borderBottom: rowIndex === visMax ? '2px solid black' : '1px solid black',
                                                             minHeight: '50px',
                                                             verticalAlign: 'middle'
                                                         }}
@@ -781,6 +815,14 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                     ))}
                                 </tbody>
                             </table>
+                            {!readOnly && (
+                                <button
+                                    onClick={() => setExpandMax(visMax + 1)}
+                                    className="w-full py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-pale/40 border-t border-dashed border-gray-300 transition-colors"
+                                >
+                                    + 45 min (más tarde)
+                                </button>
+                            )}
                         </div>
 
                         {/* Information Table Removed Component */}
@@ -809,8 +851,8 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                 (() => {
                     const sorted = [...detailCell.blocks].sort((a, b) => a.startHour - b.startHour);
                     const minStart = Math.min(...sorted.map((b) => b.startHour));
-                    const maxEnd = Math.min(Math.max(...sorted.map((b) => b.startHour + b.duration)), TIME_SLOTS.length);
-                    const rangeLabel = `${TIME_SLOTS[minStart].split('-')[0]} – ${TIME_SLOTS[maxEnd - 1].split('-')[1]}`;
+                    const maxEnd = Math.max(...sorted.map((b) => b.startHour + b.duration));
+                    const rangeLabel = `${slotLabel(minStart).split('-')[0]} – ${slotLabel(maxEnd - 1).split('-')[1]}`;
                     const allLabs = sorted.length > 1 && sorted.every((b) => b.type === 'LAB');
                     // Materias de laboratorio disponibles para apilar en este horario.
                     const labSubjects = orderedSubjects.filter((s) => s.hoursLab > 0);
@@ -858,8 +900,8 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                         {sorted.map((b) => {
                                             const sub = getSubject(b.subjectCode);
                                             const prof = b.professorId ? professors.find((p: Professor) => p.id === b.professorId) : null;
-                                            const bEnd = Math.min(b.startHour + b.duration, TIME_SLOTS.length);
-                                            const bTime = `${TIME_SLOTS[b.startHour].split('-')[0]}–${TIME_SLOTS[bEnd - 1].split('-')[1]}`;
+                                            const bEnd = b.startHour + b.duration;
+                                            const bTime = `${slotLabel(b.startHour).split('-')[0]}–${slotLabel(bEnd - 1).split('-')[1]}`;
                                             const isLab = b.type === 'LAB';
                                             return (
                                                 <div
