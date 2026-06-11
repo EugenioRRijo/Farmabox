@@ -4,6 +4,7 @@ import { Activity, AlertTriangle } from 'lucide-react';
 import type { ScheduleBlock } from '@/types/schedule'; 
 import * as Backend from '../../services/BackendService';
 import { VisualCollisionGrid } from './VisualCollisionGrid';
+import { slotLabel } from '@/lib/timeSlots';
 
 import { useAppData } from '../../context/AppDataContext';
 
@@ -169,27 +170,12 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
 
   const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-  const TIME_SLOTS = [
-    "7:00", "7:45", "8:30", "9:15", 
-    "10:00", "10:45", "11:30", "12:15",
-    "1:00", "1:45", "2:30", "3:15",
-    "4:00", "4:45", "5:30", "6:15", "7:00"
-  ];
-
-  /* 
-     Helper to format time range 
-     Assuming blocks align with the 45min slots standard used in the app.
-     startHour is the index in the slot array. 
-  */
+  /* Formatea el rango horario de un bloque usando los helpers centralizados
+     (bloque por fórmula). startHour es el índice de bloque; duration la cantidad. */
   const formatBlockTime = (start: number, duration: number) => {
-      // Safety check
-      if (start < 0 || start >= TIME_SLOTS.length) return `${start}:00 - ${start + duration}:00`;
-      
-      const startTime = TIME_SLOTS[start];
-      const endIndex = start + duration;
-      const endTime = TIME_SLOTS[endIndex] || "???";
-      
-      return `${startTime} - ${endTime}`;
+      const startPart = slotLabel(start).split('-')[0];
+      const endPart = slotLabel(start + Math.max(1, duration) - 1).split('-')[1];
+      return `${startPart} - ${endPart}`;
   };
 
   return (

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { ScheduleBlock } from '@/types/schedule';
 import { PensumSubject, Semester } from '../../../../shared/src/index';
 import { Professor } from '../../../../shared/src/data/professorsData';
+import { slotLabel } from '@/lib/timeSlots';
 
 interface VisualCollisionGridProps {
   blocks: ScheduleBlock[];
@@ -10,12 +11,8 @@ interface VisualCollisionGridProps {
   professors: Professor[];
 }
 
-const GRID_TIME_SLOTS = [
-    "7:00-7:45", "7:45-8:30", "8:30-9:15", "9:15-10:00", 
-    "10:00-10:45", "10:45-11:30", "11:30-12:15", "12:15-1:00",
-    "1:00-1:45", "1:45-2:30", "2:30-3:15", "3:15-4:00",
-    "4:00-4:45", "4:45-5:30", "5:30-6:15", "6:15-7:00"
-];
+// Rango base 7am-7pm (la grilla de colisiones es de análisis; no necesita la noche).
+const GRID_TIME_SLOTS = Array.from({ length: 16 }, (_, i) => slotLabel(i));
 
 const DAYS_OF_WEEK = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
 
