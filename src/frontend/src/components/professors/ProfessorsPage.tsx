@@ -26,6 +26,7 @@ import { Professor, Semester, PensumSubject } from '../../../../shared/src/index
 import { useAppData } from '../../context/AppDataContext';
 import { ImportModal } from '@/components/common/ImportModal';
 import { generateProfessorSchedulePdf } from '../../services/PdfExportService';
+import { useSettings } from '../../context/SettingsContext';
 import toast from 'react-hot-toast';
 
 // Deterministic avatar gradient per professor — adds warmth and makes cards
@@ -57,6 +58,7 @@ export function ProfessorsPage() {
     academicLoad,
     handleUpdateLoad: onUpdateLoad
   } = useAppData();
+  const { academicPeriod } = useSettings();
   const [showImport, setShowImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -71,7 +73,7 @@ export function ProfessorsPage() {
       return;
     }
     try {
-      await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects));
+      await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects), academicPeriod);
       toast.success(`Horario de ${prof.fullName} exportado (${myBlocks.length} bloque(s)).`);
     } catch (e) {
       toast.error('No se pudo generar el PDF: ' + (e instanceof Error ? e.message : 'error desconocido'));

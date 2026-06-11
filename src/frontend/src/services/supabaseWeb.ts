@@ -28,7 +28,8 @@ async function stripProf(rows: Record<string, unknown>[]): Promise<Record<string
   }
   if (professionSupported) return rows;
   return rows.map((r) => {
-    const { profession: _omit, ...rest } = r;
+    const rest = { ...r };
+    delete rest.profession;
     return rest;
   });
 }
@@ -42,9 +43,24 @@ async function stripBlockSemester(rows: Record<string, unknown>[]): Promise<Reco
   }
   if (blockSemesterSupported) return rows;
   return rows.map((r) => {
-    const { semester: _omit, ...rest } = r;
+    const rest = { ...r };
+    delete rest.semester;
     return rest;
   });
+}
+
+// subjects.aula es columna nueva (aula de teoría). Si la base todavía no la tiene, se
+// omite en las escrituras para no romper el guardado (se prueba una vez y se cachea).
+let subjectAulaSupported: boolean | null = null;
+async function stripAula(obj: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (subjectAulaSupported === null) {
+    const { error } = await requireSupabase().from('subjects').select('aula').limit(1);
+    subjectAulaSupported = !error;
+  }
+  if (subjectAulaSupported) return obj;
+  const rest = { ...obj };
+  delete rest.aula;
+  return rest;
 }
 
 // ── Helpers de lectura ──────────────────────────────────────────────────────
@@ -135,6 +151,9 @@ export async function deleteProfessor(id: string): Promise<void> {
   const sb = requireSupabase();
   await sb.from('professor_subjects').delete().eq('professor_id', id);
   await sb.from('academic_load').delete().eq('professor_id', id);
+  // Liberar las clases: el bloque se conserva pero queda sin profesor (evita
+  // bloques "fantasma" que disparan un falso choque al reconstruir el horario).
+  await sb.from('schedule_blocks').update({ professor_id: null, updated_at: now() }).eq('professor_id', id);
   const { error } = await sb.from('professors').update({ deleted_at: now() }).eq('id', id);
   if (error) throw error;
 }
@@ -189,6 +208,7 @@ export async function getSubjects(): Promise<Semester[]> {
       prerequisites: r.prerequisites ?? [],
       professors: bySubject.get(r.code) ?? [],
       labNumber: r.lab_number ?? undefined,
+      aula: r.aula ?? undefined,
     };
     const n = r.semester ?? 1;
     if (!bySem.has(n)) bySem.set(n, []);
@@ -209,6 +229,7 @@ function subjRow(s: PensumSubject, semester: number): Record<string, unknown> {
     hours_lab: s.hoursLab ?? 0,
     semester,
     lab_number: s.labNumber ?? null,
+    aula: s.aula ?? null,
     prerequisites: s.prerequisites ?? [],
     updated_at: now(),
     deleted_at: null,
@@ -217,7 +238,7 @@ function subjRow(s: PensumSubject, semester: number): Record<string, unknown> {
 
 export async function addSubject(data: PensumSubject & { semester: number }): Promise<PensumSubject> {
   const sb = requireSupabase();
-  const { error } = await sb.from('subjects').upsert(subjRow(data, data.semester));
+  const { error } = await sb.from('subjects').upsert(await stripAula(subjRow(data, data.semester)));
   if (error) throw error;
   const profs = data.professors ?? [];
   if (profs.length) {
@@ -240,8 +261,9 @@ export async function updateSubject(
   if (data.hoursLab !== undefined) patch.hours_lab = data.hoursLab;
   if (data.semester !== undefined) patch.semester = data.semester;
   if (data.labNumber !== undefined) patch.lab_number = data.labNumber;
+  if (data.aula !== undefined) patch.aula = data.aula;
   if (data.prerequisites !== undefined) patch.prerequisites = data.prerequisites;
-  const { error } = await sb.from('subjects').update(patch).eq('code', code);
+  const { error } = await sb.from('subjects').update(await stripAula(patch)).eq('code', code);
   if (error) throw error;
   return { ...(data as PensumSubject), code };
 }
@@ -311,10 +333,27 @@ export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
     for (const pid of v.theory ?? []) rows.push({ subject_code: code, professor_id: pid, role: 'theory', updated_at: now() });
     for (const pid of v.lab ?? []) rows.push({ subject_code: code, professor_id: pid, role: 'lab', updated_at: now() });
   }
-  // Reemplazo completo de la carga (es un mapa cerrado): borrar todo y reinsertar.
-  await sb.from('academic_load').delete().not('subject_code', 'is', null);
+  // NO borrar-todo-e-insertar (riesgo de pisar datos de otra PC / pérdida total si
+  // falla a medio camino). Patrón seguro = mismo que el .exe (CloudStorageService) y
+  // saveScheduleBlocks: upsert de lo vivo + borrar SOLO el sobrante. La PK
+  // (subject_code, professor_id, role) hace que el upsert no duplique.
   if (rows.length) {
-    const { error } = await sb.from('academic_load').insert(rows);
+    const { error } = await sb.from('academic_load').upsert(rows);
+    if (error) throw error;
+  }
+  const keep = new Set(rows.map((r) => `${r.subject_code} ${r.professor_id} ${r.role}`));
+  const { data: existing, error: selErr } = await sb
+    .from('academic_load')
+    .select('subject_code,professor_id,role');
+  if (selErr) throw selErr;
+  for (const r of existing ?? []) {
+    if (keep.has(`${r.subject_code} ${r.professor_id} ${r.role}`)) continue;
+    const { error } = await sb
+      .from('academic_load')
+      .delete()
+      .eq('subject_code', r.subject_code)
+      .eq('professor_id', r.professor_id)
+      .eq('role', r.role);
     if (error) throw error;
   }
 }

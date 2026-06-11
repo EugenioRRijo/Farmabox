@@ -5,6 +5,7 @@ import {
   PensumSubject
 } from '../../../shared/src/index';
 import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
+import { sanitizeProfessorReferences } from '../../../shared/src/logic/sanitizeProfessorReferences';
 import * as Backend from '../services/BackendService';
 
 interface AppDataContextType {
@@ -63,35 +64,55 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
         if (profs) setProfessors(profs as unknown as Professor[]);
         if (subs) setPensum(subs as Semester[]);
+
+        // Ids de profesores vivos: para sanear referencias "fantasma" (profesores
+        // borrados) en la carga académica y en los bloques (raíz del falso choque).
+        const liveIds = new Set(((profs as unknown as Professor[] | undefined) ?? []).map(p => p.id));
+
+        let finalLoad: AcademicLoad | null = null;
         if (load) {
-          const finalLoad = { ...(load as AcademicLoad) };
-          Object.keys(finalLoad).forEach(code => {
+          const fl = { ...(load as AcademicLoad) };
+          Object.keys(fl).forEach(code => {
             // Guard: si la entrada no es un objeto válido, descartarla (evita crash).
-            const entry = finalLoad[code] as unknown;
+            const entry = fl[code] as unknown;
             if (!entry || typeof entry !== 'object') {
-              delete finalLoad[code];
+              delete fl[code];
               return;
             }
             // Cleanup corrupted string-spread elements (like "p", "r", "o", "f")
-            if (Array.isArray(finalLoad[code].theory)) {
-              finalLoad[code].theory = finalLoad[code].theory.filter(id => id.length > 3);
-            } else if (typeof finalLoad[code].theory === 'string') {
-              finalLoad[code].theory = [finalLoad[code].theory as unknown as string];
+            if (Array.isArray(fl[code].theory)) {
+              fl[code].theory = fl[code].theory.filter(id => id.length > 3);
+            } else if (typeof fl[code].theory === 'string') {
+              fl[code].theory = [fl[code].theory as unknown as string];
             } else {
-              finalLoad[code].theory = [];
+              fl[code].theory = [];
             }
-            
-            if (Array.isArray(finalLoad[code].lab)) {
-              finalLoad[code].lab = finalLoad[code].lab.filter(id => id.length > 3);
-            } else if (typeof finalLoad[code].lab === 'string') {
-              finalLoad[code].lab = [finalLoad[code].lab as unknown as string];
+
+            if (Array.isArray(fl[code].lab)) {
+              fl[code].lab = fl[code].lab.filter(id => id.length > 3);
+            } else if (typeof fl[code].lab === 'string') {
+              fl[code].lab = [fl[code].lab as unknown as string];
             } else {
-              finalLoad[code].lab = [];
+              fl[code].lab = [];
             }
           });
-          setAcademicLoad(finalLoad);
+          finalLoad = fl;
         }
-        if (blocks) setScheduleBlocks(blocks as unknown as ScheduleBlock[]);
+
+        // Saneo de referencias a profesores inexistentes (raíz del falso choque de
+        // profesor): los bloques de un profesor borrado quedan "liberados" (sin
+        // profesor) y la carga académica deja de listar ids fantasma.
+        // IMPORTANTE: solo sanear si tenemos una lista de profesores válida; si
+        // `profs` no cargó, no asumir "cero profesores vivos" (borraría todo).
+        const rawBlocks = (blocks as unknown as ScheduleBlock[] | undefined) ?? [];
+        if (profs) {
+          const sanitized = sanitizeProfessorReferences(liveIds, finalLoad ?? {}, rawBlocks);
+          if (finalLoad) setAcademicLoad(sanitized.academicLoad as AcademicLoad);
+          if (blocks) setScheduleBlocks(sanitized.blocks);
+        } else {
+          if (finalLoad) setAcademicLoad(finalLoad);
+          if (blocks) setScheduleBlocks(rawBlocks);
+        }
         setError(null);
       }
     } catch (e) {
@@ -143,6 +164,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const handleDeleteProfessor = useCallback(async (id: string) => {
     const prof = professors.find(p => p.id === id);
     setProfessors(prev => prev.filter(p => p.id !== id));
+    // Liberar de inmediato las clases del profesor borrado y quitarlo de la carga
+    // académica, para que no quede una referencia "fantasma" que dispare un falso choque.
+    setScheduleBlocks(prev => prev.map(b => b.professorId === id ? { ...b, professorId: undefined } : b));
+    setAcademicLoad(prev => {
+      const next: AcademicLoad = {};
+      for (const [code, val] of Object.entries(prev)) {
+        next[code] = {
+          theory: (val.theory ?? []).filter(pid => pid !== id),
+          lab: (val.lab ?? []).filter(pid => pid !== id),
+        };
+      }
+      return next;
+    });
     try {
       await Backend.deleteProfessor(id);
       if (prof) {

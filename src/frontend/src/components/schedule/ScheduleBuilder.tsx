@@ -48,7 +48,7 @@ interface CellData {
 }
 
 export function ScheduleBuilder({ semesterNumber, availableSubjects, section, readOnly = false, filterProfessorIds = [] }: ScheduleBuilderProps) {
-    const { academicPeriod, setAcademicPeriod } = useSettings();
+    const { academicPeriod, setAcademicPeriod, locationLabel } = useSettings();
     const {
         professors,
         scheduleBlocks,
@@ -358,7 +358,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         setIsDragging(false);
         setSelectionStart(null);
         setSelectionEnd(null);
-    }, [isDragging, selectionStart, selectionEnd, selectedSubjectCode, currentSemesterBlocks, scheduleBlocks, assignmentType, onBlocksChange, getSubject, selectedProfessorId, section, validateBlock, logScheduleChange, subjectRooms]);
+    }, [isDragging, selectionStart, selectionEnd, selectedSubjectCode, currentSemesterBlocks, scheduleBlocks, assignmentType, onBlocksChange, getSubject, selectedProfessorId, section, validateBlock, logScheduleChange, subjectRooms, semesterNumber]);
 
     // Eliminar un bloque concreto desde el modal de detalle de la celda.
     const removeBlockFromDetail = useCallback((b: ScheduleBlock) => {
@@ -629,7 +629,7 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
 
 
                                     </div>
-                                    <span>UBICACIÓN NIVEL FERIA PISO 2</span>
+                                    <span>{locationLabel}</span>
                                 </div>
                                 <div className="mt-3 flex justify-end">
                                     {!readOnly && (

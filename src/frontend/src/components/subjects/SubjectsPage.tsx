@@ -38,7 +38,7 @@ export function SubjectsPage() {
 
   // State for Editing Subject Hours (Feature #6)
   const [editingSubject, setEditingSubject] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ hoursTheory: 0, hoursLab: 0, labNumber: '' });
+  const [editForm, setEditForm] = useState({ hoursTheory: 0, hoursLab: 0, labNumber: '', aula: '' });
   
   // Handlers
   const handleDeleteSubject = async (code: string) => {
@@ -94,15 +94,16 @@ export function SubjectsPage() {
   
   const handleStartEdit = (subject: PensumSubject) => {
       setEditingSubject(subject.code);
-      setEditForm({ hoursTheory: subject.hoursTheory, hoursLab: subject.hoursLab, labNumber: subject.labNumber || '' });
+      setEditForm({ hoursTheory: subject.hoursTheory, hoursLab: subject.hoursLab, labNumber: subject.labNumber || '', aula: subject.aula || '' });
   };
 
   const handleSaveEdit = async (code: string) => {
       try {
-          await handleUpdateSubject(code, { 
-              hoursTheory: editForm.hoursTheory, 
+          await handleUpdateSubject(code, {
+              hoursTheory: editForm.hoursTheory,
               hoursLab: editForm.hoursLab,
-              labNumber: editForm.labNumber 
+              labNumber: editForm.labNumber,
+              aula: editForm.aula
           });
           setEditingSubject(null);
       } catch (err) {
@@ -121,6 +122,7 @@ export function SubjectsPage() {
     hoursLab: 0,
     hasLab: false,
     labNumber: '',
+    aula: '',
     semester: 1,
     prerequisites: [] as string[]
   });
@@ -166,6 +168,7 @@ export function SubjectsPage() {
             hoursLab: 0,
             hasLab: false,
             labNumber: '',
+            aula: '',
             semester: 1,
             prerequisites: []
         });
@@ -421,6 +424,12 @@ export function SubjectsPage() {
                                                     value={editForm.hoursTheory} 
                                                     onChange={e => setEditForm({...editForm, hoursTheory: Number(e.target.value)})}
                                                 />T
+                                                <input
+                                                    type="text" className="w-16 p-1 border rounded text-xs"
+                                                    placeholder="Aula"
+                                                    value={editForm.aula}
+                                                    onChange={e => setEditForm({...editForm, aula: e.target.value})}
+                                                />
                                                 {sub.hasLab && (
                                                     <>
                                                         <input 
@@ -592,6 +601,16 @@ export function SubjectsPage() {
                                 value={formData.labNumber}
                                 disabled={!formData.hasLab}
                                 onChange={e => setFormData({...formData, labNumber: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Aula (teoría)</label>
+                            <input
+                                type="text"
+                                placeholder="Ej: 209"
+                                className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                value={formData.aula}
+                                onChange={e => setFormData({...formData, aula: e.target.value})}
                             />
                         </div>
                     </div>
@@ -798,9 +817,9 @@ interface SemesterCardProps {
   onDelete: (code: string) => void;
   onEditProfessors: (code: string) => void;
   editingSubject: string | null;
-  editForm: { hoursTheory: number, hoursLab: number, labNumber: string };
+  editForm: { hoursTheory: number, hoursLab: number, labNumber: string, aula: string };
   onStartEdit: (subject: PensumSubject) => void;
-  onUpdateEditForm: (form: { hoursTheory: number, hoursLab: number, labNumber: string }) => void;
+  onUpdateEditForm: (form: { hoursTheory: number, hoursLab: number, labNumber: string, aula: string }) => void;
   onSaveEdit: (code: string) => void;
   onCancelEdit: () => void;
 }
@@ -927,6 +946,7 @@ function SemesterCard({
                          {editingSubject === subject.code ? (
                             <div className="flex gap-2 items-center">
                                         <input type="number" min="0" className="w-12 p-1 border rounded text-xs" value={editForm.hoursTheory} onChange={e => onUpdateEditForm({...editForm, hoursTheory: Number(e.target.value)})} /> T
+                                        <input type="text" className="w-16 p-1 border rounded text-xs ml-1" placeholder="Aula" value={editForm.aula} onChange={e => onUpdateEditForm({...editForm, aula: e.target.value})} />
                                         {subject.hasLab && (
                                             <>
                                                 + <input type="number" min="0" className="w-12 p-1 border rounded text-xs" value={editForm.hoursLab} onChange={e => onUpdateEditForm({...editForm, hoursLab: Number(e.target.value)})} /> L

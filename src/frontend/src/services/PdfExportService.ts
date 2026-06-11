@@ -15,6 +15,10 @@ export interface SchedulePageConfig {
   academicLoad?: AcademicLoad;
   professors?: Professor[];
   section?: string;
+  /** Período académico para el encabezado (ej. "2026-01"). */
+  academicPeriod?: string;
+  /** Ubicación que aparece arriba a la derecha del encabezado. */
+  locationLabel?: string;
 }
 
 const loadLogo = async (): Promise<string | null> => {
@@ -35,6 +39,13 @@ const loadLogo = async (): Promise<string | null> => {
   return logoDataUrl;
 };
 
+/** Margen superior para centrar verticalmente el texto en celdas de alto fijo
+ *  (pdfmake no soporta alineación vertical en tablas). rowSpan = filas que ocupa. */
+const vCenter = (text: string, rowSpan: number, rowH: number): number => {
+  const lines = String(text).split('\n').length;
+  return Math.max(0, (rowSpan * rowH - lines * 9) / 2 - 2);
+};
+
 const buildSchedulePage = (
   config: SchedulePageConfig,
   logoDataUrl: string | null
@@ -45,17 +56,20 @@ const buildSchedulePage = (
     blocks,
     academicLoad = {},
     professors = [],
-    section = 'A'
+    section = 'A',
+    academicPeriod = '',
+    locationLabel = 'UBICACIÓN NIVEL FERIA PISO 2'
   } = config;
 
-  // ── Rango de filas: ventana del turno + lo que usen los bloques (sin sobra) ──
+  // ── Rango de filas: recorta hasta el ÚLTIMO bloque real (sin filas vacías al final).
+  //    Arranca en el inicio del turno (o antes si hay un bloque más temprano). Si no hay
+  //    bloques, usa la ventana del turno por defecto. ──
   const win = defaultWindowForTurno(turnoForSemester(semesterNumber));
   let rowLo = win.start;
   let rowHi = win.end;
-  for (const b of blocks) {
-    if (b.startHour < rowLo) rowLo = b.startHour;
-    const end = b.startHour + b.duration - 1;
-    if (end > rowHi) rowHi = end;
+  if (blocks.length > 0) {
+    rowLo = Math.min(win.start, ...blocks.map((b) => b.startHour));
+    rowHi = Math.max(...blocks.map((b) => b.startHour + b.duration - 1));
   }
 
   const days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
@@ -71,7 +85,7 @@ const buildSchedulePage = (
 
   for (let rowIndex = rowLo; rowIndex <= rowHi; rowIndex++) {
     const row: TableCell[] = [
-      { text: slotLabel(rowIndex), alignment: 'center', fontSize: 7 }
+      { text: slotLabel(rowIndex), alignment: 'center', fontSize: 7, margin: [0, vCenter(slotLabel(rowIndex), 1, 28), 0, 0] }
     ];
 
     for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
@@ -86,21 +100,26 @@ const buildSchedulePage = (
 
       if (block) {
         const subject = subjects.find(s => s.code === block.subjectCode);
-        const cellText = subject ? `${subject.name}\n(Aula-F3)` : block.subjectCode;
-
-        if (block.duration > 1) {
-          for (let d = 1; d < block.duration; d++) {
-            coveredCells[`${dayIndex}-${rowIndex + d}`] = true;
-          }
-          row.push({
-            text: cellText,
-            alignment: 'center',
-            fontSize: 7,
-            rowSpan: block.duration
-          });
-        } else {
-          row.push({ text: cellText, alignment: 'center', fontSize: 7 });
+        const subjName = subject?.name ?? block.subjectCode;
+        // Teoría → "Nombre / Aula {n}"; Laboratorio → "Laboratorio / Nombre" (como el .docx).
+        const cellText = block.type === 'LAB'
+          ? `Laboratorio\n${subjName}`
+          : `${subjName}\nAula${subject?.aula ? ' ' + subject.aula : ''}`;
+        const span = block.duration > 1 ? block.duration : 1;
+        if (span > 1) {
+          for (let d = 1; d < span; d++) coveredCells[`${dayIndex}-${rowIndex + d}`] = true;
         }
+        row.push({
+          text: cellText,
+          alignment: 'center',
+          fontSize: 7,
+          ...(span > 1 ? { rowSpan: span } : {}),
+          margin: [0, vCenter(cellText, span, 28), 0, 0],
+        });
+      } else if (rowIndex === rowLo) {
+        // Primera fila visible sin clase → franja fija reservada (como el .docx).
+        const txt = 'EVALUACIONES Y ACTIVIDADES EXTRACÁTEDRA';
+        row.push({ text: txt, alignment: 'center', fontSize: 5, italics: true, color: '#555555', margin: [0, vCenter(txt, 1, 28), 0, 0] });
       } else {
         row.push({ text: '', fontSize: 7 });
       }
@@ -128,8 +147,13 @@ const buildSchedulePage = (
        const safeIds = Array.isArray(ids) ? ids : (typeof ids === 'string' ? [ids] : []);
        if (safeIds.length === 0) return '';
        if (!professors || professors.length === 0) return '';
-       // Omite ids colgantes (profesor borrado) en vez de imprimir el id crudo.
-       return safeIds.map(id => professors.find(p => p.id === id)?.fullName).filter(Boolean).join(', ');
+       // Nombre con título (Prof./Dr./Dra.) como el .docx. Omite ids colgantes
+       // (profesor borrado) en vez de imprimir el id crudo.
+       return safeIds
+         .map(id => professors.find(p => p.id === id))
+         .filter((p): p is Professor => !!p)
+         .map(p => `${p.title} ${p.fullName}`)
+         .join(', ');
     };
 
     summaryBody.push([
@@ -138,7 +162,7 @@ const buildSchedulePage = (
       { text: getProfNames(load.theory), alignment: 'center', fontSize: 7 },
       // Materias teóricas (sin laboratorio) dejan la columna de práctica vacía.
       { text: subject.hoursLab > 0 ? getProfNames(load.lab) : '', alignment: 'center', fontSize: 7 },
-      { text: subject.labNumber || '', alignment: 'center', fontSize: 7 },
+      { text: subject.labNumber ? `# ${subject.labNumber}` : '', alignment: 'center', fontSize: 7 },
       { text: subject.prerequisites.join('\n') || '', alignment: 'center', fontSize: 7 },
     ]);
   });
@@ -157,11 +181,11 @@ const buildSchedulePage = (
 
   headerContent.push(
     { text: 'FACULTAD DE FARMACIA', style: 'docHeader', alignment: 'center' },
-    { text: `HORARIOS`, style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 8] },
+    { text: academicPeriod ? `HORARIOS PERIODO ACADÉMICO ${academicPeriod}` : 'HORARIOS', style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 8] },
     {
       columns: [
         { text: `SEMESTRE ${semesterNumber}° SECCIÓN "${section}"`, bold: true, fontSize: 9 },
-        { text: 'UBICACIÓN NIVEL FERIA PISO 2', bold: true, fontSize: 9, alignment: 'right' }
+        { text: locationLabel, bold: true, fontSize: 9, alignment: 'right' }
       ],
       margin: [0, 0, 0, 6]
     }
@@ -173,6 +197,8 @@ const buildSchedulePage = (
       table: {
         headerRows: 1,
         widths: [45, '*', '*', '*', '*', '*'],
+        // Altura uniforme: todas las celdas del mismo tamaño (la cabecera un poco menor).
+        heights: (row: number) => (row === 0 ? 16 : 28),
         body: scheduleBody,
       },
       layout: {
@@ -232,11 +258,13 @@ export const generateSchedulePdf = async (
   academicLoad: AcademicLoad = {},
   professors: Professor[] = [],
   filename: string = 'Horario',
-  section: string = 'A'
+  section: string = 'A',
+  academicPeriod: string = '',
+  locationLabel: string = 'UBICACIÓN NIVEL FERIA PISO 2'
 ) => {
   const logoDataUrl = await loadLogo();
   const pageContent = buildSchedulePage(
-    { semesterNumber, subjects, blocks, academicLoad, professors, section },
+    { semesterNumber, subjects, blocks, academicLoad, professors, section, academicPeriod, locationLabel },
     logoDataUrl
   );
 
@@ -253,19 +281,24 @@ const buildProfessorPage = (
   professor: Professor,
   blocks: ScheduleBlock[],
   subjects: PensumSubject[],
-  logoDataUrl: string | null
+  logoDataUrl: string | null,
+  academicPeriod = ''
 ): Content[] => {
   const days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
   const myBlocks = blocks.filter((b) => b.professorId === professor.id);
 
-  // Rango de filas según las clases del profesor (puede incluir noche). Fallback 7am-7pm.
-  let rowLo = Infinity, rowHi = -Infinity;
+  // Asignaturas que imparte: "Nombre (T-L) (sem°sec)" — T=teoría, L=lab.
+  const subjMap: Record<string, { name: string; t: boolean; l: boolean; sem?: number; sec?: string }> = {};
   for (const b of myBlocks) {
-    if (b.startHour < rowLo) rowLo = b.startHour;
-    const end = b.startHour + b.duration - 1;
-    if (end > rowHi) rowHi = end;
+    const m = subjMap[b.subjectCode] ?? (subjMap[b.subjectCode] = {
+      name: subjects.find((s) => s.code === b.subjectCode)?.name ?? b.subjectCode,
+      t: false, l: false, sem: b.semester, sec: b.section,
+    });
+    if (b.type === 'LAB') m.l = true; else m.t = true;
   }
-  if (!myBlocks.length) { rowLo = 0; rowHi = 15; }
+  const asignaturas = Object.values(subjMap).map(
+    (s) => `${s.name} (${s.t && s.l ? 'T-L' : s.l ? 'L' : 'T'}) (${s.sem ?? '?'}°${s.sec ?? 'A'})`,
+  );
 
   const covered: Record<string, boolean> = {};
   const body: TableCell[][] = [];
@@ -274,8 +307,9 @@ const buildProfessorPage = (
     ...days.map((d) => ({ text: d, style: 'tableHeader', alignment: 'center' as const })),
   ]);
 
-  for (let row = rowLo; row <= rowHi; row++) {
-    const r: TableCell[] = [{ text: slotLabel(row), alignment: 'center', fontSize: 7 }];
+  // Día COMPLETO (16 bloques, 7:00 → 7:00pm) como el formato de referencia.
+  for (let row = 0; row <= 15; row++) {
+    const r: TableCell[] = [{ text: slotLabel(row), alignment: 'center', fontSize: 7, bold: true, margin: [0, vCenter(slotLabel(row), 1, 26), 0, 0] }];
     for (let d = 0; d < 5; d++) {
       const key = `${d}-${row}`;
       if (covered[key]) {
@@ -285,15 +319,16 @@ const buildProfessorPage = (
       const block = myBlocks.find((b) => b.day === d && b.startHour === row);
       if (block) {
         const subj = subjects.find((s) => s.code === block.subjectCode);
-        const tipo = block.type === 'LAB' ? 'Lab' : 'Teoría';
-        const sec = block.section ? ` · Sec ${block.section}` : '';
-        const txt = `${subj?.name ?? block.subjectCode}\n${tipo}${sec}`;
-        if (block.duration > 1) {
-          for (let k = 1; k < block.duration; k++) covered[`${d}-${row + k}`] = true;
-          r.push({ text: txt, alignment: 'center', fontSize: 6, rowSpan: block.duration });
-        } else {
-          r.push({ text: txt, alignment: 'center', fontSize: 6 });
+        const nm = subj?.name ?? block.subjectCode;
+        // Teoría → "Nombre / Aula {n}"; Laboratorio → "Laboratorio / Nombre".
+        const txt = block.type === 'LAB'
+          ? `Laboratorio\n${nm}`
+          : `${nm}\nAula${subj?.aula ? ' ' + subj.aula : ''}`;
+        const span = block.duration > 1 ? block.duration : 1;
+        if (span > 1) {
+          for (let k = 1; k < span; k++) covered[`${d}-${row + k}`] = true;
         }
+        r.push({ text: txt, alignment: 'center', fontSize: 7, ...(span > 1 ? { rowSpan: span } : {}), margin: [0, vCenter(txt, span, 26), 0, 0] });
       } else {
         r.push({ text: '', fontSize: 7 });
       }
@@ -305,24 +340,26 @@ const buildProfessorPage = (
   const totalHoras = myBlocks.reduce((sum, b) => sum + (b.duration || 0), 0);
 
   const content: Content[] = [];
-  if (logoDataUrl) content.push({ image: logoDataUrl, width: 50, alignment: 'center', margin: [0, 0, 0, 5] });
+  if (logoDataUrl) content.push({ image: logoDataUrl, width: 70, alignment: 'center', margin: [0, 0, 0, 4] });
   content.push(
     { text: 'FACULTAD DE FARMACIA', style: 'docHeader', alignment: 'center' },
-    { text: 'HORARIO DEL PROFESOR', style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 8] },
+    { text: 'HORARIO DE CLASES DOCENTES', style: 'docHeader', alignment: 'center' },
+    { text: academicPeriod ? `PERIODO ${academicPeriod}` : 'PERIODO', style: 'docHeader', alignment: 'center', margin: [0, 0, 0, 12] },
+    {
+      columns: [
+        { text: `Docente: ${professor.fullName.toUpperCase()}`, bold: true, fontSize: 11 },
+        { text: professor.cedula ? `C.I. ${professor.cedula}` : '', bold: true, fontSize: 11, alignment: 'right' },
+      ],
+    },
+    { text: [{ text: 'Asignaturas: ', bold: true }, asignaturas.join('\n                    ')], bold: true, fontSize: 11, margin: [0, 2, 0, 12] },
   );
-  // Identificación alineada a la izquierda: nombre arriba, cédula debajo.
-  content.push({ text: `${professor.title} ${professor.fullName}`, bold: true, fontSize: 12, alignment: 'left' });
-  if (professor.cedula) {
-    content.push({ text: `C.I. ${professor.cedula}`, fontSize: 9, color: '#555555', alignment: 'left', margin: [0, 1, 0, 0] });
-  }
   content.push({
-    table: { headerRows: 1, widths: [45, '*', '*', '*', '*', '*'], body },
-    margin: [0, 8, 0, 0],
+    table: { headerRows: 1, widths: [55, '*', '*', '*', '*', '*'], heights: (row: number) => (row === 0 ? 16 : 26), body },
     layout: {
       hLineWidth: () => 0.5,
       vLineWidth: () => 0.5,
-      hLineColor: () => '#999999',
-      vLineColor: () => '#999999',
+      hLineColor: () => '#444444',
+      vLineColor: () => '#444444',
       paddingLeft: () => 3,
       paddingRight: () => 3,
       paddingTop: () => 2,
@@ -330,13 +367,7 @@ const buildProfessorPage = (
     },
   });
   // Total de horas, debajo del horario.
-  content.push({
-    text: `Total de horas semanales: ${totalHoras}`,
-    bold: true,
-    fontSize: 10,
-    alignment: 'right',
-    margin: [0, 8, 0, 0],
-  });
+  content.push({ text: `TOTAL: ${totalHoras} HORAS`, bold: true, fontSize: 11, margin: [0, 8, 0, 0] });
 
   return content;
 };
@@ -346,10 +377,12 @@ export const generateProfessorSchedulePdf = async (
   professor: Professor,
   blocks: ScheduleBlock[],
   subjects: PensumSubject[],
+  academicPeriod: string = '',
 ) => {
   const logoDataUrl = await loadLogo();
   const docDefinition = getBaseDocDefinition();
-  docDefinition.content = buildProfessorPage(professor, blocks, subjects, logoDataUrl);
+  docDefinition.pageOrientation = 'portrait'; // el horario docente va en vertical (como la referencia)
+  docDefinition.content = buildProfessorPage(professor, blocks, subjects, logoDataUrl, academicPeriod);
   const safe = professor.fullName.replace(/[^a-zA-Z0-9]+/g, '_');
 
   // pdfmake 0.3.x: download() es async y usa file-saver internamente. Se mantiene
@@ -363,7 +396,8 @@ export const generateAllProfessorsSchedulesPdf = async (
   professors: Professor[],
   blocks: ScheduleBlock[],
   subjects: PensumSubject[],
-  filename: string = 'Horarios_Profesores'
+  filename: string = 'Horarios_Profesores',
+  academicPeriod: string = ''
 ) => {
   const logoDataUrl = await loadLogo();
   // Solo profesores que tienen al menos un bloque asignado.
@@ -374,13 +408,14 @@ export const generateAllProfessorsSchedulesPdf = async (
 
   const allContent: Content[] = [];
   withBlocks.forEach((prof, index) => {
-    allContent.push(...buildProfessorPage(prof, blocks, subjects, logoDataUrl));
+    allContent.push(...buildProfessorPage(prof, blocks, subjects, logoDataUrl, academicPeriod));
     if (index < withBlocks.length - 1) {
       allContent.push({ text: '', pageBreak: 'before' });
     }
   });
 
   const docDefinition = getBaseDocDefinition();
+  docDefinition.pageOrientation = 'portrait'; // horario docente en vertical
   docDefinition.content = allContent;
   const finalName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
   await pdfMake.createPdf(docDefinition).download(finalName);

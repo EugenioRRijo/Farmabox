@@ -14,6 +14,8 @@ export interface PensumSubject {
   prerequisites: string[];
   professors?: string[];
   labNumber?: string;
+  /** Aula de teoría (ej. "209"). Sale en el PDF como "Aula 209". */
+  aula?: string;
 }
 
 export interface Semester {

@@ -43,6 +43,7 @@ export class SubjectService {
         hoursLab: Number(raw.hoursLab) || 0,
         prerequisites: raw.prerequisites ?? [],
         ...(raw.labNumber ? { labNumber: String(raw.labNumber) } : {}),
+        ...(raw.aula ? { aula: String(raw.aula) } : {}),
       };
       // Quitar el código de cualquier semestre (por si cambió) y reubicar.
       for (const s of pensum) s.subjects = s.subjects.filter((x) => x.code !== sub.code);
@@ -83,6 +84,7 @@ export class SubjectService {
       hoursTheory: data.hoursTheory ?? 0,
       hoursLab: data.hoursLab ?? 0,
       prerequisites: data.prerequisites ?? [],
+      ...(data.aula ? { aula: data.aula } : {}),
     };
 
     const sem = pensum.find((s) => s.number === semesterNum)!;

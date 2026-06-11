@@ -51,6 +51,7 @@ create table if not exists subjects (
   hours_lab     integer not null default 0,
   semester      integer not null default 1,
   lab_number    text,
+  aula          text,
   prerequisites text[] not null default '{}',
   updated_at    timestamptz not null default now(),
   deleted_at    timestamptz

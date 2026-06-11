@@ -2,6 +2,7 @@ import { PensumSubject, Professor } from '../../../../shared/src/index';
 import { generateSchedulePdf } from '@/services/PdfExportService';
 import { useState } from 'react';
 import { ScheduleBlock, AcademicLoad } from '@/types/schedule';
+import { useSettings } from '@/context/SettingsContext';
 interface ExportButtonProps {
   semesterNumber: number;
   subjects: PensumSubject[];
@@ -12,6 +13,7 @@ interface ExportButtonProps {
 }
 
 export function ExportButton({ semesterNumber, subjects, scheduleBlocks, academicLoad, professors, section }: ExportButtonProps) {
+  const { academicPeriod, locationLabel } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
   const [showNameInput, setShowNameInput] = useState(false);
   const [filename, setFilename] = useState(`Horario_Semestre_${semesterNumber}`);
@@ -23,7 +25,7 @@ export function ExportButton({ semesterNumber, subjects, scheduleBlocks, academi
   const handleConfirmExport = async () => {
     try {
       setIsExporting(true);
-      await generateSchedulePdf(semesterNumber, subjects, scheduleBlocks, academicLoad, professors, filename, section);
+      await generateSchedulePdf(semesterNumber, subjects, scheduleBlocks, academicLoad, professors, filename, section, academicPeriod, locationLabel);
       setShowNameInput(false);
     } catch (error) {
       console.error('Error exporting schedule:', error);

@@ -17,6 +17,8 @@ export function SettingsPage() {
     setCompact,
     academicPeriod,
     setAcademicPeriod,
+    locationLabel,
+    setLocationLabel,
     fontScale,
     setFontScale,
     reduceMotion,
@@ -273,6 +275,20 @@ export function SettingsPage() {
                   onChange={(e) => setAcademicPeriod(e.target.value)}
                   placeholder="2026-01"
                   className="w-32 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {/* Ubicación: sale en el encabezado del horario (preview y PDF). Editable
+                  porque puede cambiar de edificio/piso. */}
+              <div className="flex items-center justify-between py-2 border-t border-gray-100 mt-2 pt-3">
+                <div className="pr-4">
+                  <p className="font-medium text-gray-900">Ubicación</p>
+                  <p className="text-sm text-gray-500">Texto que aparece arriba a la derecha del horario.</p>
+                </div>
+                <input
+                  value={locationLabel}
+                  onChange={(e) => setLocationLabel(e.target.value)}
+                  placeholder="UBICACIÓN NIVEL FERIA PISO 2"
+                  className="w-72 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>

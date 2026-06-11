@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } fro
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, BookOpen, LayoutGrid, Download, RotateCcw, ChevronDown, Users, CalendarDays, Check, Search } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { useSettings } from '../../context/SettingsContext';
 import { ScheduleBuilder } from '../schedule/ScheduleBuilder';
 import { Semester, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
@@ -225,6 +226,7 @@ function ExportMenu({
 
 export function ScheduleVisualization() {
   const { pensum, professors, scheduleBlocks, academicLoad } = useAppData();
+  const { academicPeriod, locationLabel } = useSettings();
   const [selectedProfessorIds, setSelectedProfessorIds] = useState<string[]>([]);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [selectedSemesters, setSelectedSemesters] = useState<number[]>([]);
@@ -299,7 +301,7 @@ export function ScheduleVisualization() {
     for (const { section: sec, semester: s } of visibleSchedules) {
       const blocks = blocksFor(sec, s);
       if (blocks.length > 0) {
-        configs.push({ semesterNumber: s.number, subjects: s.subjects, blocks, academicLoad, professors, section: sec });
+        configs.push({ semesterNumber: s.number, subjects: s.subjects, blocks, academicLoad, professors, section: sec, academicPeriod, locationLabel });
       }
     }
     if (configs.length === 0) {
@@ -315,7 +317,7 @@ export function ScheduleVisualization() {
       : professors;
     const allSubjects = pensum.flatMap((s: Semester) => s.subjects);
     try {
-      await generateAllProfessorsSchedulesPdf(scope, scheduleBlocks, allSubjects);
+      await generateAllProfessorsSchedulesPdf(scope, scheduleBlocks, allSubjects, 'Horarios_Profesores', academicPeriod);
     } catch {
       alert('Ningún profesor (de los filtrados) tiene clases asignadas para exportar.');
     }

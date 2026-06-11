@@ -1,65 +1,49 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+# Arreglo de contraste del modo oscuro — Implementation Plan
 
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900;
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-}
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans o subagent-driven-development. Steps use checkbox (`- [ ]`) syntax.
 
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
+**Goal:** Completar el retrofit de modo oscuro en `src/frontend/src/index.css` para que toda la app tenga contraste legible (AA) en tema oscuro.
 
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-gray-100 rounded;
-  }
+**Architecture:** Todo en un archivo CSS, bajo el selector `.dark` (Tailwind `darkMode:'class'`). Se ajustan superficies a la paleta aprobada y se agregan remapeos para fondos de color, textos de color/marca y bordes de color que hoy no se remapean. Sin tocar componentes ni el modo claro.
 
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded hover:bg-gray-400;
-  }
-}
+**Tech Stack:** Tailwind CSS 3, Vite.
 
-/* ── Modo oscuro (retrofit global) ─────────────────────────────────────────
-   La app usa clases Tailwind claras sin variantes dark:. Para un modo oscuro
-   real sin barrer cada componente, remapeamos las utilidades más comunes bajo
-   .dark. (Migrar a dark: por componente es una mejora futura más fina.) */
-.dark body {
-  background-color: #0b1220;
-  color: #e2e8f0;
-}
-.dark .bg-white { background-color: #161f2e !important; }
-.dark .bg-gray-50 { background-color: #0b1220 !important; }
-.dark .bg-gray-100 { background-color: #161f2e !important; }
-.dark .bg-gray-200 { background-color: #243044 !important; }
-.dark .text-gray-900 { color: #f1f5f9 !important; }
-.dark .text-gray-800 { color: #e2e8f0 !important; }
-.dark .text-gray-700 { color: #cbd5e1 !important; }
-.dark .text-gray-600 { color: #94a3b8 !important; }
-.dark .text-gray-500 { color: #94a3b8 !important; }
-.dark .border-gray-200 { border-color: #334155 !important; }
-.dark .border-gray-300 { border-color: #475569 !important; }
-.dark .border-gray-100 { border-color: #243044 !important; }
-.dark .hover\:bg-gray-50:hover { background-color: #334155 !important; }
-.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
-.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #243044 !important; }
-.dark .shadow-sm,
-.dark .shadow,
-.dark .shadow-md,
-.dark .shadow-lg {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
-}
+**Verificación:** el repo no testea CSS; se valida con `npm run build` + `npm run lint` y revisión visual pantalla por pantalla en tema oscuro.
 
-/* ── Modo oscuro: marca, texto de color y fondos de color ──────────────────
-   Completa el retrofit: textos de color/marca → tonos claros legibles, fondos
-   de color claros → tints oscuros translúcidos, bordes de color → tinte.
-   Los fondos sólidos -600/-700/-900 (botones/badges fuertes con texto blanco)
-   se dejan: ya contrastan. */
+---
+
+## Task 1: Ajustar superficies a la paleta aprobada
+
+**Files:** Modify `src/frontend/src/index.css` (bloque `.dark` existente, ~líneas 30-50)
+
+- [ ] **Step 1: Reemplazar los valores de superficie existentes**
+
+Cambiar los hex de las reglas existentes a la paleta aprobada:
+- `.dark body` → `background-color:#0B1220; color:#E2E8F0`
+- `.dark .bg-white` → `#161F2E`
+- `.dark .bg-gray-50` → `#0B1220`
+- `.dark .bg-gray-100` → `#161F2E`
+- `.dark .bg-gray-200` → `#243044`
+(Los remaps de `text-gray-*`, `border-gray-*`, `hover:bg-gray-*`, `divide-gray-*` y `shadow-*`
+existentes se mantienen.)
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add fuente-recuperado/src/frontend/src/index.css
+git commit -m "style(dark): alinear superficies a la paleta aprobada"
+```
+
+---
+
+## Task 2: Remaps de color (fondos, textos, bordes, marca)
+
+**Files:** Modify `src/frontend/src/index.css` (agregar al final del bloque de modo oscuro, antes de `/* Modo compacto */`)
+
+- [ ] **Step 1: Agregar este bloque CSS completo**
+
+```css
+/* ── Modo oscuro: colores de marca, texto de color y fondos de color ───────── */
 .dark .text-gray-400 { color: #64748b !important; }
 .dark .placeholder-gray-400::placeholder,
 .dark .placeholder\:text-gray-400::placeholder { color: #64748b !important; }
@@ -72,7 +56,9 @@
 .dark .bg-brand-pale { background-color: rgba(0,119,234,.16) !important; }
 .dark .hover\:bg-brand-pale\/50:hover { background-color: rgba(0,119,234,.12) !important; }
 
-/* Familias de color */
+/* Familias de color: fondos claros → tints oscuros; textos → tono claro (-300);
+   bordes claros → tinte. Los fondos sólidos -600/-700/-900 (botones/badges fuertes)
+   se dejan como están: ya contrastan con texto blanco. */
 .dark .bg-blue-50{background-color:rgba(59,130,246,.12)!important}
 .dark .bg-blue-100{background-color:rgba(59,130,246,.16)!important}
 .dark .bg-blue-200{background-color:rgba(59,130,246,.25)!important}
@@ -174,23 +160,41 @@
 .dark .bg-cyan-200{background-color:rgba(6,182,212,.25)!important}
 .dark .text-cyan-500,.dark .text-cyan-600,.dark .text-cyan-700,.dark .text-cyan-800,.dark .text-cyan-900{color:#67e8f9!important}
 .dark .border-cyan-200,.dark .border-cyan-300{border-color:rgba(6,182,212,.32)!important}
+```
 
-/* ── Modo compacto ──────────────────────────────────────────────────────── */
-.compact .p-6 { padding: 1rem !important; }
-.compact .p-4 { padding: 0.625rem !important; }
-.compact .py-4 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
-.compact .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+- [ ] **Step 2: Commit**
 
-/* ── Tamaño del texto (escala toda la UI; Tailwind usa rem) ──────────────── */
-html.text-scale-large { font-size: 17.5px; }
-html.text-scale-xlarge { font-size: 19.5px; }
+```bash
+git add fuente-recuperado/src/frontend/src/index.css
+git commit -m "style(dark): remaps de fondos/textos/bordes de color y marca para contraste AA"
+```
 
-/* ── Reducir animaciones (transiciones/animaciones CSS) ─────────────────── */
-.reduce-motion *,
-.reduce-motion *::before,
-.reduce-motion *::after {
-  animation-duration: 0.001ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.001ms !important;
-  scroll-behavior: auto !important;
-}
+---
+
+## Task 3: Verificación
+
+**Files:** ninguno (verificación)
+
+- [ ] **Step 1: Build + lint**
+
+Run (en `src/frontend`): `npm run build` y `npm run lint`
+Expected: ambos sin errores.
+
+- [ ] **Step 2: Revisión visual en tema oscuro**
+
+Levantar la app, activar Ajustes → Tema oscuro, y recorrer: Inicio, Visualización, Editor de
+Horario (celdas de materia + modal de detalle), Reportes/Colisiones (resumen + grilla),
+Profesores, Materias, Ajustes, Chat. Confirmar: textos legibles sobre su fondo; badges/tarjetas
+de color con texto claro; inputs/selects con borde y texto visibles; botones distinguibles.
+Verificar que el **modo claro no cambió**.
+
+- [ ] **Step 3: Retoques finos**
+
+Anotar cualquier elemento puntual aún flojo (p.ej. un `focus:ring-black`, una opacidad
+`bg-*/NN` específica) y agregar su remap puntual bajo `.dark`.
+
+---
+
+## Notas
+- Los fondos sólidos `bg-{c}-600/700/900` (botones/badges fuertes con texto blanco) se dejan: ya contrastan.
+- `bg-brand-navy` se aclara a `#13294D` (trade-off CSS-only: no se separan botones de la barra lateral por selector).

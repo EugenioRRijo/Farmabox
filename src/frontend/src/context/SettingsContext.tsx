@@ -6,6 +6,8 @@ type FontScale = 'normal' | 'large' | 'xlarge';
 interface SettingsContextType {
   academicPeriod: string;
   setAcademicPeriod: (period: string) => void;
+  locationLabel: string;
+  setLocationLabel: (label: string) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
@@ -20,6 +22,7 @@ interface SettingsContextType {
 
 const DEFAULTS = {
   academicPeriod: '2026-01',
+  locationLabel: 'UBICACIÓN NIVEL FERIA PISO 2',
   theme: 'light' as Theme,
   compact: false,
   fontScale: 'normal' as FontScale,
@@ -31,6 +34,9 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [academicPeriod, setAcademicPeriod] = useState(
     () => localStorage.getItem('academicPeriod') || DEFAULTS.academicPeriod,
+  );
+  const [locationLabel, setLocationLabel] = useState(
+    () => localStorage.getItem('locationLabel') || DEFAULTS.locationLabel,
   );
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('theme');
@@ -52,6 +58,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('academicPeriod', academicPeriod);
   }, [academicPeriod]);
+
+  useEffect(() => {
+    localStorage.setItem('locationLabel', locationLabel);
+  }, [locationLabel]);
 
   useEffect(() => {
     localStorage.setItem('theme', theme);
@@ -80,6 +90,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const resetSettings = () => {
     setAcademicPeriod(DEFAULTS.academicPeriod);
+    setLocationLabel(DEFAULTS.locationLabel);
     setTheme(DEFAULTS.theme);
     setCompact(DEFAULTS.compact);
     setFontScale(DEFAULTS.fontScale);
@@ -91,6 +102,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       value={{
         academicPeriod,
         setAcademicPeriod,
+        locationLabel,
+        setLocationLabel,
         theme,
         setTheme,
         toggleTheme,
