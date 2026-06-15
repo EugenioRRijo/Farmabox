@@ -70,7 +70,7 @@ export function ProfessorsPage() {
     const myBlocks = scheduleBlocks.filter((b) => b.professorId === prof.id);
     if (myBlocks.length === 0) {
       toast.error(
-        `${prof.fullName} no tiene clases asignadas en ningún horario todavía. Andá a "Horarios", asignale el profesor a sus bloques, y volvé a exportar.`,
+        `${prof.fullName} no tiene clases asignadas en ningún horario todavía. Ve a "Horarios", asígnale el profesor a sus bloques, y vuelve a exportar.`,
         { duration: 6000 },
       );
       return;

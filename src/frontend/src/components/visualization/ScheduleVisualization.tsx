@@ -311,7 +311,7 @@ export function ScheduleVisualization() {
 
   // ── Exportación ───────────────────────────────────────────────────────────
   const exportFiltered = () => {
-    // Con profesor(es) filtrados, "lo que ves" es el horario por profesor → exportá eso.
+    // Con profesor(es) filtrados, "lo que ves" es el horario por profesor → exporta eso.
     if (professorMode) {
       void exportEachProfessor();
       return;

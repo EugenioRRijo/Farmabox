@@ -285,7 +285,7 @@ export function registerIpcHandlers(services: AppServices): void {
   ipcMain.handle('config:pickFolder', async () => {
     try {
       const res = await dialog.showOpenDialog({
-        title: 'Elegí la carpeta compartida (red local)',
+        title: 'Elige la carpeta compartida (red local)',
         properties: ['openDirectory'],
       });
       return { data: { path: res.canceled || !res.filePaths.length ? null : res.filePaths[0] } };

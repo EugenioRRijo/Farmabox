@@ -60,5 +60,5 @@ export function localFallback(messages: ChatMessage[], storage: IStorageService)
   if (hits.length) {
     return `${head}\n\nEncontré:\n${hits.slice(0, 8).join('\n')}`;
   }
-  return `${head}\n\nNo encontré coincidencias para tu consulta. Probá con el nombre de un profesor o materia. (El asistente IA completo necesita internet.)`;
+  return `${head}\n\nNo encontré coincidencias para tu consulta. Prueba con el nombre de un profesor o materia. (El asistente IA completo necesita internet.)`;
 }
