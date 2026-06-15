@@ -216,8 +216,9 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                 (b: ScheduleBlock) => b.day === day && b.startHour <= visMax,
             );
 
-            // 1) CLUSTERS DE LABS: fusiona labs solapados O consecutivos (back-to-back)
-            //    en un solo bloque que abarca todo el rango → "Laboratorios".
+            // 1) CLUSTERS DE LABS: agrupa SOLO labs que se SOLAPAN (mismo horario, varios
+            //    grupos en paralelo) en un bloque "Laboratorios". Los labs CONSECUTIVOS
+            //    (back-to-back, ej. 7:00-9:15 y 9:15-11:00) se MANTIENEN SEPARADOS.
             const labs = dayBlocks
                 .filter((b: ScheduleBlock) => b.type === 'LAB')
                 .sort((a: ScheduleBlock, b: ScheduleBlock) => a.startHour - b.startHour);
@@ -228,8 +229,10 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                 let end = labs[i].startHour + labs[i].duration;
                 const cluster: ScheduleBlock[] = [labs[i]];
                 let j = i + 1;
-                // Conectados si el siguiente arranca dentro del rango ya cubierto (<= end).
-                while (j < labs.length && labs[j].startHour <= end) {
+                // Conectados SOLO si SOLAPAN: el siguiente arranca ANTES de que termine el
+                // rango ya cubierto (< end). Si arranca justo cuando termina (== end) es
+                // consecutivo → va como bloque separado, no se fusiona.
+                while (j < labs.length && labs[j].startHour < end) {
                     cluster.push(labs[j]);
                     end = Math.max(end, labs[j].startHour + labs[j].duration);
                     j++;
