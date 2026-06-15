@@ -6,6 +6,8 @@ import {
 } from '../../../shared/src/index';
 import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
 import { sanitizeProfessorReferences } from '../../../shared/src/logic/sanitizeProfessorReferences';
+import { reconcileProfessorLoad } from '../../../shared/src/logic/reconcileProfessorLoad';
+import { restampBlocksFromLoad } from '../../../shared/src/logic/restampBlocksFromLoad';
 import * as Backend from '../services/BackendService';
 
 interface AppDataContextType {
@@ -51,8 +53,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Concurrencia (#7): protección de ediciones en curso ──────────────────
+  // Un reload en segundo plano (poll/realtime cuando OTRA PC cambia algo) NO debe
+  // pisar lo que el usuario está editando localmente y todavía no se guardó.
+  // Llevamos un contador de ediciones locales y hasta cuál se confirmó el guardado;
+  // mientras `localEditSeq !== syncedEditSeq` hay trabajo sin confirmar y los reload
+  // silenciosos se posponen para no borrarlo (convergen al terminar de guardar).
+  const localEditSeq = useRef(0);
+  const syncedEditSeq = useRef(0);
+
   // Carga desde el backend. Reutilizable: al montar y al recibir cambios de otra PC.
   const reload = useCallback(async (silent = false) => {
+    // No pisar ediciones locales en curso: si el usuario está editando y el guardado
+    // aún no se confirmó, posponer el refresco en segundo plano.
+    if (silent && localEditSeq.current !== syncedEditSeq.current) return;
     try {
       {
         const [profs, subs, load, blocks] = await Promise.all([
@@ -108,7 +122,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         if (profs) {
           const sanitized = sanitizeProfessorReferences(liveIds, finalLoad ?? {}, rawBlocks);
           if (finalLoad) setAcademicLoad(sanitized.academicLoad as AcademicLoad);
-          if (blocks) setScheduleBlocks(sanitized.blocks);
+          if (blocks) {
+            // Invariante: el profesor de un bloque sale SIEMPRE de la carga académica.
+            // Re-estampar al cargar evita que un bloque conserve un profesor viejo
+            // cuando la carga cambió (aquí o en otra PC) → raíz de la
+            // "desincronización entre pantallas" (horario vs Profesores/Materias).
+            const stamped = finalLoad
+              ? (restampBlocksFromLoad(sanitized.blocks, sanitized.academicLoad) as ScheduleBlock[])
+              : sanitized.blocks;
+            setScheduleBlocks(stamped);
+          }
         } else {
           if (finalLoad) setAcademicLoad(finalLoad);
           if (blocks) setScheduleBlocks(rawBlocks);
@@ -141,25 +164,72 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, [reload]);
 
-  const handleAddProfessor = useCallback(async (prof: Professor) => {
-    setProfessors(prev => [...prev, prof]);
-    try {
-      await Backend.createProfessor(prof as unknown as Omit<Backend.Professor, 'id'>);
-      await Backend.createLog('Crear Profesor', `Se agregó al profesor ${prof.title} ${prof.fullName}`);
-    } catch (e) {
-      console.error('Failed to save professor:', e);
+  // Materias que tienen laboratorio: define el rol por defecto al sincronizar el
+  // vínculo profesor↔materia (professor_subjects) con la carga académica.
+  const labSubjectCodes = useMemo(
+    () => new Set(pensum.flatMap(s => s.subjects).filter(s => s.hasLab).map(s => s.code)),
+    [pensum],
+  );
+
+  // Aplica una carga académica nueva manteniendo el invariante "el profesor del
+  // bloque sale SIEMPRE de la carga": re-estampa los bloques desde la carga y
+  // persiste carga + bloques que cambiaron. Así el horario, los PDF por profesor y
+  // los reportes nunca muestran un profesor desfasado (raíz de la
+  // "desincronización entre pantallas"). No hace seq-tracking: lo maneja el handler.
+  const applyLoad = useCallback(async (nextLoad: AcademicLoad, currentBlocks: ScheduleBlock[]) => {
+    setAcademicLoad(nextLoad);
+    const stamped = restampBlocksFromLoad(currentBlocks, nextLoad) as ScheduleBlock[];
+    const blocksChanged =
+      stamped.length !== currentBlocks.length || stamped.some((b, i) => b !== currentBlocks[i]);
+    if (blocksChanged) setScheduleBlocks(stamped);
+    await Backend.saveAcademicLoad(nextLoad as Backend.AcademicLoad);
+    if (blocksChanged) {
+      await Backend.saveScheduleBlocks(stamped as unknown as Backend.ScheduleBlockData[]);
     }
   }, []);
 
+  const handleAddProfessor = useCallback(async (prof: Professor) => {
+    setProfessors(prev => [...prev, prof]);
+    // Sincronizar la carga académica: sembrar el rol por defecto del profesor nuevo
+    // en sus materias (según su tipo y si la materia tiene lab) y re-estampar bloques.
+    const nextLoad = prof.subjects.length
+      ? (reconcileProfessorLoad(academicLoad, prof, [], labSubjectCodes) as AcademicLoad)
+      : null;
+    const mySeq = (localEditSeq.current += 1); // edición local en curso (#7)
+    try {
+      await Backend.createProfessor(prof as unknown as Omit<Backend.Professor, 'id'>);
+      if (nextLoad) await applyLoad(nextLoad, scheduleBlocks);
+      await Backend.createLog('Crear Profesor', `Se agregó al profesor ${prof.title} ${prof.fullName}`);
+    } catch (e) {
+      console.error('Failed to save professor:', e);
+    } finally {
+      if (mySeq > syncedEditSeq.current) syncedEditSeq.current = mySeq;
+    }
+  }, [academicLoad, scheduleBlocks, labSubjectCodes, applyLoad]);
+
   const handleUpdateProfessor = useCallback(async (prof: Professor) => {
+    const prevProf = professors.find(p => p.id === prof.id);
     setProfessors(prev => prev.map(p => p.id === prof.id ? prof : p));
+    // Reconciliar la carga solo si cambiaron las materias del profesor.
+    const prevSubs = prevProf?.subjects ?? [];
+    const subjectsChanged =
+      prevSubs.length !== prof.subjects.length ||
+      prevSubs.some(c => !prof.subjects.includes(c)) ||
+      prof.subjects.some(c => !prevSubs.includes(c));
+    const nextLoad = subjectsChanged
+      ? (reconcileProfessorLoad(academicLoad, prof, prevSubs, labSubjectCodes) as AcademicLoad)
+      : null;
+    const mySeq = (localEditSeq.current += 1); // edición local en curso (#7)
     try {
       await Backend.updateProfessor(prof.id, prof as unknown as Partial<Backend.Professor>);
+      if (nextLoad) await applyLoad(nextLoad, scheduleBlocks);
       await Backend.createLog('Actualizar Profesor', `Se actualizó al profesor ${prof.title} ${prof.fullName}`);
     } catch (e) {
       console.error('Failed to update professor:', e);
+    } finally {
+      if (mySeq > syncedEditSeq.current) syncedEditSeq.current = mySeq;
     }
-  }, []);
+  }, [professors, academicLoad, scheduleBlocks, labSubjectCodes, applyLoad]);
 
   const handleDeleteProfessor = useCallback(async (id: string) => {
     const prof = professors.find(p => p.id === id);
@@ -203,15 +273,21 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleUpdateLoad = useCallback(async (load: AcademicLoad) => {
-    setAcademicLoad(load);
     setSaveError(null);
+    const mySeq = (localEditSeq.current += 1); // edición local en curso (#7)
     try {
-      await Backend.saveAcademicLoad(load as Backend.AcademicLoad);
+      // applyLoad persiste la carga Y re-estampa/persiste los bloques afectados.
+      await applyLoad(load, scheduleBlocks);
     } catch (e) {
       console.error('Failed to save academic load:', e);
       setSaveError(e instanceof Error ? e.message : 'Error al guardar la carga académica');
+    } finally {
+      // Confirmar hasta esta edición (en éxito o error) para no bloquear reloads
+      // indefinidamente; un error deja saveError visible y el próximo reload mostrará
+      // la verdad del remoto.
+      if (mySeq > syncedEditSeq.current) syncedEditSeq.current = mySeq;
     }
-  }, []);
+  }, [scheduleBlocks, applyLoad]);
 
   const handleAddSubject = useCallback(async (subject: PensumSubject & { semester: number }) => {
     setPensum(prev => {
@@ -257,6 +333,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const handleBlocksChange = useCallback((blocks: ScheduleBlock[]) => {
     setScheduleBlocks(blocks);
     setIsSaving(true); // indicador REAL: guardando hasta que termine el guardado debounced
+    const mySeq = (localEditSeq.current += 1); // edición local en curso (#7)
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -274,9 +351,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setSaveError(e instanceof Error ? e.message : 'Error al guardar el horario');
       } finally {
         setIsSaving(false);
+        // Confirmar hasta esta edición; si ya no quedan ediciones locales sin guardar,
+        // converger con el remoto (trae lo que otras PCs cambiaron mientras editábamos).
+        if (mySeq > syncedEditSeq.current) syncedEditSeq.current = mySeq;
+        if (localEditSeq.current === syncedEditSeq.current) void reload(true);
       }
     }, 1500); // debounce 1.5s
-  }, []);
+  }, [reload]);
 
   const logScheduleChange = useCallback(async (action: string, details: string) => {
     try {

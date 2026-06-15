@@ -165,14 +165,17 @@ export function VisualCollisionGrid({ blocks, pensum, professors }: VisualCollis
                                                     <span className="text-[9px] opacity-75 mb-0.5 hidden 2xl:block">
                                                         {block.type === 'LAB' ? 'LAB' : 'TEORÍA'}
                                                     </span>
-                                                    {professor && (
+                                                    {professor?.fullName && (
                                                         <span className="text-[9px] italic truncate w-full hidden xl:block">
-                                                             {professor.fullName.split(' ')[0]} {professor.fullName.split(' ')[1]?.charAt(0)}.
+                                                             {professor.fullName.split(' ')[0]}
+                                                             {professor.fullName.split(' ')[1] ? ` ${professor.fullName.split(' ')[1].charAt(0)}.` : ''}
                                                         </span>
                                                     )}
-                                                    <div className="text-[8px] font-bold bg-white/50 px-1 py-0 rounded mt-0.5 shadow-sm inline-block">
-                                                        Sem {subject?.semester}°
-                                                    </div>
+                                                    {subject?.semester != null && (
+                                                        <div className="text-[8px] font-bold bg-white/50 px-1 py-0 rounded mt-0.5 shadow-sm inline-block">
+                                                            Sem {subject.semester}°
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );

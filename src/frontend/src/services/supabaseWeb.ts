@@ -5,7 +5,8 @@
  * Mapeo snake_case ↔ camelCase + stamping (updated_at / deleted_at) para que las
  * escrituras de la web sean consistentes con el merge offline-first del escritorio.
  */
-import { requireSupabase } from './supabaseClient';
+import { requireSupabase, supabase } from './supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import type {
   Professor,
   PensumSubject,
@@ -17,6 +18,29 @@ import type {
 } from './BackendService';
 
 const now = (): string => new Date().toISOString();
+
+// ── Realtime (#7): cambios de otras PCs en vivo (modo web) ──────────────────
+// Suscribe a las tablas sincronizadas y llama `onChange` cuando alguien más edita.
+// Requiere habilitar la publicación supabase_realtime en la base (ver
+// docs/migracion-2.3-concurrencia.sql). Si no está habilitada, simplemente no
+// llegan eventos y el poll de 30 s sigue como red de seguridad.
+let realtimeChannel: RealtimeChannel | null = null;
+export function subscribeRealtime(onChange: () => void): () => void {
+  if (!supabase || realtimeChannel) return () => {};
+  const tables = ['professors', 'subjects', 'professor_subjects', 'academic_load', 'schedule_blocks', 'logs'];
+  const ch = supabase.channel('farmabox-web-sync');
+  for (const table of tables) {
+    ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange());
+  }
+  ch.subscribe();
+  realtimeChannel = ch;
+  return () => {
+    if (realtimeChannel && supabase) {
+      void supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  };
+}
 
 // La columna `profession` es nueva. Si la base todavía no la tiene, la omitimos en
 // las escrituras para no romper el guardado (se proba una vez y se cachea).

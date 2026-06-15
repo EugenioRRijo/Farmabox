@@ -240,10 +240,15 @@ export async function pickSharedFolder(): Promise<{ path: string | null }> {
   return unwrap(configApi().pickFolder());
 }
 
-/** Se dispara cuando el pull periódico (multi-PC) trae cambios de otra PC. Devuelve unsubscribe. */
+/** Se dispara cuando otra PC cambia datos. Devuelve unsubscribe.
+ *  - Escritorio (Electron): vía IPC 'data-changed' (pull periódico + realtime del main).
+ *  - Web: suscripción directa a Supabase Realtime. */
 export function onRemoteDataChanged(callback: () => void): () => void {
-  if (!ipc || typeof ipc.onDataChanged !== 'function') return () => {};
-  return ipc.onDataChanged(callback);
+  if (ipc && typeof ipc.onDataChanged === 'function') {
+    return ipc.onDataChanged(callback);
+  }
+  // Modo web: realtime directo a Supabase (el poll de 30 s queda como red de seguridad).
+  return web.subscribeRealtime(callback);
 }
 
 // ── Sincronización manual ("Sincronizar ahora") ────────────────────────────

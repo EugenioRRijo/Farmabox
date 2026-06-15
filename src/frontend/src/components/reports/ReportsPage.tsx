@@ -37,6 +37,17 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
     }
   }, [activeTab]);
 
+  // Sincronización en vivo de los logs: cuando otra PC (o esta) cambia datos, refrescar
+  // el historial mientras se está viendo la pestaña de Logs (la pestaña de choques ya es
+  // reactiva porque lee del contexto). Así la sección de revisión queda sincronizada.
+  useEffect(() => {
+    if (activeTab !== 'logs') return;
+    const unsub = Backend.onRemoteDataChanged(() => {
+      Backend.getLogs().then(setLogs).catch(() => {});
+    });
+    return unsub;
+  }, [activeTab]);
+
   // ── Collision Detection Logic ────────────────────────
   const collisions = useMemo(() => {
     if (!scheduleBlocks.length || !pensum.length) return [];
@@ -81,15 +92,39 @@ export function ReportsPage({ initialTab = 'collisions' }: ReportsPageProps) {
 
             const info1 = subjectMap.get(b1.subjectCode);
             const info2 = subjectMap.get(b2.subjectCode);
-            if (!info1 || !info2) continue;
 
             const b1Section = b1.section || 'A';
             const b2Section = b2.section || 'A';
-            const sameSem = info1.semester === info2.semester;
             const sameSec = b1Section === b2Section;
 
-            // Professor: a professor is one person — clash anywhere (any semester/section)
+            // Professor: a professor is one person — clash anywhere (any semester/section).
+            // No depende del pensum, por eso se evalúa aunque falten datos de la materia.
             const isProfCollision = !!b1.professorId && !!b2.professorId && b1.professorId === b2.professorId;
+
+            // Teoría/Laboratorio necesitan datos del pensum (semestre/salón). Si la materia
+            // de algún bloque no está en el pensum, solo evaluamos el choque de PROFESOR y
+            // seguimos — antes se descartaba TODO el par y se ocultaban choques reales.
+            if (!info1 || !info2) {
+                if (isProfCollision) {
+                    const prof = professors.find(p => p.id === b1.professorId);
+                    detected.push({
+                        blockA: b1,
+                        blockB: b2,
+                        nameA: info1?.name ?? b1.subjectCode,
+                        nameB: info2?.name ?? b2.subjectCode,
+                        semA: info1?.semester ?? b1.semester ?? 0,
+                        semB: info2?.semester ?? b2.semester ?? 0,
+                        sectionA: b1Section,
+                        sectionB: b2Section,
+                        section: sameSec ? b1Section : `${b1Section}/${b2Section}`,
+                        type: 'PROFESOR',
+                        professorName: prof?.fullName,
+                    });
+                }
+                continue;
+            }
+
+            const sameSem = info1.semester === info2.semester;
 
             // Theory: same student cohort (same semester + section) can't attend two theories
             const isTheoryCollision = b1.type === 'THEORY' && b2.type === 'THEORY' && sameSem && sameSec;

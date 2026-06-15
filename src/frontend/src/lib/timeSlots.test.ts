@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slotLabel, turnoForSemester, defaultWindowForTurno, MIN_SLOT } from './timeSlots';
+import { slotLabel, turnoForSemester, defaultWindowForTurno, MIN_SLOT, MAX_SLOT } from './timeSlots';
 
 describe('slotLabel', () => {
   it('coincide con las etiquetas actuales de mañana/tarde', () => {
@@ -25,11 +25,17 @@ describe('turnoForSemester', () => {
 });
 
 describe('defaultWindowForTurno', () => {
-  it('Diurno 0-7 (7am-1pm), Vespertino 8-17 (1pm-8:30pm)', () => {
-    expect(defaultWindowForTurno('Diurno')).toEqual({ start: 0, end: 7 });
+  it('Diurno 0-14 (7am-6:15pm, cubre las 6pm), Vespertino 8-17 (1pm-8:30pm)', () => {
+    // El día Diurno arranca a las 7:00 y llega hasta la franja que cubre las 6 PM
+    // (slot 14 = "5:30-6:15"), por pedido de mostrar la hoja completa al crear.
+    expect(slotLabel(14)).toBe('5:30-6:15');
+    expect(defaultWindowForTurno('Diurno')).toEqual({ start: 0, end: 14 });
     expect(defaultWindowForTurno('Vespertino')).toEqual({ start: 8, end: 17 });
   });
-  it('MIN_SLOT es 0 (piso 7am)', () => {
+  it('MIN_SLOT es 0 (piso 7am) y MAX_SLOT es 19 (techo 10pm)', () => {
     expect(MIN_SLOT).toBe(0);
+    expect(MAX_SLOT).toBe(19);
+    // El último bloque permitido termina exactamente a las 10:00 PM.
+    expect(slotLabel(MAX_SLOT)).toBe('9:15-10:00');
   });
 });

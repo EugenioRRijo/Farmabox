@@ -14,7 +14,8 @@ import {
   Trash2,
   Copy,
   Upload,
-  CalendarDays
+  CalendarDays,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -55,15 +56,17 @@ export function ProfessorsPage() {
     handleAddProfessor: onAdd,
     handleUpdateProfessor: onUpdate,
     handleDeleteProfessor: onDelete,
-    academicLoad,
-    handleUpdateLoad: onUpdateLoad
+    academicLoad
   } = useAppData();
   const { academicPeriod } = useSettings();
   const [showImport, setShowImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // Id del profesor cuyo PDF se está generando (para spinner + evitar doble clic).
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
-  // Exporta el horario de UN profesor a PDF, con avisos claros.
+  // Exporta el horario de UN profesor a PDF, con avisos claros y estado de carga.
   const handleExportProfessorPdf = async (prof: Professor) => {
+    if (exportingId) return; // ya hay una exportación en curso
     const myBlocks = scheduleBlocks.filter((b) => b.professorId === prof.id);
     if (myBlocks.length === 0) {
       toast.error(
@@ -72,11 +75,15 @@ export function ProfessorsPage() {
       );
       return;
     }
+    setExportingId(prof.id);
+    const toastId = toast.loading(`Generando el horario de ${prof.fullName}…`);
     try {
       await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects), academicPeriod);
-      toast.success(`Horario de ${prof.fullName} exportado (${myBlocks.length} bloque(s)).`);
+      toast.success(`Horario de ${prof.fullName} exportado (${myBlocks.length} bloque(s)).`, { id: toastId });
     } catch (e) {
-      toast.error('No se pudo generar el PDF: ' + (e instanceof Error ? e.message : 'error desconocido'));
+      toast.error('No se pudo generar el PDF: ' + (e instanceof Error ? e.message : 'error desconocido'), { id: toastId });
+    } finally {
+      setExportingId(null);
     }
   };
   const [sortOption, setSortOption] = useState<string>('alpha-asc');
@@ -423,9 +430,12 @@ export function ProfessorsPage() {
                      size="icon"
                      title="Descargar horario del profesor (PDF)"
                      onClick={() => handleExportProfessorPdf(professor)}
+                     disabled={exportingId === professor.id}
                      className="flex-shrink-0 h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                    >
-                     <CalendarDays className="w-4 h-4" />
+                     {exportingId === professor.id
+                       ? <Loader2 className="w-4 h-4 animate-spin" />
+                       : <CalendarDays className="w-4 h-4" />}
                    </Button>
                    <Button
                      variant="ghost"
@@ -454,38 +464,6 @@ export function ProfessorsPage() {
                         Materias ({professor.subjects.length})
                         </span>
                     </div>
-                    {professor.subjects.length > 0 && (
-                        <button
-                            onClick={() => {
-                                const newLoad = { ...academicLoad };
-                                // Respeta el tipo del profesor: teoría → columna Teoría,
-                                // práctica → columna Práctica, ambos → las dos. Así no se
-                                // duplica el mismo profesor en ambas columnas.
-                                const givesTheory = professor.type === 'theory' || professor.type === 'both';
-                                const givesLab = professor.type === 'practice' || professor.type === 'both';
-                                professor.subjects.forEach((code: string) => {
-                                    if (!newLoad[code]) newLoad[code] = {};
-                                    if (!newLoad[code].theory) newLoad[code].theory = [];
-                                    if (!newLoad[code].lab) newLoad[code].lab = [];
-
-                                    const subject = pensum.flatMap((s) => s.subjects).find((s) => s.code === code);
-
-                                    if (givesTheory) {
-                                        const t = newLoad[code].theory as string[];
-                                        if (!t.includes(professor.id)) newLoad[code].theory = [...t, professor.id];
-                                    }
-                                    if (givesLab && subject?.hasLab) {
-                                        const l = newLoad[code].lab as string[];
-                                        if (!l.includes(professor.id)) newLoad[code].lab = [...l, professor.id];
-                                    }
-                                });
-                                onUpdateLoad(newLoad);
-                            }}
-                            className="text-[11px] font-bold text-brand-navy hover:text-brand-accent transition-colors underline"
-                        >
-                            + Asignar Todas
-                        </button>
-                    )}
                   </div>
                  {professor.subjects.length === 0 ? (
                    <div className="py-5 text-center">
@@ -522,58 +500,22 @@ export function ProfessorsPage() {
                          </div>
                        </div>
 
-                       {/* Assignment Toggles */}
+                       {/* Rol (solo lectura). El rol sale del TIPO del profesor al
+                           asignarle la materia (una sola forma de asignar, en el diálogo).
+                           Para cambiarlo: edita el profesor o su tipo. */}
                        <div className="flex shrink-0 gap-1">
-                         <button
-                             aria-label={isTheoryAssigned ? `Quitar teoría de ${getSubjectName(subjectCode)}` : `Asignar teoría de ${getSubjectName(subjectCode)}`}
-                             title={isTheoryAssigned ? 'Teoría asignada — clic para quitar' : 'Asignar teoría'}
-                             onClick={() => {
-                                 const newLoad = { ...academicLoad };
-                                 if (!newLoad[subjectCode]) newLoad[subjectCode] = {};
-                                 if (!newLoad[subjectCode].theory) newLoad[subjectCode].theory = [];
-                                 // Toggle Theory
-                                 const t = newLoad[subjectCode].theory as string[];
-                                 if (t.includes(professor.id)) {
-                                     newLoad[subjectCode].theory = t.filter(id => id !== professor.id);
-                                 } else {
-                                     newLoad[subjectCode].theory = [...t, professor.id];
-                                 }
-                                 onUpdateLoad(newLoad);
-                             }}
-                             className={`w-7 h-7 flex items-center justify-center rounded-md border transition-colors ${
-                                 isTheoryAssigned
-                                 ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                 : 'bg-white text-gray-400 border-gray-200 hover:bg-blue-50 hover:text-blue-500 hover:border-blue-300'
-                             }`}
-                         >
+                         {isTheoryAssigned && (
+                           <span title="Da teoría" className="w-7 h-7 flex items-center justify-center rounded-md bg-blue-100 text-blue-700 border border-blue-300">
                              <BookOpen className="w-3.5 h-3.5" />
-                         </button>
-
-                         {hasLab && (
-                              <button
-                                 aria-label={isLabAssigned ? `Quitar laboratorio de ${getSubjectName(subjectCode)}` : `Asignar laboratorio de ${getSubjectName(subjectCode)}`}
-                                 title={isLabAssigned ? 'Laboratorio asignado — clic para quitar' : 'Asignar laboratorio'}
-                                 onClick={() => {
-                                     const newLoad = { ...academicLoad };
-                                     if (!newLoad[subjectCode]) newLoad[subjectCode] = {};
-                                     if (!newLoad[subjectCode].lab) newLoad[subjectCode].lab = [];
-                                     // Toggle Lab
-                                     const l = newLoad[subjectCode].lab as string[];
-                                     if (l.includes(professor.id)) {
-                                         newLoad[subjectCode].lab = l.filter(id => id !== professor.id);
-                                     } else {
-                                         newLoad[subjectCode].lab = [...l, professor.id];
-                                     }
-                                     onUpdateLoad(newLoad);
-                                 }}
-                                 className={`w-7 h-7 flex items-center justify-center rounded-md border transition-colors ${
-                                     isLabAssigned
-                                     ? 'bg-purple-100 text-purple-700 border-purple-300'
-                                     : 'bg-white text-gray-400 border-gray-200 hover:bg-purple-50 hover:text-purple-500 hover:border-purple-300'
-                                 }`}
-                             >
-                                 <Beaker className="w-3.5 h-3.5" />
-                             </button>
+                           </span>
+                         )}
+                         {hasLab && isLabAssigned && (
+                           <span title="Da laboratorio" className="w-7 h-7 flex items-center justify-center rounded-md bg-purple-100 text-purple-700 border border-purple-300">
+                             <Beaker className="w-3.5 h-3.5" />
+                           </span>
+                         )}
+                         {!isTheoryAssigned && !isLabAssigned && (
+                           <span className="self-center text-[10px] italic text-gray-300">sin rol</span>
                          )}
                        </div>
                      </div>
@@ -677,9 +619,12 @@ export function ProfessorsPage() {
                                             size="icon"
                                             title="Descargar horario del profesor (PDF)"
                                             onClick={() => handleExportProfessorPdf(prof)}
+                                            disabled={exportingId === prof.id}
                                             className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                         >
-                                            <CalendarDays className="w-4 h-4" />
+                                            {exportingId === prof.id
+                                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                : <CalendarDays className="w-4 h-4" />}
                                         </Button>
                                         <Button
                                             variant="ghost"

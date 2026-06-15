@@ -181,6 +181,8 @@ function setupAutoUpdater(): void {
 }
 
 // ── Pull periódico: trae cambios de otras PCs durante la sesión ──────────────
+// Red de seguridad por si el realtime no conecta (red/cuota). Con realtime activo,
+// los cambios llegan en ~1 s; sin él, este pull los trae a lo sumo cada 60 s.
 function setupPeriodicSync(): void {
   setInterval(() => {
     if (!store || !store.isRemoteEnabled()) return;
@@ -194,6 +196,27 @@ function setupPeriodicSync(): void {
       })
       .catch((e) => log.error('[Sync] Pull periódico falló:', e));
   }, 60000); // cada 60 s
+}
+
+// ── Realtime: reacciona a cambios de otras PCs casi al instante (#7) ─────────
+// Coalesce de ráfagas (varios postgres_changes seguidos → un solo syncNow) para no
+// martillar la base cuando otra PC guarda muchos bloques de golpe.
+let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
+function onRealtimeChange(): void {
+  if (realtimeDebounce) clearTimeout(realtimeDebounce);
+  realtimeDebounce = setTimeout(() => {
+    realtimeDebounce = null;
+    if (!store || !store.isRemoteEnabled()) return;
+    store
+      .syncNow()
+      .then((r) => {
+        if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
+          log.info('[Realtime] Cambio remoto → bajado y fusionado; avisando al renderer.');
+          mainWindow.webContents.send('data-changed');
+        }
+      })
+      .catch((e) => log.error('[Realtime] syncNow falló:', e));
+  }, 800);
 }
 
 // ── Sincronización manual (botón "Sincronizar ahora") + estado ──────────────
@@ -275,6 +298,9 @@ app.whenReady().then(async () => {
   if (store.isRemoteEnabled()) {
     log.info('[Sync] Sincronizando al iniciar...');
     await store.syncNow();
+    // Realtime: propaga cambios de otras PCs en ~1 s (requiere habilitar la
+    // publicación supabase_realtime en la base — ver docs/migracion-2.3-concurrencia.sql).
+    store.startRealtime(onRealtimeChange);
   }
 
   createWindow();
@@ -282,7 +308,7 @@ app.whenReady().then(async () => {
   // Chequear actualizaciones (solo en la app instalada).
   setupAutoUpdater();
 
-  // Traer cambios de otras PCs cada minuto (avisa al renderer si hubo cambios).
+  // Traer cambios de otras PCs cada minuto (red de seguridad si el realtime no conecta).
   setupPeriodicSync();
 
   app.on('activate', () => {
@@ -299,6 +325,7 @@ app.on('before-quit', async (e) => {
   isQuitting = true;
   try {
     log.info('[Sync] Guardando antes de salir...');
+    store.stopRealtime();
     await store.flush();
   } catch (err) {
     log.error('[Sync] Guardado de cierre falló:', err);

@@ -60,6 +60,18 @@ export abstract class SyncStorageBase implements IStorageService {
     this.onMerged = cb;
   }
 
+  // ── Realtime (#7): suscripción a cambios remotos casi instantánea ─────────
+  /** Suscribe a cambios remotos en tiempo real. Por defecto no-op; los backends que
+   *  lo soporten (nube) lo sobreescriben. `onChange` se llama cuando otra PC modifica
+   *  datos. */
+  startRealtime(onChange: () => void): void {
+    void onChange; // no-op en backends sin realtime (p. ej. carpeta compartida)
+  }
+  /** Cancela la suscripción realtime (si la hay). */
+  stopRealtime(): void {
+    /* no-op por defecto */
+  }
+
   // ── Contrato del transporte (lo define cada backend) ─────────────────────
   /** ¿El remoto está disponible/configurado ahora? */
   abstract isRemoteEnabled(): boolean;

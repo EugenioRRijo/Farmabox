@@ -4,9 +4,35 @@ import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interface
 import { PensumSubject, Professor } from '../../../shared/src/index';
 import { ScheduleBlock, AcademicLoad } from '@/types/schedule';
 import { slotLabel, turnoForSemester, defaultWindowForTurno } from '../lib/timeSlots';
+import { professorSubjectsList, professorWeeklyHours, blockCellText } from '../lib/professorSchedule';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (pdfMake as any).vfs = (pdfFonts as any).pdfMake?.vfs ?? pdfFonts;
+
+/**
+ * Genera el PDF y lo guarda como archivo de forma CONFIABLE en navegador y en el
+ * renderer de Electron.
+ *
+ * Antes se usaba `pdfMake.createPdf(dd).download(name)`. En pdfmake 0.3.x ese
+ * `download()` a veces "resuelve" sin descargar nada (el usuario percibe que el
+ * botón "no hace nada"). Aquí pedimos el Blob explícitamente y disparamos la
+ * descarga con un <a download>, que funciona igual en ambos entornos.
+ */
+const savePdf = async (docDefinition: TDocumentDefinitions, filename: string): Promise<void> => {
+  const finalName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+  // pdfmake 0.3.x: getBlob() devuelve una Promise<Blob> (sin callback). Pedimos el
+  // Blob y disparamos la descarga con un <a download> que controlamos nosotros.
+  const blob = await pdfMake.createPdf(docDefinition).getBlob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = finalName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Liberar el objeto URL tras un margen para que la descarga inicie.
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+};
 
 export interface SchedulePageConfig {
   semesterNumber: number;
@@ -271,8 +297,7 @@ export const generateSchedulePdf = async (
   const docDefinition = getBaseDocDefinition();
   docDefinition.content = pageContent;
 
-  const finalName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
-  pdfMake.createPdf(docDefinition).download(finalName);
+  await savePdf(docDefinition, filename);
 };
 
 /** Contenido (una página) del horario semanal de UN profesor. Reutilizado por la
@@ -286,19 +311,9 @@ const buildProfessorPage = (
 ): Content[] => {
   const days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
   const myBlocks = blocks.filter((b) => b.professorId === professor.id);
-
-  // Asignaturas que imparte: "Nombre (T-L) (sem°sec)" — T=teoría, L=lab.
-  const subjMap: Record<string, { name: string; t: boolean; l: boolean; sem?: number; sec?: string }> = {};
-  for (const b of myBlocks) {
-    const m = subjMap[b.subjectCode] ?? (subjMap[b.subjectCode] = {
-      name: subjects.find((s) => s.code === b.subjectCode)?.name ?? b.subjectCode,
-      t: false, l: false, sem: b.semester, sec: b.section,
-    });
-    if (b.type === 'LAB') m.l = true; else m.t = true;
-  }
-  const asignaturas = Object.values(subjMap).map(
-    (s) => `${s.name} (${s.t && s.l ? 'T-L' : s.l ? 'L' : 'T'}) (${s.sem ?? '?'}°${s.sec ?? 'A'})`,
-  );
+  // Asignaturas que imparte: del helper compartido con la vista en pantalla
+  // (lib/professorSchedule) → PDF y pantalla coinciden siempre.
+  const asignaturas = professorSubjectsList(professor.id, blocks, subjects);
 
   const covered: Record<string, boolean> = {};
   const body: TableCell[][] = [];
@@ -316,15 +331,12 @@ const buildProfessorPage = (
         r.push({ text: '', fontSize: 7 });
         continue;
       }
-      const block = myBlocks.find((b) => b.day === d && b.startHour === row);
-      if (block) {
-        const subj = subjects.find((s) => s.code === block.subjectCode);
-        const nm = subj?.name ?? block.subjectCode;
-        // Teoría → "Nombre / Aula {n}"; Laboratorio → "Laboratorio / Nombre".
-        const txt = block.type === 'LAB'
-          ? `Laboratorio\n${nm}`
-          : `${nm}\nAula${subj?.aula ? ' ' + subj.aula : ''}`;
-        const span = block.duration > 1 ? block.duration : 1;
+      // TODAS las clases que arrancan en esta franja (no ocultar choques de la misma
+      // hora: se apilan en la celda). Mismo texto que la pantalla vía blockCellText.
+      const here = myBlocks.filter((b) => b.day === d && b.startHour === row);
+      if (here.length > 0) {
+        const txt = here.map((b) => blockCellText(b, subjects)).join('\n──\n');
+        const span = Math.max(...here.map((b) => (b.duration > 1 ? b.duration : 1)));
         if (span > 1) {
           for (let k = 1; k < span; k++) covered[`${d}-${row + k}`] = true;
         }
@@ -336,8 +348,8 @@ const buildProfessorPage = (
     body.push(r);
   }
 
-  // Total de horas semanales = suma de las duraciones de sus bloques.
-  const totalHoras = myBlocks.reduce((sum, b) => sum + (b.duration || 0), 0);
+  // Total de horas semanales (helper compartido con la pantalla).
+  const totalHoras = professorWeeklyHours(professor.id, blocks);
 
   const content: Content[] = [];
   if (logoDataUrl) content.push({ image: logoDataUrl, width: 70, alignment: 'center', margin: [0, 0, 0, 4] });
@@ -384,11 +396,7 @@ export const generateProfessorSchedulePdf = async (
   docDefinition.pageOrientation = 'portrait'; // el horario docente va en vertical (como la referencia)
   docDefinition.content = buildProfessorPage(professor, blocks, subjects, logoDataUrl, academicPeriod);
   const safe = professor.fullName.replace(/[^a-zA-Z0-9]+/g, '_');
-
-  // pdfmake 0.3.x: download() es async y usa file-saver internamente. Se mantiene
-  // el await para propagar errores al llamador (a diferencia del antiguo
-  // getBlob(callback), que en 0.3.x ya no recibe callback y no descargaba nada).
-  await pdfMake.createPdf(docDefinition).download(`Horario_${safe}.pdf`);
+  await savePdf(docDefinition, `Horario_${safe}`);
 };
 
 /** Horario individual de CADA profesor (una página por profesor con bloques). */
@@ -417,8 +425,7 @@ export const generateAllProfessorsSchedulesPdf = async (
   const docDefinition = getBaseDocDefinition();
   docDefinition.pageOrientation = 'portrait'; // horario docente en vertical
   docDefinition.content = allContent;
-  const finalName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
-  await pdfMake.createPdf(docDefinition).download(finalName);
+  await savePdf(docDefinition, filename);
 };
 
 export const generateAllSchedulesPdf = async (
@@ -441,6 +448,5 @@ export const generateAllSchedulesPdf = async (
 
   docDefinition.content = allContent;
 
-  const finalName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
-  pdfMake.createPdf(docDefinition).download(finalName);
+  await savePdf(docDefinition, filename);
 };

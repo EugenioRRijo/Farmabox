@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2, Plus, FlaskConical, Clock, ChevronDown } from 'lucide-react';
+import { X, Trash2, Plus, FlaskConical, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { PensumSubject, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
 import { ExportButton } from './ExportButton';
@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useScheduleValidation } from '../../hooks/useScheduleValidation';
-import { slotLabel, turnoForSemester, defaultWindowForTurno, MIN_SLOT } from '@/lib/timeSlots';
+import { slotLabel, turnoForSemester, defaultWindowForTurno, MIN_SLOT, MAX_SLOT } from '@/lib/timeSlots';
 
 interface ScheduleBuilderProps {
   semesterNumber: number;
@@ -45,6 +45,18 @@ interface CellData {
     blocks: ScheduleBlock[]; // todos los bloques que ARRANCAN en esta celda (labs solapados)
     rowspan: number;
     isEmpty: boolean;
+}
+
+/** Hora "h:mm a.m./p.m." del INICIO del bloque i (la grilla arranca a las 7:00 AM,
+ *  bloques de 45 min). Se usa para mostrar el rango horario visible EN VIVO, así —con
+ *  los botones +45/−45 arriba— la persona ve hasta qué hora llega sin scrollear. */
+function slotStartClock(i: number): string {
+    const total = 7 * 60 + i * 45;
+    const hh = Math.floor(total / 60) % 24;
+    const mm = total % 60;
+    const ampm = hh < 12 ? 'a.m.' : 'p.m.';
+    const h12 = ((hh + 11) % 12) + 1;
+    return `${h12}:${String(mm).padStart(2, '0')} ${ampm}`;
 }
 
 export function ScheduleBuilder({ semesterNumber, availableSubjects, section, readOnly = false, filterProfessorIds = [] }: ScheduleBuilderProps) {
@@ -176,9 +188,20 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         return blocksToDisplay.length ? { lo, hi } : null;
     }, [blocksToDisplay]);
 
-    const visMin = Math.max(MIN_SLOT, Math.min(win.start, expandMin, blockRange?.lo ?? win.start));
-    const visMax = Math.max(win.end, expandMax, blockRange?.hi ?? win.end);
+    // Rango visible: arranca en la ventana del turno (expandMin/Max) y SIEMPRE incluye
+    // los bloques (nunca se oculta una clase). Por lo demás lo controla el usuario con
+    // los botones +45 / −45. Clave del fix #2: ya NO se clava a la ventana del turno, así
+    // que también se pueden recortar las filas VACÍAS de adentro de la ventana.
+    const visMin = Math.max(MIN_SLOT, Math.min(expandMin, blockRange?.lo ?? expandMin));
+    const visMax = Math.max(expandMax, blockRange?.hi ?? expandMax);
     const visibleRows = Array.from({ length: visMax - visMin + 1 }, (_, k) => visMin + k);
+
+    // Se puede QUITAR una fila de 45 min solo si está VACÍA (no recorta una clase): el
+    // tope es el primer/último bloque. Sin bloques, se colapsa hasta dejar 1 sola fila.
+    const floorTop = blockRange ? blockRange.lo : visMax;
+    const ceilBottom = blockRange ? blockRange.hi : visMin;
+    const canCollapseTop = visMin < floorTop;      // hay fila(s) vacía(s) arriba
+    const canCollapseBottom = visMax > ceilBottom; // hay fila(s) vacía(s) abajo
 
     const tableData = useMemo(() => {
         const rowCount = visMax + 1; // indexado por índice ABSOLUTO de bloque (0..visMax)
@@ -631,8 +654,64 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                     </div>
                                     <span>{locationLabel}</span>
                                 </div>
-                                <div className="mt-3 flex justify-end">
-                                    {!readOnly && (
+                                {!readOnly && (
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                    {/* Barra compacta: ajustar las horas visibles de la grilla (antes
+                                        eran barras de ancho completo arriba/abajo de la tabla). */}
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                                        {/* Rango EN VIVO: se actualiza al tocar +45/−45, así se ve
+                                            hasta qué hora llega la grilla sin tener que scrollear. */}
+                                        <span className="font-semibold text-gray-500">
+                                            Horas visibles:{' '}
+                                            <span className="font-bold text-brand-navy">
+                                                {slotStartClock(visMin)} a {slotStartClock(visMax + 1)}
+                                            </span>
+                                        </span>
+
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[11px] font-medium text-gray-400">Mañana</span>
+                                            <div className="flex items-center overflow-hidden rounded-md border border-gray-200">
+                                                <button
+                                                    onClick={() => setExpandMin(Math.max(MIN_SLOT, visMin - 1))}
+                                                    disabled={visMin <= MIN_SLOT}
+                                                    title="Mostrar 45 min más temprano"
+                                                    className="flex items-center gap-0.5 px-2 py-1 font-medium text-brand-navy transition-colors hover:bg-brand-pale/40 disabled:cursor-not-allowed disabled:opacity-30"
+                                                >
+                                                    <ChevronUp className="h-3.5 w-3.5" /> +45
+                                                </button>
+                                                <button
+                                                    onClick={() => setExpandMin(visMin + 1)}
+                                                    disabled={!canCollapseTop}
+                                                    title="Quitar la primera fila (solo si está vacía)"
+                                                    className="flex items-center gap-0.5 border-l border-gray-200 px-2 py-1 font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
+                                                >
+                                                    <ChevronUp className="h-3.5 w-3.5" /> −45
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[11px] font-medium text-gray-400">Tarde</span>
+                                            <div className="flex items-center overflow-hidden rounded-md border border-gray-200">
+                                                <button
+                                                    onClick={() => setExpandMax(Math.min(MAX_SLOT, visMax + 1))}
+                                                    disabled={visMax >= MAX_SLOT}
+                                                    title="Mostrar 45 min más tarde (máximo 10:00 p.m.)"
+                                                    className="flex items-center gap-0.5 px-2 py-1 font-medium text-brand-navy transition-colors hover:bg-brand-pale/40 disabled:cursor-not-allowed disabled:opacity-30"
+                                                >
+                                                    <ChevronDown className="h-3.5 w-3.5" /> +45
+                                                </button>
+                                                <button
+                                                    onClick={() => setExpandMax(visMax - 1)}
+                                                    disabled={!canCollapseBottom}
+                                                    title="Quitar la última fila (solo si está vacía)"
+                                                    className="flex items-center gap-0.5 border-l border-gray-200 px-2 py-1 font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
+                                                >
+                                                    <ChevronDown className="h-3.5 w-3.5" /> −45
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <ExportButton
                                         semesterNumber={semesterNumber}
                                         subjects={availableSubjects}
@@ -641,21 +720,14 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                         professors={professors}
                                         section={section}
                                     />
-                                    )}
                                 </div>
+                                )}
                             </div>
                         </div>
 
                         {/* Schedule Table - HTML TABLE con formato exacto de la imagen */}
+                        {/* (Los botones +45/−45 ahora viven en la barra compacta del header.) */}
                         <div className="overflow-x-auto bg-white">
-                            {!readOnly && visMin > MIN_SLOT && (
-                                <button
-                                    onClick={() => setExpandMin(Math.max(MIN_SLOT, visMin - 1))}
-                                    className="w-full py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-pale/40 border-b border-dashed border-gray-300 transition-colors"
-                                >
-                                    + 45 min (más temprano)
-                                </button>
-                            )}
                             <table className="w-full border-collapse" style={{ border: '2px solid black' }}>
                                 <thead>
                                     <tr>
@@ -815,14 +887,6 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                     ))}
                                 </tbody>
                             </table>
-                            {!readOnly && (
-                                <button
-                                    onClick={() => setExpandMax(visMax + 1)}
-                                    className="w-full py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-pale/40 border-t border-dashed border-gray-300 transition-colors"
-                                >
-                                    + 45 min (más tarde)
-                                </button>
-                            )}
                         </div>
 
                         {/* Information Table Removed Component */}

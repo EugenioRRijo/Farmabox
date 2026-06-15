@@ -4,6 +4,7 @@ import { User, BookOpen, LayoutGrid, Download, RotateCcw, ChevronDown, Users, Ca
 import { useAppData } from '../../context/AppDataContext';
 import { useSettings } from '../../context/SettingsContext';
 import { ScheduleBuilder } from '../schedule/ScheduleBuilder';
+import { ProfessorScheduleGrid } from '../schedule/ProfessorScheduleGrid';
 import { Semester, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
 import { normalizeText } from '@/lib/utils';
@@ -249,14 +250,27 @@ export function ScheduleVisualization() {
   }, [pensum, scheduleBlocks]);
 
   const professorOptions = useMemo<Option[]>(() => {
-    const ids = new Set(
-      scheduleBlocks.map((b: ScheduleBlock) => b.professorId).filter(Boolean) as string[]
-    );
+    // #3: listar TODOS los profesores (no solo los que ya tienen bloques). Así un
+    // profesor recién agregado aparece de inmediato en el filtro. Si todavía no tiene
+    // clases, su grilla saldrá vacía, pero el filtro debe incluirlo igual.
     return [...professors]
-      .filter((p: Professor) => ids.has(p.id))
       .sort((a: Professor, b: Professor) => a.fullName.localeCompare(b.fullName))
       .map((p: Professor) => ({ value: p.id, label: p.fullName }));
-  }, [professors, scheduleBlocks]);
+  }, [professors]);
+
+  // ── Modo "horario por profesor" ──────────────────────────────────────────
+  // Con uno o más profesores filtrados, la vista cambia a una grilla consolidada
+  // por profesor (idéntica al PDF docente), mostrando TODAS sus clases (todos los
+  // semestres/secciones). Los filtros de semestre/sección no aplican en este modo.
+  const professorMode = selectedProfessorIds.length > 0;
+  const selectedProfessors = useMemo(
+    () =>
+      selectedProfessorIds
+        .map((id) => professors.find((p: Professor) => p.id === id))
+        .filter((p): p is Professor => !!p),
+    [selectedProfessorIds, professors],
+  );
+  const allSubjects = useMemo(() => pensum.flatMap((s: Semester) => s.subjects), [pensum]);
 
   // Bloques visibles para un (sección, semestre) según los filtros activos.
   // Misma lógica que usa ScheduleBuilder al renderizar → render y export coinciden.
@@ -297,6 +311,11 @@ export function ScheduleVisualization() {
 
   // ── Exportación ───────────────────────────────────────────────────────────
   const exportFiltered = () => {
+    // Con profesor(es) filtrados, "lo que ves" es el horario por profesor → exportá eso.
+    if (professorMode) {
+      void exportEachProfessor();
+      return;
+    }
     const configs: SchedulePageConfig[] = [];
     for (const { section: sec, semester: s } of visibleSchedules) {
       const blocks = blocksFor(sec, s);
@@ -383,7 +402,9 @@ export function ScheduleVisualization() {
 
         <div className="ml-auto flex items-center gap-3">
           <span className="hidden sm:block text-xs text-gray-400">
-            {visibleSchedules.length} {visibleSchedules.length === 1 ? 'horario' : 'horarios'}
+            {professorMode
+              ? `${selectedProfessors.length} ${selectedProfessors.length === 1 ? 'profesor' : 'profesores'}`
+              : `${visibleSchedules.length} ${visibleSchedules.length === 1 ? 'horario' : 'horarios'}`}
           </span>
           <ExportMenu
             onExportFiltered={exportFiltered}
@@ -393,7 +414,20 @@ export function ScheduleVisualization() {
         </div>
       </div>
 
-      {visibleSchedules.length === 0 ? (
+      {professorMode ? (
+        // ── Vista por profesor (idéntica al PDF docente) ──────────────────
+        <div className="space-y-12">
+          {selectedProfessors.map((prof: Professor) => (
+            <ProfessorScheduleGrid
+              key={prof.id}
+              professor={prof}
+              blocks={scheduleBlocks}
+              subjects={allSubjects}
+              academicPeriod={academicPeriod}
+            />
+          ))}
+        </div>
+      ) : visibleSchedules.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
           <p className="text-gray-500 font-medium">No hay horarios que coincidan con los filtros seleccionados.</p>
           {filtersActive && (
