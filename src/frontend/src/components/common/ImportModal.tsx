@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
 import toast from 'react-hot-toast';
-import { Upload, X, FileDown, Loader2 } from 'lucide-react';
+import { Upload, X, FileDown, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import * as Backend from '../../services/BackendService';
 
 type Kind = 'professors' | 'subjects';
@@ -24,31 +24,93 @@ const TEMPLATES: Record<Kind, { headers: string[]; sample: string }> = {
   },
 };
 
+// Columna obligatoria: si falta tras parsear, el separador se detectó mal (o el
+// archivo no tiene el formato esperado) → avisamos en vez de mostrar filas vacías.
+const REQUIRED: Record<Kind, string> = { professors: 'fullName', subjects: 'code' };
+const TYPE_LABEL: Record<string, string> = { theory: 'Teoría', practice: 'Práctica/Lab', both: 'Ambos' };
+
 const splitList = (s?: string): string[] =>
   (s ?? '')
     .split(/[;,|]/)
     .map((x) => x.trim())
     .filter(Boolean);
 
+interface Parsed {
+  rows: Row[];
+  fields: string[];
+  ok: boolean; // la columna obligatoria está presente
+  delimiter: string;
+}
+
+interface PreviewRow {
+  c1: string;
+  c2: string;
+  c3: string;
+  detail: string;
+  warns: string[];
+}
+
 export function ImportModal({ kind, onClose, onDone }: { kind: Kind; onClose: () => void; onDone: () => void }) {
-  const [rows, setRows] = useState<Row[]>([]);
+  const [parsed, setParsed] = useState<Parsed | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cols = TEMPLATES[kind].headers;
   const label = kind === 'professors' ? 'profesores' : 'materias';
+  const requiredCol = REQUIRED[kind];
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     Papa.parse<Row>(file, {
       header: true,
-      skipEmptyLines: true,
+      skipEmptyLines: 'greedy',
+      transformHeader: (h) => h.trim(), // PapaParse ya quita el BOM; solo recortamos espacios
       complete: (res) => {
-        setRows(res.data.filter((r) => Object.values(r).some((v) => (v ?? '').trim())));
+        const fields = (res.meta.fields ?? []).map((f) => f.trim());
+        const rows = (res.data as Row[]).filter((r) => Object.values(r).some((v) => (v ?? '').toString().trim()));
+        setParsed({ rows, fields, ok: fields.includes(requiredCol), delimiter: res.meta.delimiter });
       },
       error: () => toast.error('No se pudo leer el archivo CSV.'),
     });
+    e.target.value = ''; // permite volver a elegir el mismo archivo
   };
+
+  // Vista previa legible: QUIÉN/QUÉ se va a importar, con avisos por fila.
+  const preview = useMemo<PreviewRow[]>(() => {
+    if (!parsed?.ok) return [];
+    return parsed.rows.map((r) => {
+      if (kind === 'professors') {
+        const name = (r.fullName ?? '').trim();
+        const type = (r.type ?? '').trim() || 'both';
+        const subs = splitList(r.subjects);
+        const warns: string[] = [];
+        if (!name) warns.push('sin nombre');
+        if (!['theory', 'practice', 'both'].includes(type)) warns.push(`tipo «${type}» inválido`);
+        return {
+          c1: name || '(sin nombre)',
+          c2: TYPE_LABEL[type] ?? type,
+          c3: `${subs.length} materia${subs.length === 1 ? '' : 's'}`,
+          detail: subs.join(', '),
+          warns,
+        };
+      }
+      const code = (r.code ?? '').trim();
+      const subName = (r.name ?? '').trim();
+      const warns: string[] = [];
+      if (!code) warns.push('sin código');
+      return {
+        c1: code || '(sin código)',
+        c2: subName || '—',
+        c3: Number(r.hoursLab) > 0 ? 'con lab' : 'sin lab',
+        detail: `semestre ${(r.semester ?? '').trim() || '1'}`,
+        warns,
+      };
+    });
+  }, [parsed, kind]);
+
+  const previewHeaders = kind === 'professors' ? ['Profesor', 'Tipo', 'Materias'] : ['Código', 'Materia', 'Lab'];
+  const validCount = preview.filter((p) => p.warns.length === 0).length;
+  const warnCount = preview.length - validCount;
 
   const downloadTemplate = () => {
     const blob = new Blob([TEMPLATES[kind].sample], { type: 'text/csv;charset=utf-8' });
@@ -60,7 +122,8 @@ export function ImportModal({ kind, onClose, onDone }: { kind: Kind; onClose: ()
   };
 
   const handleImport = async () => {
-    if (!rows.length) return;
+    if (!parsed?.ok || !parsed.rows.length) return;
+    const rows = parsed.rows;
     try {
       setBusy(true);
       if (kind === 'professors') {
@@ -107,8 +170,8 @@ export function ImportModal({ kind, onClose, onDone }: { kind: Kind; onClose: ()
         <h2 className="text-xl font-bold text-gray-900 mb-1">Importar {label} (CSV)</h2>
         <p className="text-sm text-gray-500 mb-4">
           Subí un archivo CSV con las columnas: <span className="font-mono text-xs">{cols.join(', ')}</span>.
-          Las listas (materias / prelaciones) se separan con <span className="font-mono">;</span>. En Excel:
-          “Guardar como → CSV”.
+          Las listas (materias / prelaciones) se separan con <span className="font-mono">;</span> y las columnas
+          con <span className="font-mono">,</span> (coma). Usá la plantilla para evitar problemas de formato.
         </p>
 
         <div className="flex flex-wrap gap-3 mb-4">
@@ -127,22 +190,56 @@ export function ImportModal({ kind, onClose, onDone }: { kind: Kind; onClose: ()
           <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
         </div>
 
-        {rows.length > 0 && (
-          <div className="flex-1 overflow-auto border border-gray-200 rounded-lg mb-4">
+        {/* Archivo con formato incorrecto: avisamos en vez de mostrar filas vacías */}
+        {parsed && !parsed.ok && (
+          <div className="flex items-start gap-3 p-4 mb-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">El archivo no tiene la columna «{requiredCol}».</p>
+              <p className="mt-1">
+                Separador detectado: <span className="font-mono">{JSON.stringify(parsed.delimiter)}</span>. Columnas
+                encontradas: <span className="font-mono">{parsed.fields.join(' | ') || '(ninguna)'}</span>.
+              </p>
+              <p className="mt-1">
+                Suele pasar cuando Excel guarda el CSV con <span className="font-mono">;</span> como separador de
+                columnas (choca con las listas, que también usan <span className="font-mono">;</span>). Solución:
+                descargá la plantilla y guardá con separador <span className="font-mono">,</span> (coma).
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Vista previa: a quién/qué se va a importar */}
+        {parsed?.ok && (
+          <div className="flex-1 overflow-auto border border-gray-200 rounded-lg mb-3">
             <table className="min-w-full text-xs">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  {cols.map((c) => (
+                  <th className="px-3 py-2 text-left font-medium text-gray-400 w-8">#</th>
+                  {previewHeaders.map((c) => (
                     <th key={c} className="px-3 py-2 text-left font-medium text-gray-500">{c}</th>
                   ))}
+                  <th className="px-3 py-2 text-left font-medium text-gray-500">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.slice(0, 50).map((r, i) => (
-                  <tr key={i}>
-                    {cols.map((c) => (
-                      <td key={c} className="px-3 py-1.5 text-gray-700 whitespace-nowrap">{r[c] ?? ''}</td>
-                    ))}
+                {preview.slice(0, 200).map((p, i) => (
+                  <tr key={i} className={p.warns.length ? 'bg-amber-50' : ''}>
+                    <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
+                    <td className="px-3 py-1.5 font-medium text-gray-800 whitespace-nowrap">{p.c1}</td>
+                    <td className="px-3 py-1.5 text-gray-600 whitespace-nowrap">{p.c2}</td>
+                    <td className="px-3 py-1.5 text-gray-600 whitespace-nowrap" title={p.detail}>{p.c3}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {p.warns.length ? (
+                        <span className="inline-flex items-center gap-1 text-amber-700">
+                          <AlertTriangle className="w-3.5 h-3.5" /> {p.warns.join(', ')}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-green-600">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> ok
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -152,15 +249,21 @@ export function ImportModal({ kind, onClose, onDone }: { kind: Kind; onClose: ()
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-500">
-            {rows.length > 0 ? `${rows.length} fila(s) detectadas${rows.length > 50 ? ' (se muestran 50)' : ''}` : 'Ningún archivo cargado'}
+            {!parsed
+              ? 'Ningún archivo cargado'
+              : !parsed.ok
+                ? 'Revisá el formato del archivo'
+                : `${preview.length} ${label} detectados` +
+                  (warnCount ? ` · ${warnCount} con avisos` : '') +
+                  (preview.length > 200 ? ' (se muestran 200)' : '')}
           </span>
           <button
             onClick={handleImport}
-            disabled={!rows.length || busy}
+            disabled={!parsed?.ok || !preview.length || busy}
             className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            Importar {rows.length || ''} {label}
+            Importar {parsed?.ok ? preview.length : ''} {label}
           </button>
         </div>
       </div>
