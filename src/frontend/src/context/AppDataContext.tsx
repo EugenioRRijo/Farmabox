@@ -8,6 +8,7 @@ import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
 import { sanitizeProfessorReferences } from '../../../shared/src/logic/sanitizeProfessorReferences';
 import { reconcileProfessorLoad } from '../../../shared/src/logic/reconcileProfessorLoad';
 import { restampBlocksFromLoad } from '../../../shared/src/logic/restampBlocksFromLoad';
+import { seedAcademicLoadFromProfessors } from '../../../shared/src/logic/seedAcademicLoadFromProfessors';
 import * as Backend from '../services/BackendService';
 
 interface AppDataContextType {
@@ -120,16 +121,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         // `profs` no cargó, no asumir "cero profesores vivos" (borraría todo).
         const rawBlocks = (blocks as unknown as ScheduleBlock[] | undefined) ?? [];
         if (profs) {
-          const sanitized = sanitizeProfessorReferences(liveIds, finalLoad ?? {}, rawBlocks);
-          if (finalLoad) setAcademicLoad(sanitized.academicLoad as AcademicLoad);
+          // Auto-completar roles: a los profesores que tienen materias pero NO rol en la
+          // carga (importados o datos viejos) les sembramos el rol según su TIPO (y si la
+          // materia tiene lab). Sin esto salían "sin rol" en Profesores y sus bloques no
+          // se vinculaban. Es determinista (sale de professor.subjects+type), así que cada
+          // PC obtiene lo mismo; se persiste solo cuando el usuario edita algo.
+          const labSet = new Set(
+            ((subs as unknown as Semester[] | undefined) ?? [])
+              .flatMap((s) => s.subjects)
+              .filter((x) => x.hasLab)
+              .map((x) => x.code),
+          );
+          const seededLoad = seedAcademicLoadFromProfessors(
+            (finalLoad ?? {}) as AcademicLoad,
+            profs as unknown as { id: string; type: 'theory' | 'practice' | 'both'; subjects: string[] }[],
+            labSet,
+          ) as AcademicLoad;
+
+          const sanitized = sanitizeProfessorReferences(liveIds, seededLoad, rawBlocks);
+          setAcademicLoad(sanitized.academicLoad as AcademicLoad);
           if (blocks) {
             // Invariante: el profesor de un bloque sale SIEMPRE de la carga académica.
-            // Re-estampar al cargar evita que un bloque conserve un profesor viejo
-            // cuando la carga cambió (aquí o en otra PC) → raíz de la
-            // "desincronización entre pantallas" (horario vs Profesores/Materias).
-            const stamped = finalLoad
-              ? (restampBlocksFromLoad(sanitized.blocks, sanitized.academicLoad) as ScheduleBlock[])
-              : sanitized.blocks;
+            const stamped = restampBlocksFromLoad(sanitized.blocks, sanitized.academicLoad) as ScheduleBlock[];
             setScheduleBlocks(stamped);
           }
         } else {

@@ -43,7 +43,7 @@ if %errorlevel% neq 0 (
 echo.
 echo ============================================================
 echo  LISTO! El instalador esta en:
-echo     src\electron\dist-installer\Farmabox-Setup-2.3.3.exe
-echo  (el numero de version sale de src\electron\package.json)
+echo     src\electron\dist-installer\Farmabox-Setup-^<version^>.exe
+echo  (la version sale de src\electron\package.json; hoy: 2.3.4)
 echo ============================================================
 pause
