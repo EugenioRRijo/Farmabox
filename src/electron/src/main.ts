@@ -10,6 +10,7 @@
  */
 import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
 import path from 'path';
+import os from 'os';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import { StorageService } from './services/StorageService';
@@ -240,7 +241,9 @@ function registerSyncIpc(): void {
 
   ipcMain.handle('sync:status', () => {
     const online = !!store && store.isRemoteEnabled();
-    return { data: { online, mode: getSharedDir() ? 'folder' : 'cloud' } };
+    // `device`: nombre real del equipo (para el aviso de "Sincronizar"). os.hostname()
+    // nunca falla; si viniera vacío, el frontend cae a un texto genérico.
+    return { data: { online, mode: getSharedDir() ? 'folder' : 'cloud', device: os.hostname() } };
   });
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeSubjectName,
+  normalizeType,
   isLabMarked,
   detectNaturalColumns,
   mapGroupedList,
@@ -24,6 +25,42 @@ describe('normalizeSubjectName', () => {
   });
 });
 
+describe('normalizeType', () => {
+  it('reconoce TEORÍA y sus sinónimos (sin acentos/mayúsculas)', () => {
+    expect(normalizeType('theory')).toBe('theory');
+    expect(normalizeType('Teoría')).toBe('theory');
+    expect(normalizeType('TEORIA')).toBe('theory');
+    expect(normalizeType(' te ')).toBe('theory');
+    expect(normalizeType('t')).toBe('theory');
+  });
+
+  it('reconoce LABORATORIO/práctica y sus sinónimos', () => {
+    expect(normalizeType('practice')).toBe('practice');
+    expect(normalizeType('Laboratorio')).toBe('practice');
+    expect(normalizeType('laboratorios')).toBe('practice');
+    expect(normalizeType('lab')).toBe('practice');
+    expect(normalizeType('Práctica')).toBe('practice');
+    expect(normalizeType('p')).toBe('practice');
+  });
+
+  it('reconoce AMBOS y sus sinónimos', () => {
+    expect(normalizeType('both')).toBe('both');
+    expect(normalizeType('Ambos')).toBe('both');
+    expect(normalizeType('ambas')).toBe('both');
+    expect(normalizeType('teoria-laboratorio')).toBe('both');
+    expect(normalizeType('Teoría-Laboratorios')).toBe('both');
+    expect(normalizeType('teoria/lab')).toBe('both');
+  });
+
+  it('devuelve null si la celda está vacía o no se reconoce (no adivina)', () => {
+    expect(normalizeType('')).toBeNull();
+    expect(normalizeType('   ')).toBeNull();
+    expect(normalizeType(undefined as unknown as string)).toBeNull();
+    expect(normalizeType('xyz')).toBeNull();
+    expect(normalizeType('profesor')).toBeNull();
+  });
+});
+
 describe('isLabMarked', () => {
   it('detecta (Lab)/(LAB)', () => {
     expect(isLabMarked('Bromatologia I (Lab)')).toBe(true);
@@ -41,6 +78,13 @@ describe('detectNaturalColumns', () => {
   });
   it('devuelve null si no es ese formato', () => {
     expect(detectNaturalColumns(['fullName', 'title', 'type', 'subjects'])).toBeNull();
+  });
+  it('detecta la columna tipo cuando está presente (opcional)', () => {
+    expect(detectNaturalColumns(['Apellido nombre', 'Unidad curricular', 'Tipo'])).toEqual({
+      nameKey: 'Apellido nombre',
+      subjectKey: 'Unidad curricular',
+      typeKey: 'Tipo',
+    });
   });
 });
 
@@ -88,5 +132,25 @@ describe('mapGroupedList', () => {
   it('reporta materias no encontradas en unmatched (no las inventa)', () => {
     expect(out[3].unmatched).toEqual(['Materia Inexistente']);
     expect(out[3].subjects).toEqual(['3307095101']);
+  });
+});
+
+describe('mapGroupedList con columna tipo (tipo manda, (Lab) es respaldo)', () => {
+  it('el tipo explícito de la fila del profesor gana sobre la marca (Lab)', () => {
+    const rows = [
+      // Alpha: tipo "teoria" aunque la materia esté marcada (Lab) → manda el tipo.
+      { Nombre: 'Alpha', Materia: 'Bromatologia I (Lab)', tipo: 'teoria' },
+      // Beta: sin tipo → cae al respaldo (Lab) → practice.
+      { Nombre: 'Beta', Materia: 'Quimica Organica I (Lab)', tipo: '' },
+    ];
+    const out = mapGroupedList(rows, 'Nombre', 'Materia', CATALOG, 'tipo');
+    expect(out[0].type).toBe('theory'); // tipo manda
+    expect(out[1].type).toBe('practice'); // respaldo (Lab)
+  });
+
+  it('sin columna tipo se comporta como antes (deduce por (Lab))', () => {
+    const rows = [{ Nombre: 'Gamma', Materia: 'Bromatologia I (Lab)' }];
+    const out = mapGroupedList(rows, 'Nombre', 'Materia', CATALOG);
+    expect(out[0].type).toBe('practice');
   });
 });

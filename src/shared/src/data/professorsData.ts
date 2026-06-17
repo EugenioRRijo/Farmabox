@@ -12,7 +12,10 @@ export interface Professor {
   cedula?: string;
   profession?: string; // profesión (texto libre, ej. "Farmacéutico")
   subjects: string[];
-  type: 'theory' | 'practice' | 'both';
+  /** Rol del profesor. 'unassigned' = importado sin tipo: no da teoría ni lab hasta
+   *  que se le asigne con los toggles de la tarjeta. reconcile/seed lo tratan como
+   *  "sin rol" (no le siembran nada). */
+  type: 'theory' | 'practice' | 'both' | 'unassigned';
 }
 
 export const PROFESSORS_DATA: Professor[] = [];

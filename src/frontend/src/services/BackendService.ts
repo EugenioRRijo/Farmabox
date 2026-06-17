@@ -32,7 +32,8 @@ export interface Professor {
   cedula?: string;
   profession?: string;
   subjects: string[];
-  type: 'theory' | 'practice' | 'both';
+  // 'unassigned' = importado sin tipo (sin rol hasta asignarlo con los toggles).
+  type: 'theory' | 'practice' | 'both' | 'unassigned';
 }
 
 export interface PensumSubject {
@@ -261,6 +262,7 @@ export interface SyncResult {
 export interface SyncStatus {
   online: boolean;
   mode: 'cloud' | 'folder';
+  device?: string; // nombre del equipo (.exe: os.hostname(); web: "este navegador")
 }
 
 /** Fuerza subir lo pendiente + bajar cambios (.exe). En web no hay nada que subir
@@ -272,5 +274,9 @@ export async function syncNow(): Promise<SyncResult> {
 
 export async function getSyncStatus(): Promise<SyncStatus> {
   if (ipc) return unwrap(ipc.sync.status());
-  return { online: typeof navigator !== 'undefined' ? navigator.onLine : true, mode: 'cloud' };
+  return {
+    online: typeof navigator !== 'undefined' ? navigator.onLine : true,
+    mode: 'cloud',
+    device: 'este navegador',
+  };
 }

@@ -24,6 +24,7 @@ import { Dialog, DialogContent } from '@/components/ui/Dialog';
 import { normalizeText } from '@/lib/utils';
 
 import { Professor, Semester, PensumSubject } from '../../../../shared/src/index';
+import { AcademicLoad } from '@/types/schedule';
 import { useAppData } from '../../context/AppDataContext';
 import { ImportModal } from '@/components/common/ImportModal';
 import { generateProfessorSchedulePdf } from '../../services/PdfExportService';
@@ -56,6 +57,7 @@ export function ProfessorsPage() {
     handleAddProfessor: onAdd,
     handleUpdateProfessor: onUpdate,
     handleDeleteProfessor: onDelete,
+    handleUpdateLoad,
     academicLoad
   } = useAppData();
   const { academicPeriod } = useSettings();
@@ -110,6 +112,30 @@ export function ProfessorsPage() {
       setTimeout(() => setEmailsCopied(false), 2000);
     });
   };
+
+  // Pedido #1: asignar/quitar teoría o lab desde la tarjeta del profesor. Clona la
+  // carga, agrega/quita el id del profesor en academicLoad[código].theory|.lab y la
+  // persiste con handleUpdateLoad (que ya re-estampa los bloques del horario y reportes).
+  const toggleRole = (subjectCode: string, professorId: string, role: 'theory' | 'lab') => {
+    const entry = academicLoad[subjectCode] ?? {};
+    const current = entry[role] ?? [];
+    const nextList = current.includes(professorId)
+      ? current.filter((id) => id !== professorId)
+      : [...current, professorId];
+    const next: AcademicLoad = {
+      ...academicLoad,
+      [subjectCode]: { ...entry, [role]: nextList },
+    };
+    handleUpdateLoad(next);
+  };
+
+  // Botón toggle de rol: verde/relleno = activo, gris/contorno = inactivo.
+  const roleBtnClass = (active: boolean) =>
+    `inline-flex items-center justify-center rounded-md border transition-colors ${
+      active
+        ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600'
+        : 'bg-white text-gray-400 border-gray-300 hover:text-gray-600 hover:border-gray-400'
+    }`;
 
   const handleOpenDialog = (prof?: Professor) => {
     if (prof) {
@@ -473,8 +499,6 @@ export function ProfessorsPage() {
                  ) : (
                  <div className="space-y-0.5 max-h-72 overflow-y-auto custom-scrollbar -mr-1 pr-1">
                    {professor.subjects.map((subjectCode: string) => {
-                      const subject = pensum.flatMap((s) => s.subjects).find((s) => s.code === subjectCode);
-                      const hasLab = subject?.hasLab;
                       const isTheoryAssigned = academicLoad[subjectCode]?.theory?.includes(professor.id);
                       const isLabAssigned = academicLoad[subjectCode]?.lab?.includes(professor.id);
                       const hasAnyAssignment = isTheoryAssigned || isLabAssigned;
@@ -500,22 +524,29 @@ export function ProfessorsPage() {
                          </div>
                        </div>
 
-                       {/* Rol (solo lectura). El rol sale del TIPO del profesor al
-                           asignarle la materia (una sola forma de asignar, en el diálogo).
-                           Para cambiarlo: edita el profesor o su tipo. */}
-                       <div className="flex shrink-0 gap-1">
-                         {isTheoryAssigned && (
-                           <span title="Da teoría" className="w-7 h-7 flex items-center justify-center rounded-md bg-blue-100 text-blue-700 border border-blue-300">
-                             <BookOpen className="w-3.5 h-3.5" />
-                           </span>
-                         )}
-                         {hasLab && isLabAssigned && (
-                           <span title="Da laboratorio" className="w-7 h-7 flex items-center justify-center rounded-md bg-purple-100 text-purple-700 border border-purple-300">
-                             <Beaker className="w-3.5 h-3.5" />
-                           </span>
-                         )}
+                       {/* Pedido #1: toggles de rol en TODAS las materias (el usuario decide).
+                           Clic en 📖 prende/apaga teoría; clic en ⚗️ prende/apaga laboratorio. */}
+                       <div className="flex shrink-0 items-center gap-1">
+                         <button
+                           type="button"
+                           onClick={() => toggleRole(subjectCode, professor.id, 'theory')}
+                           aria-pressed={!!isTheoryAssigned}
+                           title={isTheoryAssigned ? 'Da teoría — clic para quitar' : 'No da teoría — clic para asignar'}
+                           className={`w-7 h-7 ${roleBtnClass(!!isTheoryAssigned)}`}
+                         >
+                           <BookOpen className="w-3.5 h-3.5" />
+                         </button>
+                         <button
+                           type="button"
+                           onClick={() => toggleRole(subjectCode, professor.id, 'lab')}
+                           aria-pressed={!!isLabAssigned}
+                           title={isLabAssigned ? 'Da laboratorio — clic para quitar' : 'No da laboratorio — clic para asignar'}
+                           className={`w-7 h-7 ${roleBtnClass(!!isLabAssigned)}`}
+                         >
+                           <Beaker className="w-3.5 h-3.5" />
+                         </button>
                          {!isTheoryAssigned && !isLabAssigned && (
-                           <span className="self-center text-[10px] italic text-gray-300">sin rol</span>
+                           <span className="self-center text-[10px] italic text-gray-300 ml-0.5">sin rol</span>
                          )}
                        </div>
                      </div>
@@ -567,35 +598,42 @@ export function ProfessorsPage() {
                                         <div className="flex flex-wrap gap-1">
                                             {prof.subjects.map((code: string) => {
                                                 const semNum = pensum.find(s => s.subjects.some(sub => sub.code === code))?.number;
-                                                const isTheory = academicLoad[code]?.theory?.includes(prof.id);
-                                                const isLab = academicLoad[code]?.lab?.includes(prof.id);
+                                                const isTheory = !!academicLoad[code]?.theory?.includes(prof.id);
+                                                const isLab = !!academicLoad[code]?.lab?.includes(prof.id);
                                                 return (
                                                     <span
                                                         key={code}
-                                                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white pl-2.5 pr-2 py-0.5 text-xs hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                                                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white pl-2.5 pr-1.5 py-0.5 text-xs hover:border-gray-300 transition-colors"
                                                     >
                                                         <span className="truncate max-w-[140px] font-medium text-gray-700" title={getSubjectName(code)}>
                                                             {getSubjectName(code)}
                                                         </span>
-                                                        {(semNum || isTheory || isLab) && (
-                                                            <span className="inline-flex items-center gap-1 pl-1.5 border-l border-gray-200">
-                                                                {semNum && (
-                                                                    <span className="text-[10px] font-semibold tabular-nums text-gray-400" title={`Semestre ${semNum}`}>
-                                                                        S{semNum}
-                                                                    </span>
-                                                                )}
-                                                                {isTheory && (
-                                                                    <span title="Teoría" className="inline-flex">
-                                                                        <BookOpen className="w-3 h-3 text-blue-500" />
-                                                                    </span>
-                                                                )}
-                                                                {isLab && (
-                                                                    <span title="Laboratorio" className="inline-flex">
-                                                                        <Beaker className="w-3 h-3 text-purple-500" />
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                        )}
+                                                        {/* Pedido #1: mismos toggles que la cuadrícula (mismo handler). */}
+                                                        <span className="inline-flex items-center gap-1 pl-1.5 border-l border-gray-200">
+                                                            {semNum && (
+                                                                <span className="text-[10px] font-semibold tabular-nums text-gray-400" title={`Semestre ${semNum}`}>
+                                                                    S{semNum}
+                                                                </span>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleRole(code, prof.id, 'theory')}
+                                                                aria-pressed={isTheory}
+                                                                title={isTheory ? 'Da teoría — clic para quitar' : 'No da teoría — clic para asignar'}
+                                                                className={`w-5 h-5 ${roleBtnClass(isTheory)}`}
+                                                            >
+                                                                <BookOpen className="w-3 h-3" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleRole(code, prof.id, 'lab')}
+                                                                aria-pressed={isLab}
+                                                                title={isLab ? 'Da laboratorio — clic para quitar' : 'No da laboratorio — clic para asignar'}
+                                                                className={`w-5 h-5 ${roleBtnClass(isLab)}`}
+                                                            >
+                                                                <Beaker className="w-3 h-3" />
+                                                            </button>
+                                                        </span>
                                                     </span>
                                                 );
                                             })}

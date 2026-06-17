@@ -8,6 +8,7 @@ import * as Backend from '../../services/BackendService';
 import {
   detectNaturalColumns,
   mapGroupedList,
+  normalizeType,
   type SubjectLite,
 } from '../../../../shared/src/logic/professorImport';
 
@@ -16,11 +17,13 @@ type Row = Record<string, string>;
 
 const TEMPLATES: Record<Kind, { headers: string[]; sample: string }> = {
   professors: {
-    headers: ['fullName', 'title', 'cedula', 'type', 'subjects'],
+    headers: ['fullName', 'title', 'cedula', 'tipo', 'subjects'],
     sample:
-      'fullName,title,cedula,type,subjects\n' +
-      'Juan Pérez,Prof.,V-12345678,both,3307011103;3307021104\n' +
-      'Ana Gómez,Dra.,,theory,3307011105\n',
+      'fullName,title,cedula,tipo,subjects\n' +
+      'Juan Pérez,Prof.,V-12345678,ambos,3307011103;3307021104\n' +
+      'Ana Gómez,Dra.,,teoria,3307011105\n' +
+      'Luis Soto,Prof.,,laboratorio,3307031106\n' +
+      'María Ruiz,Lic.,,,3307041107\n', // tipo vacío → se importa sin rol
   },
   subjects: {
     headers: ['code', 'semester', 'name', 'credits', 'hoursTheory', 'hoursLab', 'prerequisites', 'labNumber'],
@@ -30,7 +33,12 @@ const TEMPLATES: Record<Kind, { headers: string[]; sample: string }> = {
   },
 };
 
-const TYPE_LABEL: Record<string, string> = { theory: 'Teoría', practice: 'Práctica/Lab', both: 'Ambos' };
+const TYPE_LABEL: Record<string, string> = {
+  theory: 'Teoría',
+  practice: 'Laboratorio',
+  both: 'Ambos',
+  unassigned: 'Sin tipo',
+};
 
 const splitList = (s?: string): string[] =>
   (s ?? '')
@@ -133,13 +141,16 @@ function analyze(parsed: ParsedFile | null, kind: Kind, catalog: SubjectLite[]):
       fullName: r.fullName?.trim() || 'Sin nombre',
       title: (r.title?.trim() as 'Prof.') || 'Prof.',
       cedula: r.cedula?.trim() || undefined,
-      type: (r.type?.trim() as 'both') || 'both',
+      // La columna `tipo` manda (acepta sinónimos). Si está vacía o no se reconoce →
+      // 'unassigned': se importa con sus materias pero sin rol, no se adivina nada.
+      type: normalizeType(r.tipo ?? r.type ?? '') ?? ('unassigned' as const),
       subjects: splitList(r.subjects),
     }));
     const preview: PreviewRow[] = professors.map((p) => {
       const warns: string[] = [];
       if (!p.fullName || p.fullName === 'Sin nombre') warns.push('sin nombre');
-      if (!['theory', 'practice', 'both'].includes(p.type)) warns.push(`tipo «${p.type}» inválido`);
+      const sinTipo = p.type === 'unassigned';
+      if (sinTipo) warns.push('sin tipo → se importa sin rol (asígnalo con 📖/⚗️)');
       return {
         c1: p.fullName,
         c2: TYPE_LABEL[p.type] ?? p.type,
@@ -154,15 +165,26 @@ function analyze(parsed: ParsedFile | null, kind: Kind, catalog: SubjectLite[]):
   // Formato natural (lista por profesor): "Apellido nombre" + "Unidad curricular"
   const cols = detectNaturalColumns(fields);
   if (cols) {
-    const mapped = mapGroupedList(rows, cols.nameKey, cols.subjectKey, catalog);
-    const professors = mapped.map((p) => ({ fullName: p.fullName, title: 'Prof.' as const, type: p.type, subjects: p.subjects }));
-    const preview: PreviewRow[] = mapped.map((p) => ({
-      c1: p.fullName,
-      c2: TYPE_LABEL[p.type] ?? p.type,
-      c3: `${p.subjects.length} materia${p.subjects.length === 1 ? '' : 's'}`,
-      detail: p.subjects.join(', '),
-      warns: p.unmatched.length ? [`no encontré: ${p.unmatched.join('; ')}`] : [],
+    // `tipo` (si la lista lo trae) manda; si no, se deduce por la marca "(Lab)".
+    const mapped = mapGroupedList(rows, cols.nameKey, cols.subjectKey, catalog, cols.typeKey);
+    const professors = mapped.map((p) => ({
+      fullName: p.fullName,
+      title: 'Prof.' as const,
+      type: p.type ?? ('unassigned' as const),
+      subjects: p.subjects,
     }));
+    const preview: PreviewRow[] = mapped.map((p) => {
+      const warns: string[] = [];
+      if (p.type === null) warns.push('sin tipo → se importa sin rol (asígnalo con 📖/⚗️)');
+      if (p.unmatched.length) warns.push(`no encontré: ${p.unmatched.join('; ')}`);
+      return {
+        c1: p.fullName,
+        c2: p.type ? (TYPE_LABEL[p.type] ?? p.type) : 'Sin tipo',
+        c3: `${p.subjects.length} materia${p.subjects.length === 1 ? '' : 's'}`,
+        detail: p.subjects.join(', '),
+        warns,
+      };
+    });
     return { ...base, format: 'natural', professors, preview };
   }
 
@@ -259,9 +281,16 @@ export function ImportModal({ kind, onClose, onDone }: { kind: Kind; onClose: ()
           <span className="font-mono text-xs">{cols.join(', ')}</span>.{' '}
           {kind === 'professors' && (
             <>
+              La columna <span className="font-mono text-xs">tipo</span> acepta{' '}
+              <span className="font-mono text-xs">teoria</span> (te, t),{' '}
+              <span className="font-mono text-xs">laboratorio</span> (lab, practica, p) o{' '}
+              <span className="font-mono text-xs">ambos</span> (teoria/lab). Si la dejas vacía o no se reconoce,
+              el profesor se importa <span className="font-semibold">sin rol</span> y se lo asignas luego con los
+              botones 📖/⚗️ de su tarjeta (nunca se inventa un laboratorio).{' '}
               También acepta la lista por profesor (columnas <span className="font-mono text-xs">Apellido nombre</span>{' '}
-              y <span className="font-mono text-xs">Unidad curricular</span>); las materias se mapean a su código
-              automáticamente.{' '}
+              y <span className="font-mono text-xs">Unidad curricular</span>); ahí las materias se mapean a su código
+              automáticamente y la marca <span className="font-mono text-xs">(Lab)</span> sirve de respaldo si no hay{' '}
+              <span className="font-mono text-xs">tipo</span>.{' '}
             </>
           )}
           Las listas se separan con <span className="font-mono">;</span> y las columnas con{' '}

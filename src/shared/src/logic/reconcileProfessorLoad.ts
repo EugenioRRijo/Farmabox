@@ -20,7 +20,8 @@ import type { AcademicLoadLike, ProfessorAssignment } from './sanitizeProfessorR
 
 interface ProfessorLike {
   id: string;
-  type: 'theory' | 'practice' | 'both';
+  // 'unassigned' (u otro valor desconocido) → no da teoría ni lab: no se le asigna rol.
+  type: 'theory' | 'practice' | 'both' | 'unassigned';
   subjects: string[];
 }
 

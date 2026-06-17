@@ -134,7 +134,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           );
           const seededLoad = seedAcademicLoadFromProfessors(
             (finalLoad ?? {}) as AcademicLoad,
-            profs as unknown as { id: string; type: 'theory' | 'practice' | 'both'; subjects: string[] }[],
+            profs as unknown as { id: string; type: 'theory' | 'practice' | 'both' | 'unassigned'; subjects: string[] }[],
             labSet,
           ) as AcademicLoad;
 

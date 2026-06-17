@@ -36,4 +36,21 @@ describe('seedAcademicLoadFromProfessors (#fix "sin rol")', () => {
     const profs = [{ id: 'p3', type: 'both' as const, subjects: [] as string[] }];
     expect(seedAcademicLoadFromProfessors({}, profs, new Set())).toEqual({});
   });
+
+  it('NO re-siembra un rol que el usuario quitó por toggle (respeta lo ya cargado)', () => {
+    // p1 ("ambos") en MAT1 (con lab); el usuario dejó solo lab y quitó teoría.
+    // El seed NO debe re-agregar teoría: ya tiene presencia, es decisión explícita.
+    const load0 = { MAT1: { theory: [] as string[], lab: ['p1'] } };
+    const profs = [{ id: 'p1', type: 'both' as const, subjects: ['MAT1'] }];
+    const out = seedAcademicLoadFromProfessors(load0, profs, new Set(['MAT1']));
+    expect(out.MAT1.theory).toEqual([]); // no re-añade teoría
+    expect(out.MAT1.lab).toEqual(['p1']);
+  });
+
+  it('un profesor "unassigned" (sin tipo) no recibe rol', () => {
+    const profs = [{ id: 'p9', type: 'unassigned' as const, subjects: ['MAT1'] }];
+    const out = seedAcademicLoadFromProfessors({}, profs, new Set(['MAT1']));
+    expect(out.MAT1?.theory ?? []).not.toContain('p9');
+    expect(out.MAT1?.lab ?? []).not.toContain('p9');
+  });
 });
