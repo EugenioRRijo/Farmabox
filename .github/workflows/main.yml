@@ -1,0 +1,32 @@
+name: Backup datos Supabase
+on:
+  schedule:
+    - cron: '0 5 * * *'   # diario 05:00 UTC
+  workflow_dispatch: {}
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Volcar tablas (paginado)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          for t in professors subjects professor_subjects academic_load schedule_blocks logs; do
+            offset=0; : > "backup/${t}.ndjson"
+            while : ; do
+              page=$(curl -s "${SUPABASE_URL}/rest/v1/${t}?select=*&offset=${offset}&limit=1000" \
+                -H "apikey: ${SUPABASE_ANON_KEY}" -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+              n=$(printf '%s' "$page" | jq 'length')
+              printf '%s' "$page" | jq -c '.[]' >> "backup/${t}.ndjson"
+              offset=$((offset + 1000)); [ "$n" -lt 1000 ] && break
+            done
+            echo "${t}: $(wc -l < backup/${t}.ndjson) filas"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: farmabox-backup-${{ github.run_number }}
+          path: backup/
+          retention-days: 90
