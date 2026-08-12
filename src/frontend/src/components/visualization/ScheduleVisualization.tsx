@@ -4,7 +4,7 @@ import { User, BookOpen, LayoutGrid, Download, RotateCcw, ChevronDown, Users, Ca
 import { useAppData } from '../../context/AppDataContext';
 import { useSettings } from '../../context/SettingsContext';
 import { ScheduleBuilder } from '../schedule/ScheduleBuilder';
-import { ProfessorScheduleGrid } from '../schedule/ProfessorScheduleGrid';
+import { ProfessorScheduleCard } from '../schedule/ProfessorScheduleCard';
 import { Semester, Professor } from '../../../../shared/src/index';
 import { ScheduleBlock } from '@/types/schedule';
 import { normalizeText } from '@/lib/utils';
@@ -226,7 +226,7 @@ function ExportMenu({
 }
 
 export function ScheduleVisualization() {
-  const { pensum, professors, scheduleBlocks, academicLoad } = useAppData();
+  const { pensum, professors, scheduleBlocks, academicLoad, adminHours } = useAppData();
   const { academicPeriod, locationLabel } = useSettings();
   const [selectedProfessorIds, setSelectedProfessorIds] = useState<string[]>([]);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
@@ -336,9 +336,17 @@ export function ScheduleVisualization() {
       : professors;
     const allSubjects = pensum.flatMap((s: Semester) => s.subjects);
     try {
-      await generateAllProfessorsSchedulesPdf(scope, scheduleBlocks, allSubjects, 'Horarios_Profesores', academicPeriod);
-    } catch {
-      alert('Ningún profesor (de los filtrados) tiene clases asignadas para exportar.');
+      await generateAllProfessorsSchedulesPdf(scope, scheduleBlocks, allSubjects, 'Horarios_Profesores', academicPeriod, adminHours);
+    } catch (e) {
+      // Distinguir "sin clases" de un error real: antes el catch tragaba TODO y siempre
+      // decía "ninguno tiene clases", ocultando crashes de render (ej. rowSpan fuera de grilla).
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('Ningún profesor')) {
+        alert('Ningún profesor (de los filtrados) tiene clases asignadas para exportar.');
+      } else {
+        console.error('Error al exportar horarios por profesor:', e);
+        alert('No se pudo generar el PDF de horarios por profesor: ' + msg);
+      }
     }
   };
 
@@ -418,7 +426,7 @@ export function ScheduleVisualization() {
         // ── Vista por profesor (idéntica al PDF docente) ──────────────────
         <div className="space-y-12">
           {selectedProfessors.map((prof: Professor) => (
-            <ProfessorScheduleGrid
+            <ProfessorScheduleCard
               key={prof.id}
               professor={prof}
               blocks={scheduleBlocks}

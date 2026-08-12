@@ -6,6 +6,12 @@ export * from './services';
 
 // Barrel export for logic
 export { StrictCollisionValidator } from './logic/StrictCollisionValidator';
+export {
+  professorNameKey,
+  cedulaKey,
+  findProfessorIdByIdentity,
+  type IdentifiableProfessor,
+} from './logic/professorIdentity';
 export * from './adapters/interfaces';
 
 // Data exports

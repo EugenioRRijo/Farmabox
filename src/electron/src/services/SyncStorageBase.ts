@@ -14,6 +14,7 @@
  */
 import log from 'electron-log';
 import { mergeRaw, mergeMaps, type Stamped } from '../sync/merge';
+import { buildSyncPreview, type SyncPreview } from '../sync/preview';
 import type { IStorageService } from './IStorageService';
 import type { Professor, Semester, PensumSubject } from '@scheduler/shared';
 import type { AcademicLoad, ScheduleBlockData, LogEntry } from '../types';
@@ -33,13 +34,18 @@ export interface RawDatasets {
   logs: SLog[];
 }
 
-/** JSON estable (orden de claves) ignorando la metadata de sync. */
+/** JSON estable (orden de claves) ignorando la metadata de sync.
+ *  Las claves con valor `undefined` se omiten (igual que JSON.stringify): el
+ *  estado local viene de JSON en disco (sin esas claves) y el mapeo del pull
+ *  las materializa como `undefined` explícito (`aula ?? undefined`, etc.);
+ *  si contaran como `null`, sameContent daría falso para contenido idéntico
+ *  (incidente: "subes" fantasma en el preview con sellos empatados). */
 export function stableStringify(o: unknown): string {
   if (o === null || typeof o !== 'object') return JSON.stringify(o) ?? 'null';
   if (Array.isArray(o)) return '[' + o.map(stableStringify).join(',') + ']';
   const obj = o as Record<string, unknown>;
   const keys = Object.keys(obj)
-    .filter((k) => k !== 'updatedAt' && k !== 'deletedAt')
+    .filter((k) => k !== 'updatedAt' && k !== 'deletedAt' && obj[k] !== undefined)
     .sort();
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}';
 }
@@ -298,6 +304,29 @@ export abstract class SyncStorageBase implements IStorageService {
       b: this.loadScheduleBlocks(),
       l: this.loadAcademicLoad(),
     });
+  }
+
+  // ── Vista previa de sincronización (dry-run: NO guarda nada) ─────────────
+  /**
+   * Calcula "qué entra, qué se reemplaza y qué subes" comparando local vs
+   * remoto SIN modificar ninguno de los dos. La ventana del botón "Sincronizar"
+   * lo muestra antes de confirmar; si falla, devuelve `ok:false` y la UI cae
+   * al texto genérico (nunca bloquea el botón).
+   */
+  async previewSync(): Promise<SyncPreview> {
+    const sinTotales = { nuevos: 0, actualizados: 0, eliminados: 0, subes: 0 };
+    if (!this.isRemoteEnabled()) {
+      return { ok: false, online: false, at: this.now(), sections: [], totals: sinTotales };
+    }
+    try {
+      const remote = await this.pullRemote();
+      return buildSyncPreview(this.localRaw(), remote, this.now());
+    } catch (e) {
+      // Error transitorio (red intermitente): hay remoto configurado pero no se
+      // pudo leer ahora; el sync real reintentará por su cuenta.
+      log.warn('[Sync] previewSync FALLÓ (transitorio, no bloquea):', e);
+      return { ok: false, online: true, at: this.now(), sections: [], totals: sinTotales };
+    }
   }
 
   // ── Recibir (pull + merge por fila, automático al abrir y periódico) ─────

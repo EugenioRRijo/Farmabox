@@ -74,6 +74,7 @@ export interface ScheduleBlockData {
   professorId?: string;
   section?: string;
   labGroupId?: string;
+  aula?: string;
 }
 
 // ── Professors ─────────────────────────────────────────
@@ -279,4 +280,34 @@ export async function getSyncStatus(): Promise<SyncStatus> {
     mode: 'cloud',
     device: 'este navegador',
   };
+}
+
+// ── Vista previa de sincronización (tipos espejo del DTO del main) ──────────
+// Contrato normativo: docs/superpowers/specs/2026-08-12-preview-sincronizacion-design.md
+export type SyncPreviewKind = 'nuevo' | 'actualizado' | 'eliminado' | 'subes';
+
+export interface SyncPreviewItem {
+  kind: SyncPreviewKind;
+  label: string;
+  detail?: string;
+}
+
+export interface SyncPreviewSection {
+  dataset: 'professors' | 'subjects' | 'academicLoad' | 'scheduleBlocks';
+  title: string; // "Profesores" | "Materias" | "Carga académica" | "Bloques de horario"
+  items: SyncPreviewItem[]; // solo secciones con items van en el payload
+}
+
+export interface SyncPreview {
+  ok: boolean;
+  online: boolean;
+  at: string; // ISO
+  sections: SyncPreviewSection[];
+  totals: { nuevos: number; actualizados: number; eliminados: number; subes: number };
+}
+
+/** Vista previa del sync (solo .exe). En web devuelve null (el botón usa el diálogo genérico). */
+export async function previewSync(): Promise<SyncPreview | null> {
+  if (ipc) return unwrap(ipc.sync.preview());
+  return null;
 }

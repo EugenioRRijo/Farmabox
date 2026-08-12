@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Sincronización manual (botón "Sincronizar ahora") ────────────────
   sync: {
     now: () => invoke('sync:now'),
+    preview: () => invoke('sync:preview'),
     status: () => invoke('sync:status'),
   },
 

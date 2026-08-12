@@ -12,6 +12,7 @@ import type {
   LogEntry,
   BackupData,
   StorageInfo,
+  SyncPreview,
 } from '../services/BackendService';
 
 type Envelope<T> = { data: T } | { error: string };
@@ -89,6 +90,8 @@ export interface ElectronAPI {
   sync: {
     now(): Promise<Envelope<{ ok: boolean; changed: boolean; online: boolean; at?: string }>>;
     status(): Promise<Envelope<{ online: boolean; mode: 'cloud' | 'folder' }>>;
+    /** Vista previa de la sincronización (dry-run, no guarda nada). */
+    preview(): Promise<Envelope<SyncPreview>>;
   };
 
   maintenance: {

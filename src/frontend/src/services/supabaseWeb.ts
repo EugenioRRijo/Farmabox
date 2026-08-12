@@ -16,8 +16,21 @@ import type {
   LogEntry,
   BackupData,
 } from './BackendService';
+import { findProfessorIdByIdentity } from '../../../shared/src/logic/professorIdentity';
+import {
+  diffByFingerprint,
+  diffKeySets,
+  blockFingerprint,
+} from '../../../shared/src/logic/webSetDiff';
 
 const now = (): string => new Date().toISOString();
+
+// ── Estado "visto por este cliente" (anti-pisado del guardado por set) ───────
+// El guardado web recibe el SET completo, pero re-sellar todo y tombstonear lo
+// ausente pisa el trabajo de otras PCs. Recordamos lo que este cliente vio en su
+// último pull y guardamos solo el DIFF (ver shared/logic/webSetDiff).
+const seenBlocks: Record<string, string> = {}; // id → fingerprint de contenido
+const seenLoadKeys = new Set<string>(); // "subject_code professor_id role"
 
 // ── Realtime (#7): cambios de otras PCs en vivo (modo web) ──────────────────
 // Suscribe a las tablas sincronizadas y llama `onChange` cuando alguien más edita.
@@ -69,6 +82,21 @@ async function stripBlockSemester(rows: Record<string, unknown>[]): Promise<Reco
   return rows.map((r) => {
     const rest = { ...r };
     delete rest.semester;
+    return rest;
+  });
+}
+
+// schedule_blocks.aula: salón por bloque (columna nueva). Se omite si la base no la tiene.
+let blockAulaSupported: boolean | null = null;
+async function stripBlockAula(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  if (blockAulaSupported === null) {
+    const { error } = await requireSupabase().from('schedule_blocks').select('aula').limit(1);
+    blockAulaSupported = !error;
+  }
+  if (blockAulaSupported) return rows;
+  return rows.map((r) => {
+    const rest = { ...r };
+    delete rest.aula;
     return rest;
   });
 }
@@ -147,7 +175,20 @@ async function setProfessorLinks(profId: string, subjectCodes: string[]): Promis
 
 export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Professor> {
   const sb = requireSupabase();
-  const prof: Professor = { ...data, id: `prof-${Date.now()}` } as Professor;
+  // Fusionar por identidad (cédula → nombre): si ya existe, actualiza en vez de duplicar.
+  const existing = await getProfessors();
+  const matchId = findProfessorIdByIdentity(existing, data);
+  const prev = matchId ? existing.find((e) => e.id === matchId) : undefined;
+  const prof: Professor = {
+    id: matchId ?? `prof-${Date.now()}`,
+    fullName: data.fullName ?? prev?.fullName ?? 'Sin nombre',
+    title: data.title ?? prev?.title ?? 'Prof.',
+    email: data.email ?? prev?.email,
+    cedula: data.cedula ?? prev?.cedula,
+    profession: data.profession ?? prev?.profession,
+    subjects: data.subjects ?? prev?.subjects ?? [],
+    type: data.type ?? prev?.type ?? 'both',
+  };
   const { error } = await sb.from('professors').upsert(await stripProf([profRow(prof)]));
   if (error) throw error;
   await setProfessorLinks(prof.id, prof.subjects ?? []);
@@ -195,17 +236,29 @@ export async function resetProfessors(): Promise<Professor[]> {
 
 export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Promise<Professor[]> {
   const sb = requireSupabase();
-  let i = 0;
-  const profs: Professor[] = incoming.map((raw) => ({
-    id: raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${i++}`,
-    fullName: raw.fullName ?? 'Sin nombre',
-    title: raw.title ?? 'Prof.',
-    email: raw.email,
-    cedula: raw.cedula,
-    profession: raw.profession,
-    subjects: raw.subjects ?? [],
-    type: raw.type ?? 'both',
-  }));
+  // FUSIONA por identidad (cédula → nombre) contra la lista actual + la que va creciendo,
+  // así re-importar la misma lista NO duplica (bug histórico de los `prof-<timestamp>`).
+  const acc: Professor[] = await getProfessors();
+  const profs: Professor[] = [];
+  let seq = 0;
+  for (const raw of incoming) {
+    const matchId = findProfessorIdByIdentity(acc, raw);
+    const prev = matchId ? acc.find((e) => e.id === matchId) : undefined;
+    const prof: Professor = {
+      id: matchId ?? (raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${seq++}`),
+      fullName: raw.fullName ?? prev?.fullName ?? 'Sin nombre',
+      title: raw.title ?? prev?.title ?? 'Prof.',
+      email: raw.email ?? prev?.email,
+      cedula: raw.cedula ?? prev?.cedula,
+      profession: raw.profession ?? prev?.profession,
+      subjects: raw.subjects ?? prev?.subjects ?? [],
+      type: raw.type ?? prev?.type ?? 'both',
+    };
+    const ai = acc.findIndex((e) => e.id === prof.id);
+    if (ai >= 0) acc[ai] = prof;
+    else acc.push(prof);
+    profs.push(prof);
+  }
   if (profs.length) {
     const { error } = await sb.from('professors').upsert(await stripProf(profs.map((p) => profRow(p))));
     if (error) throw error;
@@ -341,8 +394,10 @@ export async function getAcademicLoad(): Promise<AcademicLoad> {
   const sb = requireSupabase();
   const { data, error } = await sb.from('academic_load').select('*');
   if (error) throw error;
+  seenLoadKeys.clear();
   const out: AcademicLoad = {};
   for (const r of data ?? []) {
+    seenLoadKeys.add(`${r.subject_code} ${r.professor_id} ${r.role}`);
     if (!out[r.subject_code]) out[r.subject_code] = { theory: [], lab: [] };
     if (r.role === 'lab') out[r.subject_code].lab!.push(r.professor_id);
     else out[r.subject_code].theory!.push(r.professor_id);
@@ -352,34 +407,42 @@ export async function getAcademicLoad(): Promise<AcademicLoad> {
 
 export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
   const sb = requireSupabase();
-  const rows: { subject_code: string; professor_id: string; role: string; updated_at: string }[] = [];
+  type LoadKeyParts = { subject_code: string; professor_id: string; role: string };
+  const parts = new Map<string, LoadKeyParts>();
   for (const [code, v] of Object.entries(load)) {
-    for (const pid of v.theory ?? []) rows.push({ subject_code: code, professor_id: pid, role: 'theory', updated_at: now() });
-    for (const pid of v.lab ?? []) rows.push({ subject_code: code, professor_id: pid, role: 'lab', updated_at: now() });
+    for (const pid of v.theory ?? [])
+      parts.set(`${code} ${pid} theory`, { subject_code: code, professor_id: pid, role: 'theory' });
+    for (const pid of v.lab ?? [])
+      parts.set(`${code} ${pid} lab`, { subject_code: code, professor_id: pid, role: 'lab' });
   }
-  // NO borrar-todo-e-insertar (riesgo de pisar datos de otra PC / pérdida total si
-  // falla a medio camino). Patrón seguro = mismo que el .exe (CloudStorageService) y
-  // saveScheduleBlocks: upsert de lo vivo + borrar SOLO el sobrante. La PK
-  // (subject_code, professor_id, role) hace que el upsert no duplique.
-  if (rows.length) {
+  // Diff contra lo VISTO por este cliente (anti-pisado): solo se insertan las
+  // asignaciones nuevas (las existentes conservan su sello updated_at) y solo se
+  // borra lo que este cliente vio y quitó — nunca lo que otra PC agregó y este
+  // cliente aún no conoce. Nada de borrar-todo-e-insertar (incidente de junio).
+  const { added, removed } = diffKeySets(seenLoadKeys, [...parts.keys()]);
+  if (added.length) {
+    const ts = now();
+    const rows = added.map((k) => ({ ...parts.get(k)!, updated_at: ts }));
     const { error } = await sb.from('academic_load').upsert(rows);
     if (error) throw error;
   }
-  const keep = new Set(rows.map((r) => `${r.subject_code} ${r.professor_id} ${r.role}`));
-  const { data: existing, error: selErr } = await sb
-    .from('academic_load')
-    .select('subject_code,professor_id,role');
-  if (selErr) throw selErr;
-  for (const r of existing ?? []) {
-    if (keep.has(`${r.subject_code} ${r.professor_id} ${r.role}`)) continue;
+  // Lo removido se conoce solo por la clave; sus partes se reconstruyen del último
+  // pull (getAcademicLoad las agregó a seenLoadKeys con el MISMO formato de clave).
+  for (const k of removed) {
+    const toks = k.split(' ');
+    const role = toks.pop()!;
+    const professor_id = toks.pop()!;
+    const subject_code = toks.join(' '); // por si un código trajera espacios
     const { error } = await sb
       .from('academic_load')
       .delete()
-      .eq('subject_code', r.subject_code)
-      .eq('professor_id', r.professor_id)
-      .eq('role', r.role);
+      .eq('subject_code', subject_code)
+      .eq('professor_id', professor_id)
+      .eq('role', role);
     if (error) throw error;
   }
+  for (const k of removed) seenLoadKeys.delete(k);
+  for (const k of added) seenLoadKeys.add(k);
 }
 
 // ── Bloques de horario ──────────────────────────────────────────────────────
@@ -387,7 +450,7 @@ export async function getScheduleBlocks(): Promise<ScheduleBlockData[]> {
   const sb = requireSupabase();
   const { data, error } = await sb.from('schedule_blocks').select('*').is('deleted_at', null);
   if (error) throw error;
-  return (data ?? []).map((r) => ({
+  const mapped = (data ?? []).map((r) => ({
     id: r.id,
     subjectCode: r.subject_code ?? '',
     semester: r.semester ?? undefined,
@@ -399,35 +462,58 @@ export async function getScheduleBlocks(): Promise<ScheduleBlockData[]> {
     professorId: r.professor_id ?? undefined,
     section: r.section ?? undefined,
     labGroupId: r.lab_group_id ?? undefined,
+    aula: r.aula ?? undefined,
   })) as ScheduleBlockData[];
+  // Registrar lo que este cliente vio: base del diff anti-pisado al guardar.
+  for (const k of Object.keys(seenBlocks)) delete seenBlocks[k];
+  for (const b of mapped) seenBlocks[b.id] = blockFingerprint(b);
+  return mapped;
 }
 
 export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<void> {
   const sb = requireSupabase();
-  const rows = blocks.map((b) => ({
-    id: b.id,
-    subject_code: b.subjectCode ?? null,
-    semester: b.semester ?? null,
-    day: b.day,
-    start_hour: b.startHour,
-    duration: b.duration,
-    color: b.color ?? null,
-    type: b.type ?? null,
-    professor_id: b.professorId ?? null,
-    section: b.section ?? null,
-    lab_group_id: b.labGroupId ?? null,
-    updated_at: now(),
-    deleted_at: null,
-  }));
-  if (rows.length) {
-    const { error } = await sb.from('schedule_blocks').upsert(await stripBlockSemester(rows));
+  // Diff contra lo VISTO en el último pull (anti-pisado, sellado POR ÍTEM):
+  //   - solo se suben (re-sellados) los bloques nuevos o realmente cambiados; los
+  //     intactos conservan su updated_at → el trigger newest-wins puede proteger
+  //     las ediciones más recientes de otras PCs;
+  //   - solo se tombstonea lo que este cliente vio y quitó — nunca bloques que
+  //     otra PC creó y este cliente aún no bajó (antes se borraban: raíz del
+  //     "desaparecen bloques" multi-PC). Nota: un restore sin pull previo solo
+  //     upsertea (no borra nada), que es el comportamiento seguro.
+  const { changed, removedIds } = diffByFingerprint(seenBlocks, blocks, blockFingerprint);
+  const ts = now();
+  if (changed.length) {
+    const rows = changed.map((b) => ({
+      id: b.id,
+      subject_code: b.subjectCode ?? null,
+      semester: b.semester ?? null,
+      day: b.day,
+      start_hour: b.startHour,
+      duration: b.duration,
+      color: b.color ?? null,
+      type: b.type ?? null,
+      professor_id: b.professorId ?? null,
+      section: b.section ?? null,
+      lab_group_id: b.labGroupId ?? null,
+      aula: b.aula ?? null,
+      updated_at: ts,
+      deleted_at: null,
+    }));
+    const stripped = await stripBlockAula(await stripBlockSemester(rows));
+    const { error } = await sb.from('schedule_blocks').upsert(stripped);
     if (error) throw error;
   }
-  // Tombstone de los bloques que ya no están en el set.
-  const keep = new Set(blocks.map((b) => b.id));
-  const { data: existing } = await sb.from('schedule_blocks').select('id').is('deleted_at', null);
-  const stale = (existing ?? []).map((r) => r.id).filter((id: string) => !keep.has(id));
-  if (stale.length) await sb.from('schedule_blocks').update({ deleted_at: now() }).in('id', stale);
+  if (removedIds.length) {
+    // updated_at fresco: el tombstone es una edición y compite en el newest-wins.
+    const { error } = await sb
+      .from('schedule_blocks')
+      .update({ deleted_at: ts, updated_at: ts })
+      .in('id', removedIds);
+    if (error) throw error;
+  }
+  // Lo visto pasa a ser el estado que acabamos de dejar.
+  for (const id of removedIds) delete seenBlocks[id];
+  for (const b of changed) seenBlocks[b.id] = blockFingerprint(b);
 }
 
 // ── Logs ────────────────────────────────────────────────────────────────────

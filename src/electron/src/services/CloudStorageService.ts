@@ -70,6 +70,7 @@ interface BlockRow {
   professor_id: string | null;
   section: string | null;
   lab_group_id: string | null;
+  aula: string | null;
   updated_at: string | null;
   deleted_at: string | null;
 }
@@ -250,11 +251,9 @@ export class CloudStorageService extends SyncStorageBase {
     }
     {
       const keep = new Set(links.map((l) => `${l.professor_id} ${l.subject_code}`));
-      const { data: existing, error } = await this.client
-        .from('professor_subjects')
-        .select('professor_id,subject_code');
-      if (error) throw error;
-      for (const r of (existing ?? []) as LinkRow[]) {
+      // pullAll: la lectura completa también pagina (mismo cap de 1000 de PostgREST).
+      const existing = await this.pullAll('professor_subjects');
+      for (const r of existing as unknown as LinkRow[]) {
         if (keep.has(`${r.professor_id} ${r.subject_code}`)) continue;
         const del = await this.client
           .from('professor_subjects')
@@ -282,11 +281,9 @@ export class CloudStorageService extends SyncStorageBase {
     }
     {
       const keep = new Set(loadInsert.map((l) => `${l.subject_code} ${l.professor_id} ${l.role}`));
-      const { data: existing, error } = await this.client
-        .from('academic_load')
-        .select('subject_code,professor_id,role');
-      if (error) throw error;
-      for (const r of (existing ?? []) as LoadRow[]) {
+      // pullAll: la lectura completa también pagina (mismo cap de 1000 de PostgREST).
+      const existing = await this.pullAll('academic_load');
+      for (const r of existing as unknown as LoadRow[]) {
         if (keep.has(`${r.subject_code} ${r.professor_id} ${r.role}`)) continue;
         const del = await this.client
           .from('academic_load')
@@ -311,15 +308,18 @@ export class CloudStorageService extends SyncStorageBase {
       professor_id: b.professorId ?? null,
       section: b.section ?? null,
       lab_group_id: b.labGroupId ?? null,
+      aula: b.aula ?? null,
       updated_at: b.updatedAt ?? this.now(),
       deleted_at: b.deletedAt ?? null,
     }));
     if (blockRows.length) {
-      const rows = await this.stripCol(
+      let rows = await this.stripCol(
         'schedule_blocks',
         'semester',
         blockRows as unknown as Record<string, unknown>[],
       );
+      // Columna `aula` por bloque: se omite si la base aún no la tiene (degradación).
+      rows = await this.stripCol('schedule_blocks', 'aula', rows);
       const { error } = await this.client.from('schedule_blocks').upsert(rows);
       if (error) throw error;
     }
@@ -340,20 +340,54 @@ export class CloudStorageService extends SyncStorageBase {
   }
 
   // ── Bajar: tablas relacionales → datasets sellados ───────────────────────
+
+  /** Columnas de orden por tabla: `.range()` necesita un orden determinista
+   *  (idealmente único) para que la paginación no repita ni salte filas. */
+  private static readonly PULL_ORDER: Record<string, string[]> = {
+    professors: ['id'],
+    subjects: ['code'],
+    professor_subjects: ['subject_code', 'professor_id'],
+    academic_load: ['subject_code', 'professor_id', 'role'],
+    schedule_blocks: ['id'],
+    logs: ['id'],
+  };
+
+  /**
+   * Baja TODAS las filas de una tabla paginando con `.range()`.
+   * PostgREST corta cada respuesta en 1000 filas: un `select('*')` a secas
+   * devolvía una nube truncada (incidente: schedule_blocks con ~1800 filas y
+   * logs con ~5000 llegaban en 1000 justas), y el merge/preview marcaba como
+   * "subes" fantasma ítems locales que SÍ existían en la nube.
+   */
+  private async pullAll(table: string): Promise<Record<string, unknown>[]> {
+    if (!this.client) throw new Error('Nube no configurada');
+    const PAGE = 1000;
+    const orderCols = CloudStorageService.PULL_ORDER[table] ?? ['id'];
+    const todas: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += PAGE) {
+      let query = this.client.from(table).select('*');
+      for (const col of orderCols) query = query.order(col, { ascending: true });
+      const { data, error } = await query.range(from, from + PAGE - 1);
+      if (error) throw error;
+      const pagina = (data ?? []) as Record<string, unknown>[];
+      todas.push(...pagina);
+      if (pagina.length < PAGE) break; // página corta ⇒ era la última
+    }
+    return todas;
+  }
+
   protected async pullRemote(): Promise<RawDatasets> {
     if (!this.client) throw new Error('Nube no configurada');
-    const [profsRes, subjsRes, linksRes, loadRes, blocksRes, logsRes] = await Promise.all([
-      this.client.from('professors').select('*'),
-      this.client.from('subjects').select('*'),
-      this.client.from('professor_subjects').select('*'),
-      this.client.from('academic_load').select('*'),
-      this.client.from('schedule_blocks').select('*'),
-      this.client.from('logs').select('*'),
+    // Paginado vía pullAll (no select('*') directo): ver comentario del helper.
+    const [profRows, subjRows, linkRows, loadRows, blockRows, logRows] = await Promise.all([
+      this.pullAll('professors'),
+      this.pullAll('subjects'),
+      this.pullAll('professor_subjects'),
+      this.pullAll('academic_load'),
+      this.pullAll('schedule_blocks'),
+      this.pullAll('logs'),
     ]);
-    for (const r of [profsRes, subjsRes, linksRes, loadRes, blocksRes, logsRes]) {
-      if (r.error) throw r.error;
-    }
-    const links = (linksRes.data ?? []) as LinkRow[];
+    const links = linkRows as unknown as LinkRow[];
     const subjectsByProf = new Map<string, string[]>();
     const profsBySubject = new Map<string, string[]>();
     for (const l of links) {
@@ -363,7 +397,7 @@ export class CloudStorageService extends SyncStorageBase {
       profsBySubject.get(l.subject_code)!.push(l.professor_id);
     }
 
-    const professors: SProfessor[] = ((profsRes.data ?? []) as ProfRow[]).map((r) => ({
+    const professors: SProfessor[] = (profRows as unknown as ProfRow[]).map((r) => ({
       id: r.id,
       fullName: r.full_name,
       title: r.title as Professor['title'],
@@ -377,7 +411,7 @@ export class CloudStorageService extends SyncStorageBase {
     }));
 
     const bySem = new Map<number, SSubject[]>();
-    for (const r of (subjsRes.data ?? []) as SubjRow[]) {
+    for (const r of subjRows as unknown as SubjRow[]) {
       const sub: SSubject = {
         code: r.code,
         name: r.name,
@@ -401,7 +435,7 @@ export class CloudStorageService extends SyncStorageBase {
       .map(([number, subjects]) => ({ number, subjects }));
 
     const academicLoad: Record<string, SLoadVal> = {};
-    for (const r of (loadRes.data ?? []) as LoadRow[]) {
+    for (const r of loadRows as unknown as LoadRow[]) {
       if (!academicLoad[r.subject_code]) academicLoad[r.subject_code] = { theory: [], lab: [] };
       const entry = academicLoad[r.subject_code];
       if (r.role === 'lab') entry.lab!.push(r.professor_id);
@@ -409,7 +443,7 @@ export class CloudStorageService extends SyncStorageBase {
       if (r.updated_at && (!entry.updatedAt || r.updated_at > entry.updatedAt)) entry.updatedAt = r.updated_at;
     }
 
-    const scheduleBlocks: SBlock[] = ((blocksRes.data ?? []) as BlockRow[]).map((r) => ({
+    const scheduleBlocks: SBlock[] = (blockRows as unknown as BlockRow[]).map((r) => ({
       id: r.id,
       subjectCode: r.subject_code ?? '',
       semester: r.semester ?? undefined,
@@ -421,11 +455,12 @@ export class CloudStorageService extends SyncStorageBase {
       professorId: r.professor_id ?? undefined,
       section: r.section ?? undefined,
       labGroupId: r.lab_group_id ?? undefined,
+      aula: r.aula ?? undefined,
       updatedAt: r.updated_at ?? undefined,
       deletedAt: r.deleted_at ?? undefined,
     }));
 
-    const logs: SLog[] = ((logsRes.data ?? []) as LogRow[]).map((r) => ({
+    const logs: SLog[] = (logRows as unknown as LogRow[]).map((r) => ({
       id: r.id,
       action: r.action,
       details: r.details ?? '',

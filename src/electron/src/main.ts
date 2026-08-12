@@ -239,6 +239,29 @@ function registerSyncIpc(): void {
     }
   });
 
+  // Vista previa de sincronización (dry-run): qué entra, qué se reemplaza y qué
+  // subes, SIN tocar nada local ni remoto. La ventana del botón la muestra antes
+  // de confirmar; si no hay remoto responde offline y la UI cae al texto genérico.
+  ipcMain.handle('sync:preview', async () => {
+    try {
+      if (!store || !store.isRemoteEnabled()) {
+        return {
+          data: {
+            ok: false,
+            online: false,
+            at: new Date().toISOString(),
+            sections: [],
+            totals: { nuevos: 0, actualizados: 0, eliminados: 0, subes: 0 },
+          },
+        };
+      }
+      return { data: await store.previewSync() };
+    } catch (e) {
+      log.error('[IPC sync:preview]', e);
+      return { error: 'No se pudo calcular la vista previa' };
+    }
+  });
+
   ipcMain.handle('sync:status', () => {
     const online = !!store && store.isRemoteEnabled();
     // `device`: nombre real del equipo (para el aviso de "Sincronizar"). os.hostname()

@@ -58,7 +58,8 @@ export function ProfessorsPage() {
     handleUpdateProfessor: onUpdate,
     handleDeleteProfessor: onDelete,
     handleUpdateLoad,
-    academicLoad
+    academicLoad,
+    adminHours
   } = useAppData();
   const { academicPeriod } = useSettings();
   const [showImport, setShowImport] = useState(false);
@@ -80,7 +81,7 @@ export function ProfessorsPage() {
     setExportingId(prof.id);
     const toastId = toast.loading(`Generando el horario de ${prof.fullName}…`);
     try {
-      await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects), academicPeriod);
+      await generateProfessorSchedulePdf(prof, scheduleBlocks, pensum.flatMap((s: Semester) => s.subjects), academicPeriod, adminHours);
       toast.success(`Horario de ${prof.fullName} exportado (${myBlocks.length} bloque(s)).`, { id: toastId });
     } catch (e) {
       toast.error('No se pudo generar el PDF: ' + (e instanceof Error ? e.message : 'error desconocido'), { id: toastId });

@@ -1,0 +1,40 @@
+{
+  "name": "@scheduler/maestro",
+  "version": "1.0.0",
+  "description": "Farmabox Maestro — enviar notificaciones a las PCs",
+  "author": "Eugenio Rijo",
+  "main": "dist-main/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.main.json && vite build",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.107.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "28.2.0",
+    "electron-builder": "^26.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "electronVersion": "28.2.0",
+    "appId": "ve.edu.usm.farmabox.maestro",
+    "productName": "Farmabox Maestro",
+    "directories": { "output": "dist-installer" },
+    "files": ["dist-main/**/*", "dist/**/*"],
+    "win": { "target": ["nsis"], "forceCodeSigning": false },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Farmabox Maestro",
+      "artifactName": "Farmabox-Maestro-Setup-${version}.${ext}"
+    }
+  }
+}

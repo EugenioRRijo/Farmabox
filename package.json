@@ -7,7 +7,8 @@
   "workspaces": [
     "src/frontend",
     "src/electron",
-    "src/shared"
+    "src/shared",
+    "src/maestro"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=src/frontend",

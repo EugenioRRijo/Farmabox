@@ -11,6 +11,8 @@ import { ReportsPage } from '@/components/reports/ReportsPage';
 import { HomePage } from '@/components/home/HomePage';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import { NotificationPopup } from '@/components/notifications/NotificationPopup';
+import { SuggestionBox } from '@/components/suggestions/SuggestionBox';
 import { Toaster } from 'react-hot-toast';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { AppDataProvider, useAppData } from '@/context/AppDataContext';
@@ -114,6 +116,8 @@ function AppContent() {
         } />
       </Routes>
       <ChatWidget />
+      <NotificationPopup />
+      <SuggestionBox />
       <Toaster position="top-right" />
     </MainLayout>
   );

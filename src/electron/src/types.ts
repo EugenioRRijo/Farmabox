@@ -30,6 +30,7 @@ export interface ScheduleBlockData {
   professorId?: string;
   section?: string;
   labGroupId?: string;
+  aula?: string;
 }
 
 export interface LogEntry {

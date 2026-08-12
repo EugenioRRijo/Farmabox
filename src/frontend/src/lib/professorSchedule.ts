@@ -72,7 +72,11 @@ export function professorWeeklyHours(professorId: string, blocks: ScheduleBlock[
 export function blockCellText(block: ScheduleBlock, subjects: PensumSubject[]): string {
   const s = subjects.find((x) => x.code === block.subjectCode);
   const nm = s?.name ?? block.subjectCode;
-  return block.type === 'LAB' ? `Laboratorio\n${nm}` : `${nm}\nAula${s?.aula ? ' ' + s.aula : ''}`;
+  // Salón por bloque (block.aula) con prioridad; si no, el aula de la materia (teoría).
+  const room = block.aula ?? (block.type === 'LAB' ? undefined : s?.aula);
+  return block.type === 'LAB'
+    ? `Laboratorio\n${nm}${block.aula ? '\n' + block.aula : ''}`
+    : `${nm}\nAula${room ? ' ' + room : ''}`;
 }
 
 /**

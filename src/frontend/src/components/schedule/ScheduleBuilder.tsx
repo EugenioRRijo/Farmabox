@@ -400,6 +400,15 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
         });
     }, [scheduleBlocks, getSubject, logScheduleChange, onBlocksChange]);
 
+    // Salón por bloque: guarda block.aula. Permite F1/F2 distintos por bloque en el export.
+    const updateBlockAula = useCallback((blockId: string, aula: string) => {
+        const clean = aula.trim() || undefined;
+        onBlocksChange(scheduleBlocks.map((x: ScheduleBlock) => (x.id === blockId ? { ...x, aula: clean } : x)));
+        setDetailCell((prev) =>
+            prev ? { ...prev, blocks: prev.blocks.map((x) => (x.id === blockId ? { ...x, aula: clean } : x)) } : prev,
+        );
+    }, [scheduleBlocks, onBlocksChange]);
+
     // Agregar otro laboratorio en el mismo día/rango desde el modal de detalle.
     // Permite apilar labs en el mismo horario (distinto salón); valida choques de salón.
     const addLabAtRange = useCallback((day: number, startRow: number, duration: number, subjectCode: string) => {
@@ -791,11 +800,15 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                 const allSameSubject = hasBlocks && blocks.every((b) => b.subjectCode === blocks[0].subjectCode);
                                                 const subject = primary ? getSubject(primary.subjectCode) : null;
                                                 const color = primary && subject ? getSubjectColor(subject.code) : null;
-                                                // Salón: solo para LAB con número asignado (no inventamos aula para teoría).
-                                                const roomLabel = primary?.type === 'LAB' && subject?.labNumber ? `Salón ${subject.labNumber}` : null;
-                                                // Salones presentes en un cluster de labs agrupados.
+                                                // Salón: preferir el del bloque (aula por bloque); si no, el lab de la materia.
+                                                const roomLabel = primary?.aula
+                                                    ? `Salón ${primary.aula}`
+                                                    : primary?.type === 'LAB' && subject?.labNumber
+                                                        ? `Salón ${subject.labNumber}`
+                                                        : null;
+                                                // Salones presentes en un cluster (por bloque, o el lab de la materia).
                                                 const clusterRooms = isMulti
-                                                    ? Array.from(new Set(blocks.map((b) => getSubject(b.subjectCode)?.labNumber).filter(Boolean)))
+                                                    ? Array.from(new Set(blocks.map((b) => b.aula ?? getSubject(b.subjectCode)?.labNumber).filter(Boolean)))
                                                     : [];
                                                 const professor = primary?.professorId
                                                     ? professors.find((p: Professor) => p.id === primary.professorId)
@@ -864,11 +877,15 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                                     </div>
                                                                     <div className="text-[9px] font-normal opacity-75 text-center flex flex-col items-center justify-center gap-0.5">
                                                                         <div className="flex items-center justify-center gap-1 flex-wrap">
-                                                                            {primary!.type === 'LAB' && (
+                                                                            {primary!.type === 'LAB' ? (
                                                                                 <span className="text-[8px] border border-purple-400 rounded px-1 text-purple-700 bg-purple-50 font-bold">
                                                                                     🧪 {roomLabel ?? 'LAB'}
                                                                                 </span>
-                                                                            )}
+                                                                            ) : primary?.aula ? (
+                                                                                <span className="text-[8px] border border-gray-300 rounded px-1 text-gray-600 bg-gray-50 font-semibold">
+                                                                                    Salón {primary.aula}
+                                                                                </span>
+                                                                            ) : null}
                                                                         </div>
                                                                         {professor && (
                                                                             <span className="text-[8px] italic">{professor.title} {professor.fullName}</span>
@@ -996,6 +1013,16 @@ export function ScheduleBuilder({ semesterNumber, availableSubjects, section, re
                                                             {b.section && <span className="rounded-full bg-gray-100 px-1.5 py-0.5 font-medium text-gray-500">Sec {b.section}</span>}
                                                             {prof && <span className="truncate text-gray-400">{prof.title} {prof.fullName}</span>}
                                                         </div>
+                                                        {!readOnly && (
+                                                            <input
+                                                                type="text"
+                                                                defaultValue={b.aula ?? ''}
+                                                                onBlur={(e) => updateBlockAula(b.id, e.target.value)}
+                                                                placeholder="Salón (ej. F1, Aula 209)"
+                                                                aria-label="Salón del bloque"
+                                                                className="mt-1.5 w-full rounded border border-gray-300 px-2 py-1 text-[11px] text-gray-700 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                                                            />
+                                                        )}
                                                     </div>
                                                     {!readOnly && (
                                                         <button

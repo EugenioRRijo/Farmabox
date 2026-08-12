@@ -3,7 +3,23 @@
  * Recibe IStorageService inyectado (Dependency Inversion).
  */
 import type { Professor } from '@scheduler/shared';
+import { findProfessorIdByIdentity } from '@scheduler/shared';
 import type { IStorageService } from './IStorageService';
+
+/** Fusiona un registro entrante sobre el previo (si existe), reusando el id.
+ *  Prefiere los valores entrantes pero NO borra cédula/email/profesión ya guardados. */
+function mergeProfessor(id: string, prev: Professor | undefined, raw: Partial<Professor>): Professor {
+  return {
+    id,
+    fullName: raw.fullName ?? prev?.fullName ?? 'Sin nombre',
+    title: raw.title ?? prev?.title ?? 'Prof.',
+    email: raw.email ?? prev?.email,
+    cedula: raw.cedula ?? prev?.cedula,
+    profession: raw.profession ?? prev?.profession,
+    subjects: raw.subjects ?? prev?.subjects ?? [],
+    type: raw.type ?? prev?.type ?? 'both',
+  };
+}
 
 export class ProfessorService {
   constructor(private readonly storage: IStorageService) {}
@@ -14,16 +30,16 @@ export class ProfessorService {
 
   create(data: Partial<Professor>): Professor {
     const professors = this.storage.loadProfessors();
-    const newProf: Professor = {
-      id: `prof-${Date.now()}`,
-      fullName: data.fullName ?? 'Nuevo Profesor',
-      title: data.title ?? 'Prof.',
-      email: data.email,
-      cedula: data.cedula,
-      profession: data.profession,
-      subjects: data.subjects ?? [],
-      type: data.type ?? 'both',
-    };
+    // Fusionar por identidad (cédula → nombre): si ya existe, actualiza ese registro
+    // en vez de crear un duplicado.
+    const matchId = findProfessorIdByIdentity(professors, data);
+    if (matchId) {
+      const idx = professors.findIndex((p) => p.id === matchId);
+      professors[idx] = mergeProfessor(matchId, professors[idx], data);
+      this.storage.saveProfessors(professors);
+      return professors[idx];
+    }
+    const newProf = mergeProfessor(`prof-${Date.now()}`, undefined, data);
     professors.push(newProf);
     this.storage.saveProfessors(professors);
     return newProf;
@@ -54,26 +70,25 @@ export class ProfessorService {
     return [];
   }
 
-  /** Importación en lote: crea/actualiza profesores (upsert por id; genera id si falta). */
+  /**
+   * Importación en lote: FUSIONA por identidad (cédula → nombre) contra la lista que
+   * va creciendo, así re-importar la misma lista NO duplica (bug histórico de los
+   * `prof-<timestamp>`). Solo crea un id nuevo cuando el profesor es genuinamente nuevo.
+   */
   bulkUpsert(incoming: Partial<Professor>[]): Professor[] {
-    const existing = this.storage.loadProfessors();
-    const byId = new Map(existing.map((p) => [p.id, p]));
-    let i = 0;
+    const professors = this.storage.loadProfessors();
+    let seq = 0;
     for (const raw of incoming) {
-      const id = raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${i++}`;
-      byId.set(id, {
-        id,
-        fullName: raw.fullName ?? 'Sin nombre',
-        title: raw.title ?? 'Prof.',
-        email: raw.email,
-        cedula: raw.cedula,
-        profession: raw.profession,
-        subjects: raw.subjects ?? [],
-        type: raw.type ?? 'both',
-      });
+      const matchId = findProfessorIdByIdentity(professors, raw);
+      if (matchId) {
+        const idx = professors.findIndex((p) => p.id === matchId);
+        professors[idx] = mergeProfessor(matchId, professors[idx], raw);
+      } else {
+        const id = raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${seq++}`;
+        professors.push(mergeProfessor(id, undefined, raw));
+      }
     }
-    const merged = [...byId.values()];
-    this.storage.saveProfessors(merged);
-    return merged;
+    this.storage.saveProfessors(professors);
+    return professors;
   }
 }

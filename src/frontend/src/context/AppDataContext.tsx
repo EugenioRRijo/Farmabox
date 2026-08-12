@@ -4,12 +4,14 @@ import {
   Semester,
   PensumSubject
 } from '../../../shared/src/index';
-import { AcademicLoad, ScheduleBlock } from '@/types/schedule';
+import { AcademicLoad, ScheduleBlock, AdminHour } from '@/types/schedule';
 import { sanitizeProfessorReferences } from '../../../shared/src/logic/sanitizeProfessorReferences';
 import { reconcileProfessorLoad } from '../../../shared/src/logic/reconcileProfessorLoad';
 import { restampBlocksFromLoad } from '../../../shared/src/logic/restampBlocksFromLoad';
 import { seedAcademicLoadFromProfessors } from '../../../shared/src/logic/seedAcademicLoadFromProfessors';
+import { mergeAdminHours, itemsToPush, liveAdminHours } from '../../../shared/src/logic/adminHours';
 import * as Backend from '../services/BackendService';
+import { fetchAdminHours, pushAdminHours, subscribeAdminHours } from '../services/adminHoursClient';
 
 interface AppDataContextType {
   professors: Professor[];
@@ -34,6 +36,10 @@ interface AppDataContextType {
   logScheduleChange: (action: string, details: string) => Promise<void>;
   availableSubjects: PensumSubject[];
   reload: (silent?: boolean) => Promise<void>;
+  // Horas administrativas (aparte de las clases; solo en el horario individual del profesor).
+  adminHours: AdminHour[];
+  addAdminHour: (h: AdminHour) => void;
+  removeAdminHour: (id: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -45,6 +51,72 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [pensum, setPensum] = useState<Semester[]>([]);
   const [academicLoad, setAcademicLoad] = useState<AcademicLoad>({});
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
+  // Horas administrativas: localStorage como caché offline + sync con Supabase
+  // (tabla admin_hours, migración 2.7). El estado guarda TODO (incluye tombstones,
+  // necesarios para que un borrado no "resucite" al mergear con otra PC); la UI
+  // solo ve lo vivo. Merge por id newest-wins en shared/logic/adminHours.
+  const [adminHours, setAdminHours] = useState<AdminHour[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('farmabox.adminHours') || '[]') as AdminHour[];
+    } catch {
+      return [];
+    }
+  });
+  const adminHoursRef = useRef(adminHours);
+  useEffect(() => {
+    adminHoursRef.current = adminHours;
+  }, [adminHours]);
+  const persistAdminHours = useCallback((list: AdminHour[]) => {
+    setAdminHours(list);
+    try {
+      localStorage.setItem('farmabox.adminHours', JSON.stringify(list));
+    } catch {
+      /* almacenamiento lleno / no disponible: se mantiene en memoria */
+    }
+  }, []);
+  const addAdminHour = useCallback(
+    (h: AdminHour) => {
+      const stamped = { ...h, updatedAt: new Date().toISOString(), deletedAt: null };
+      persistAdminHours([...adminHoursRef.current, stamped]);
+      void pushAdminHours([stamped]); // best-effort; si falla, el sync periódico lo re-sube
+    },
+    [persistAdminHours],
+  );
+  const removeAdminHour = useCallback(
+    (id: string) => {
+      const now = new Date().toISOString();
+      let tombstoned: AdminHour | null = null;
+      const list = adminHoursRef.current.map((x) => {
+        if (x.id !== id) return x;
+        tombstoned = { ...x, updatedAt: now, deletedAt: now };
+        return tombstoned;
+      });
+      persistAdminHours(list);
+      if (tombstoned) void pushAdminHours([tombstoned]);
+    },
+    [persistAdminHours],
+  );
+  // Pull + merge + push de pendientes (items legados de v2.3.15 o edits offline).
+  const syncAdminHours = useCallback(async () => {
+    const remote = await fetchAdminHours();
+    if (!remote) return; // nube no disponible (tabla ausente / red) → seguir local
+    const local = adminHoursRef.current;
+    const pending = itemsToPush(local, remote, new Date().toISOString());
+    const merged = mergeAdminHours(mergeAdminHours(local, pending), remote);
+    persistAdminHours(merged);
+    if (pending.length) void pushAdminHours(pending);
+  }, [persistAdminHours]);
+  useEffect(() => {
+    void syncAdminHours();
+    const unsub = subscribeAdminHours(() => void syncAdminHours());
+    const timer = setInterval(() => void syncAdminHours(), 30000);
+    return () => {
+      unsub();
+      clearInterval(timer);
+    };
+  }, [syncAdminHours]);
+  // La UI (visualizador, PDFs) solo ve las horas vivas.
+  const visibleAdminHours = useMemo(() => liveAdminHours(adminHours), [adminHours]);
   const [selectedSemester, setSelectedSemester] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,12 +134,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   // silenciosos se posponen para no borrarlo (convergen al terminar de guardar).
   const localEditSeq = useRef(0);
   const syncedEditSeq = useRef(0);
+  // Marca del último tecleo en CUALQUIER campo de texto. Los reload en segundo plano
+  // (poll/realtime) se posponen mientras se escribe, para que no interrumpan ni laggeen
+  // la escritura (antes solo se protegían las mutaciones, no los search/form/inputs).
+  const lastTypeRef = useRef(0);
+  const TYPING_GUARD_MS = 1500;
 
   // Carga desde el backend. Reutilizable: al montar y al recibir cambios de otra PC.
   const reload = useCallback(async (silent = false) => {
-    // No pisar ediciones locales en curso: si el usuario está editando y el guardado
-    // aún no se confirmó, posponer el refresco en segundo plano.
-    if (silent && localEditSeq.current !== syncedEditSeq.current) return;
+    // No pisar ediciones locales en curso NI interrumpir la escritura: si el usuario
+    // está editando (mutación sin confirmar) o tecleó hace muy poco, posponer el refresco.
+    if (
+      silent &&
+      (localEditSeq.current !== syncedEditSeq.current ||
+        Date.now() - lastTypeRef.current < TYPING_GUARD_MS)
+    )
+      return;
     try {
       {
         const [profs, subs, load, blocks] = await Promise.all([
@@ -162,6 +244,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Registrar el último tecleo (cualquier input/textarea/contenteditable) para posponer
+  // los reload de fondo mientras el usuario escribe — evita el lag/corte al escribir.
+  useEffect(() => {
+    const onType = () => {
+      lastTypeRef.current = Date.now();
+    };
+    document.addEventListener('input', onType, true);
+    return () => document.removeEventListener('input', onType, true);
+  }, []);
 
   // Pull periódico multi-PC: cuando otra PC cambió algo, recargar en silencio.
   useEffect(() => {
@@ -408,6 +500,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     logScheduleChange,
     availableSubjects,
     reload,
+    adminHours: visibleAdminHours,
+    addAdminHour,
+    removeAdminHour,
   };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
