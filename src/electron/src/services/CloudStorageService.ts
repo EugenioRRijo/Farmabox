@@ -33,6 +33,7 @@ interface ProfRow {
   type: string;
   updated_at: string | null;
   deleted_at: string | null;
+  updated_by: string | null;
 }
 interface SubjRow {
   code: string;
@@ -47,6 +48,7 @@ interface SubjRow {
   prerequisites: string[] | null;
   updated_at: string | null;
   deleted_at: string | null;
+  updated_by: string | null;
 }
 interface LinkRow {
   professor_id: string;
@@ -57,6 +59,7 @@ interface LoadRow {
   professor_id: string;
   role: string;
   updated_at: string | null;
+  updated_by: string | null;
 }
 interface BlockRow {
   id: string;
@@ -73,6 +76,7 @@ interface BlockRow {
   aula: string | null;
   updated_at: string | null;
   deleted_at: string | null;
+  updated_by: string | null;
 }
 interface LogRow {
   id: string;
@@ -81,6 +85,21 @@ interface LogRow {
   timestamp: string | null;
   updated_at: string | null;
   deleted_at: string | null;
+}
+
+/**
+ * Normaliza un sello leído de la nube al formato local (`Z`).
+ * PostgREST devuelve offsets `+00:00` mientras lo local sella con
+ * `new Date().toISOString()` (sufijo `Z`); la comparación newest-wins es
+ * LEXICOGRÁFICA y entre formatos distintos el mismo instante parece "más
+ * nuevo" de un lado (incidente: ítems idénticos caían como "local más nuevo"
+ * → "subes" fantasma). null/undefined → undefined; un valor no parseable se
+ * devuelve tal cual (mejor comparar algo que romper el pull).
+ */
+export function normalizarSello(s: string | null | undefined): string | undefined {
+  if (!s) return undefined;
+  const ms = Date.parse(s);
+  return Number.isNaN(ms) ? s : new Date(ms).toISOString();
 }
 
 /**
@@ -100,6 +119,16 @@ function ensureWebSocket(): void {
 export class CloudStorageService extends SyncStorageBase {
   private client: SupabaseClient | null = null;
   private colSupported: Record<string, boolean> = {}; // columnas nuevas: omitir si la base aún no las tiene
+
+  /** Claves de links y de carga VISTAS en el último pullRemote (el del mismo
+   *  ciclo: pushDataOnly hace syncNow → pullRemote ANTES de pushRemote).
+   *  Mitiga la carrera del delete-loop: entre ese pull y el delete, otra PC
+   *  (o la web) puede INSERTAR una fila que esta copia jamás vio; como estas
+   *  tablas no tienen tombstone, hard-borrarla sería pérdida permanente. El
+   *  delete-loop solo borra claves que EXISTÍAN en el pull previo; lo no
+   *  visto se deja quieto y el próximo pull lo baja y lo fusiona.
+   *  `null` = nunca hubo pull en esta sesión → no se borra nada. */
+  private vistoEnPull: { links: Set<string>; carga: Set<string> } | null = null;
 
   /** Quita una columna de las filas si todavía no existe en la tabla (para no romper el upsert). */
   private async stripCol(
@@ -179,8 +208,13 @@ export class CloudStorageService extends SyncStorageBase {
     const subsFlat: SSubject[] = raw.pensum.flatMap((s) =>
       s.subjects.map((sub) => ({ ...sub, _sem: s.number })),
     );
-    const allProfIds = new Set(profs.map((p) => p.id));
-    const allSubjCodes = new Set(subsFlat.map((s) => s.code));
+    // Solo lo VIVO crea filas de vínculo/carga: un profesor o materia
+    // tombstoneada no debe sostener links en la nube (con el set completo, los
+    // links hacia borrados se re-creaban en cada push y quedaban zombis
+    // eternos). Al no recrearse, el delete-loop de abajo los limpia en el
+    // próximo push; la lógica del keep-set no cambia.
+    const liveProfIds = new Set(this.live(profs).map((p) => p.id));
+    const liveSubjCodes = new Set(subsFlat.filter((s) => !s.deletedAt).map((s) => s.code));
 
     // 1. Profesores (incluye tombstoned, con deleted_at).
     const profRows: ProfRow[] = profs.map((p) => ({
@@ -193,13 +227,16 @@ export class CloudStorageService extends SyncStorageBase {
       type: p.type,
       updated_at: p.updatedAt ?? this.now(),
       deleted_at: p.deletedAt ?? null,
+      updated_by: p.updatedBy ?? null,
     }));
     if (profRows.length) {
-      const rows = await this.stripCol(
+      let rows = await this.stripCol(
         'professors',
         'profession',
         profRows as unknown as Record<string, unknown>[],
       );
+      // Atribución por equipo: se omite si falta la columna (migración 2.8).
+      rows = await this.stripCol('professors', 'updated_by', rows);
       const { error } = await this.client.from('professors').upsert(rows);
       if (error) throw error;
     }
@@ -218,13 +255,16 @@ export class CloudStorageService extends SyncStorageBase {
       prerequisites: s.prerequisites ?? [],
       updated_at: s.updatedAt ?? this.now(),
       deleted_at: s.deletedAt ?? null,
+      updated_by: s.updatedBy ?? null,
     }));
     if (subjRows.length) {
-      const rows = await this.stripCol(
+      let rows = await this.stripCol(
         'subjects',
         'aula',
         subjRows as unknown as Record<string, unknown>[],
       );
+      // Atribución por equipo: se omite si falta la columna (migración 2.8).
+      rows = await this.stripCol('subjects', 'updated_by', rows);
       const { error } = await this.client.from('subjects').upsert(rows);
       if (error) throw error;
     }
@@ -233,7 +273,7 @@ export class CloudStorageService extends SyncStorageBase {
     const linkSet = new Set<string>();
     const links: LinkRow[] = [];
     const addLink = (pid: string, code: string): void => {
-      if (!allProfIds.has(pid) || !allSubjCodes.has(code)) return; // respeta las FKs
+      if (!liveProfIds.has(pid) || !liveSubjCodes.has(code)) return; // respeta FKs y no revive links de tombstoneados
       const key = `${pid} ${code}`;
       if (linkSet.has(key)) return;
       linkSet.add(key);
@@ -250,11 +290,18 @@ export class CloudStorageService extends SyncStorageBase {
       if (error) throw error;
     }
     {
-      const keep = new Set(links.map((l) => `${l.professor_id} ${l.subject_code}`));
+      const keep = new Set(links.map((l) => `${l.professor_id} ${l.subject_code}`));
       // pullAll: la lectura completa también pagina (mismo cap de 1000 de PostgREST).
       const existing = await this.pullAll('professor_subjects');
       for (const r of existing as unknown as LinkRow[]) {
-        if (keep.has(`${r.professor_id} ${r.subject_code}`)) continue;
+        const key = `${r.professor_id} ${r.subject_code}`;
+        if (keep.has(key)) continue;
+        // Carrera del delete-loop: si la fila NO estaba en el pull previo de
+        // este mismo ciclo, la acaba de crear otra PC (o la web) y esta copia
+        // jamás la vio; hard-borrarla sería pérdida permanente (la tabla no
+        // tiene tombstone). Se deja quieta: el próximo pull la baja y la
+        // fusiona (ver vistoEnPull).
+        if (!this.vistoEnPull?.links.has(key)) continue;
         const del = await this.client
           .from('professor_subjects')
           .delete()
@@ -267,16 +314,28 @@ export class CloudStorageService extends SyncStorageBase {
     // 4. academic_load: reemplazar por las asignaciones vivas.
     const loadInsert: LoadRow[] = [];
     for (const [code, v] of Object.entries(raw.academicLoad)) {
-      if (v.deletedAt || !allSubjCodes.has(code)) continue;
+      // Solo materias/profesores VIVOS crean filas (ver liveProfIds arriba).
+      if (v.deletedAt || !liveSubjCodes.has(code)) continue;
+      // El sellado de academic_load es por subjectCode: cada fila hereda el
+      // sello y la atribución del contenedor (SLoadVal) de su materia.
       const ts = v.updatedAt ?? this.now();
+      const by = v.updatedBy ?? null;
       for (const pid of v.theory ?? [])
-        if (allProfIds.has(pid)) loadInsert.push({ subject_code: code, professor_id: pid, role: 'theory', updated_at: ts });
+        if (liveProfIds.has(pid))
+          loadInsert.push({ subject_code: code, professor_id: pid, role: 'theory', updated_at: ts, updated_by: by });
       for (const pid of v.lab ?? [])
-        if (allProfIds.has(pid)) loadInsert.push({ subject_code: code, professor_id: pid, role: 'lab', updated_at: ts });
+        if (liveProfIds.has(pid))
+          loadInsert.push({ subject_code: code, professor_id: pid, role: 'lab', updated_at: ts, updated_by: by });
     }
     // Upsert lo nuevo y borrar solo lo que sobra (nunca queda vacía a medio camino).
     if (loadInsert.length) {
-      const { error } = await this.client.from('academic_load').upsert(loadInsert);
+      // Atribución por equipo: se omite si falta la columna (migración 2.8).
+      const rows = await this.stripCol(
+        'academic_load',
+        'updated_by',
+        loadInsert as unknown as Record<string, unknown>[],
+      );
+      const { error } = await this.client.from('academic_load').upsert(rows);
       if (error) throw error;
     }
     {
@@ -284,7 +343,12 @@ export class CloudStorageService extends SyncStorageBase {
       // pullAll: la lectura completa también pagina (mismo cap de 1000 de PostgREST).
       const existing = await this.pullAll('academic_load');
       for (const r of existing as unknown as LoadRow[]) {
-        if (keep.has(`${r.subject_code} ${r.professor_id} ${r.role}`)) continue;
+        const key = `${r.subject_code} ${r.professor_id} ${r.role}`;
+        if (keep.has(key)) continue;
+        // Misma mitigación de carrera que en professor_subjects: solo se
+        // borra lo que EXISTÍA en el pull previo de este ciclo (vistoEnPull);
+        // una fila recién creada por otra PC se conserva.
+        if (!this.vistoEnPull?.carga.has(key)) continue;
         const del = await this.client
           .from('academic_load')
           .delete()
@@ -311,6 +375,7 @@ export class CloudStorageService extends SyncStorageBase {
       aula: b.aula ?? null,
       updated_at: b.updatedAt ?? this.now(),
       deleted_at: b.deletedAt ?? null,
+      updated_by: b.updatedBy ?? null,
     }));
     if (blockRows.length) {
       let rows = await this.stripCol(
@@ -320,6 +385,8 @@ export class CloudStorageService extends SyncStorageBase {
       );
       // Columna `aula` por bloque: se omite si la base aún no la tiene (degradación).
       rows = await this.stripCol('schedule_blocks', 'aula', rows);
+      // Atribución por equipo: se omite si falta la columna (migración 2.8).
+      rows = await this.stripCol('schedule_blocks', 'updated_by', rows);
       const { error } = await this.client.from('schedule_blocks').upsert(rows);
       if (error) throw error;
     }
@@ -396,6 +463,23 @@ export class CloudStorageService extends SyncStorageBase {
       if (!profsBySubject.has(l.subject_code)) profsBySubject.set(l.subject_code, []);
       profsBySubject.get(l.subject_code)!.push(l.professor_id);
     }
+    // Vínculos M:N sin orden semántico: se ordenan para que comparen igual que
+    // lo local (SyncStorageBase también los ordena al sellar; ver normProfessor).
+    // Sin esto, el orden de tabla vs. el de inserción local daba contenido
+    // "distinto" eterno en empate de sello ("subes" fantasma).
+    for (const arr of subjectsByProf.values()) arr.sort();
+    for (const arr of profsBySubject.values()) arr.sort();
+
+    // Claves vistas en ESTE pull: el delete-loop de pushRemote solo puede
+    // borrar filas que existían aquí (mitigación de la carrera; ver vistoEnPull).
+    this.vistoEnPull = {
+      links: new Set(links.map((l) => `${l.professor_id} ${l.subject_code}`)),
+      carga: new Set(
+        (loadRows as unknown as LoadRow[]).map(
+          (r) => `${r.subject_code} ${r.professor_id} ${r.role}`,
+        ),
+      ),
+    };
 
     const professors: SProfessor[] = (profRows as unknown as ProfRow[]).map((r) => ({
       id: r.id,
@@ -406,8 +490,11 @@ export class CloudStorageService extends SyncStorageBase {
       profession: r.profession ?? undefined,
       type: r.type as Professor['type'],
       subjects: subjectsByProf.get(r.id) ?? [],
-      updatedAt: r.updated_at ?? undefined,
-      deletedAt: r.deleted_at ?? undefined,
+      // normalizarSello: PostgREST devuelve '+00:00' y lo local sella con 'Z';
+      // sin normalizar, la comparación lexicográfica ve "distinto" el mismo instante.
+      updatedAt: normalizarSello(r.updated_at),
+      deletedAt: normalizarSello(r.deleted_at),
+      updatedBy: r.updated_by ?? undefined,
     }));
 
     const bySem = new Map<number, SSubject[]>();
@@ -423,8 +510,9 @@ export class CloudStorageService extends SyncStorageBase {
         professors: profsBySubject.get(r.code) ?? [],
         labNumber: r.lab_number ?? undefined,
         aula: r.aula ?? undefined,
-        updatedAt: r.updated_at ?? undefined,
-        deletedAt: r.deleted_at ?? undefined,
+        updatedAt: normalizarSello(r.updated_at),
+        deletedAt: normalizarSello(r.deleted_at),
+        updatedBy: r.updated_by ?? undefined,
       };
       const n = r.semester ?? 1;
       if (!bySem.has(n)) bySem.set(n, []);
@@ -440,7 +528,13 @@ export class CloudStorageService extends SyncStorageBase {
       const entry = academicLoad[r.subject_code];
       if (r.role === 'lab') entry.lab!.push(r.professor_id);
       else entry.theory!.push(r.professor_id);
-      if (r.updated_at && (!entry.updatedAt || r.updated_at > entry.updatedAt)) entry.updatedAt = r.updated_at;
+      // El contenedor hereda el sello (y su atribución) de la fila más
+      // reciente (normalizado a 'Z' para comparar formatos iguales).
+      const ts = normalizarSello(r.updated_at);
+      if (ts && (!entry.updatedAt || ts > entry.updatedAt)) {
+        entry.updatedAt = ts;
+        entry.updatedBy = r.updated_by ?? undefined;
+      }
     }
 
     const scheduleBlocks: SBlock[] = (blockRows as unknown as BlockRow[]).map((r) => ({
@@ -456,8 +550,9 @@ export class CloudStorageService extends SyncStorageBase {
       section: r.section ?? undefined,
       labGroupId: r.lab_group_id ?? undefined,
       aula: r.aula ?? undefined,
-      updatedAt: r.updated_at ?? undefined,
-      deletedAt: r.deleted_at ?? undefined,
+      updatedAt: normalizarSello(r.updated_at),
+      deletedAt: normalizarSello(r.deleted_at),
+      updatedBy: r.updated_by ?? undefined,
     }));
 
     const logs: SLog[] = (logRows as unknown as LogRow[]).map((r) => ({
@@ -465,8 +560,8 @@ export class CloudStorageService extends SyncStorageBase {
       action: r.action,
       details: r.details ?? '',
       timestamp: r.timestamp ?? this.now(),
-      updatedAt: r.updated_at ?? undefined,
-      deletedAt: r.deleted_at ?? undefined,
+      updatedAt: normalizarSello(r.updated_at),
+      deletedAt: normalizarSello(r.deleted_at),
     }));
 
     return { professors, pensum, scheduleBlocks, academicLoad, logs };

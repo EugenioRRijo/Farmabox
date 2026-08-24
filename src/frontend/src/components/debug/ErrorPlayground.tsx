@@ -26,9 +26,9 @@ export function ErrorPlayground() {
   };
 
   return (
-    <div className="p-4 border-2 border-dashed border-red-200 dark:border-red-900/30 rounded-lg bg-red-50 dark:bg-red-900/10 mb-8">
-      <h3 className="text-lg font-bold text-red-800 dark:text-red-400 mb-2">⚠ Zona de Pruebas de Errores</h3>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+    <div className="p-4 border-2 border-dashed border-red-200 rounded-lg bg-red-50 mb-8">
+      <h3 className="text-lg font-bold text-red-800 mb-2">⚠ Zona de Pruebas de Errores</h3>
+      <p className="text-sm text-gray-600 mb-4">
         Utiliza estos botones para simular fallos y verificar que el Debugger los capture correctamente.
       </p>
       

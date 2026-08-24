@@ -85,6 +85,10 @@ export interface ElectronAPI {
     getStorage(): Promise<Envelope<StorageInfo>>;
     setSharedDir(dir: string | null): Promise<Envelope<{ ok: boolean; sharedDir: string | null }>>;
     pickFolder(): Promise<Envelope<{ path: string | null }>>;
+    /** Nombre amigable de este equipo (default: os.hostname()). */
+    getDeviceName(): Promise<Envelope<string>>;
+    /** Cambia el nombre del equipo (trim, 1..40 chars; vacío → vuelve al hostname). */
+    setDeviceName(name: string): Promise<Envelope<{ ok: boolean; name: string }>>;
   };
 
   sync: {
@@ -100,8 +104,10 @@ export interface ElectronAPI {
     createBackup(): Promise<Envelope<{ ok: boolean }>>;
   };
 
-  /** Suscribe a cambios traídos por el pull periódico (multi-PC). Devuelve un unsubscribe. */
-  onDataChanged(callback: () => void): () => void;
+  /** Suscribe a cambios traídos por el pull periódico (multi-PC). Devuelve un unsubscribe.
+   *  El payload es el resumen de cambios entrantes (RemoteChangeSummary) o undefined si
+   *  el pull no trajo nada atribuible; se tipa `unknown` porque cruza el puente IPC. */
+  onDataChanged(callback: (summary?: unknown) => void): () => void;
 }
 
 declare global {

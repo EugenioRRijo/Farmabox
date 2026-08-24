@@ -22,6 +22,8 @@ export interface AdminHour {
    *  de la v2.3.15 (localStorage puro); ver shared/logic/adminHours. */
   updatedAt?: string | null;
   deletedAt?: string | null;
+  /** Equipo que firmó la última edición (atribución por equipo, migración 2.8). */
+  updatedBy?: string | null;
 }
 
 export interface ScheduleBlock {

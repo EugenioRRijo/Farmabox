@@ -12,9 +12,15 @@
  * de red local (SharedFolderStorageService). El merge por ítem (sync/merge.ts, con
  * tests) evita perder datos al combinar lo de varias PCs.
  */
+import os from 'os';
 import log from 'electron-log';
-import { mergeRaw, mergeMaps, type Stamped } from '../sync/merge';
-import { buildSyncPreview, type SyncPreview } from '../sync/preview';
+import { mergeRaw, mergeMaps, stampOf, type Stamped } from '../sync/merge';
+import {
+  buildSyncPreview,
+  summarizeIncoming,
+  type SyncPreview,
+  type RemoteChangeSummary,
+} from '../sync/preview';
 import type { IStorageService } from './IStorageService';
 import type { Professor, Semester, PensumSubject } from '@scheduler/shared';
 import type { AcademicLoad, ScheduleBlockData, LogEntry } from '../types';
@@ -39,13 +45,18 @@ export interface RawDatasets {
  *  estado local viene de JSON en disco (sin esas claves) y el mapeo del pull
  *  las materializa como `undefined` explícito (`aula ?? undefined`, etc.);
  *  si contaran como `null`, sameContent daría falso para contenido idéntico
- *  (incidente: "subes" fantasma en el preview con sellos empatados). */
+ *  (incidente: "subes" fantasma en el preview con sellos empatados).
+ *  `updatedBy` también es metadata de sync: si contara como contenido, una base
+ *  sin la columna updated_by (migración 2.8 pendiente) haría que TODO pareciera
+ *  distinto tras cada pull (mismo incidente de "subes" fantasma). */
 export function stableStringify(o: unknown): string {
   if (o === null || typeof o !== 'object') return JSON.stringify(o) ?? 'null';
   if (Array.isArray(o)) return '[' + o.map(stableStringify).join(',') + ']';
   const obj = o as Record<string, unknown>;
   const keys = Object.keys(obj)
-    .filter((k) => k !== 'updatedAt' && k !== 'deletedAt' && obj[k] !== undefined)
+    .filter(
+      (k) => k !== 'updatedAt' && k !== 'deletedAt' && k !== 'updatedBy' && obj[k] !== undefined,
+    )
     .sort();
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}';
 }
@@ -56,14 +67,40 @@ export function sameContent(a: unknown, b: unknown): boolean {
 export abstract class SyncStorageBase implements IStorageService {
   private autoPushTimer: ReturnType<typeof setTimeout> | null = null;
   /** Notifica al proceso main cuando un pull-merge (antes de subir) trajo cambios,
-   *  para que avise al renderer (data-changed) y la UI no quede desactualizada. */
-  private onMerged: (() => void) | null = null;
+   *  para que avise al renderer (data-changed) y la UI no quede desactualizada.
+   *  Recibe el resumen de lo entrante (si se pudo calcular) para el aviso en vivo. */
+  private onMerged: ((summary?: RemoteChangeSummary) => void) | null = null;
+  /** Nombre amigable con el que esta PC firma sus escrituras (`updatedBy`).
+   *  main.ts lo cablea con el nombre configurado; fallback: hostname. */
+  private deviceName: string = os.hostname();
+
+  /** Claves VISTAS por la UI, por dataset: las que devolvió el último loadX()
+   *  (o el estado que dejó el último save). Los saves del .exe son full-set
+   *  (el renderer manda TODO su snapshot) y tombstonean lo que falte; pero si
+   *  un ítem llegó por merge en segundo plano (realtime) y la UI aún no
+   *  recargó (reload pospuesto por typing/edición), su ausencia del snapshot
+   *  NO es un borrado del usuario: tombstonearlo con sello fresco lo borraría
+   *  en toda la flota. Patrón "solo tombstonea lo visto" (como el camino web):
+   *  solo se tombstonea lo que la UI realmente vio. `null` = aún sin
+   *  información (comportamiento clásico: todo se considera visto). */
+  private vistos: {
+    professors: Set<string> | null;
+    blocks: Set<string> | null;
+    load: Set<string> | null;
+    pensum: Set<string> | null;
+  } = { professors: null, blocks: null, load: null, pensum: null };
 
   constructor(protected readonly local: IStorageService) {}
 
   /** Lo cablea main.ts para reenviar 'data-changed' al renderer. */
-  setOnMerged(cb: (() => void) | null): void {
+  setOnMerged(cb: ((summary?: RemoteChangeSummary) => void) | null): void {
     this.onMerged = cb;
+  }
+
+  /** Cambia el nombre con el que se firman las escrituras FUTURAS (no re-firma
+   *  nada retroactivamente). Vacío → vuelve al hostname. */
+  setDeviceName(name: string): void {
+    this.deviceName = name.trim() || os.hostname();
   }
 
   // ── Realtime (#7): suscripción a cambios remotos casi instantánea ─────────
@@ -93,9 +130,35 @@ export abstract class SyncStorageBase implements IStorageService {
     return new Date().toISOString();
   }
 
+  // ── Normalización de arrays de vínculo (orden sin semántica) ─────────────
+  /** `professor.subjects` y `subject.professors` son SETS de vínculo: el orden
+   *  no significa nada, pero `stableStringify` NO ordena arrays y el pull los
+   *  reconstruye en orden de tabla mientras lo local conserva el orden de
+   *  inserción → `sameContent` daba falso para el mismo set y en empate de
+   *  sello el preview marcaba "subes" fantasma eternos. Se ordenan en los
+   *  puntos de persistencia (aquí) y de pull (cada backend), así local y
+   *  remoto comparan igual. Si el campo falta se deja tal cual (materializar
+   *  `[]` también cambiaría el contenido). */
+  protected normProfessor(p: SProfessor): SProfessor {
+    return p.subjects ? { ...p, subjects: [...p.subjects].sort() } : p;
+  }
+  protected normSubject(s: SSubject): SSubject {
+    return s.professors ? { ...s, professors: [...s.professors].sort() } : s;
+  }
+
   // ── Sellado de ítems ─────────────────────────────────────────────────────
-  /** Sella un array con clave: nuevos/cambiados → updatedAt=now; removidos → tombstone. */
-  protected stampArray<T extends Stamped>(prev: T[], next: T[], keyOf: (i: T) => string): T[] {
+  /** Sella un array con clave: nuevos/cambiados → updatedAt=now; removidos → tombstone.
+   *  `updatedBy` viaja CON el sello: se firma solo donde se re-sella (cambio o
+   *  tombstone); los ítems sin cambio conservan su atribución anterior.
+   *  `vistos` (opcional): claves que la UI realmente vio (ver `this.vistos`);
+   *  un ítem ausente del snapshot que NO esté ahí llegó por merge en segundo
+   *  plano y SE CONSERVA VIVO en vez de tombstonearse. */
+  protected stampArray<T extends Stamped>(
+    prev: T[],
+    next: T[],
+    keyOf: (i: T) => string,
+    vistos?: Set<string> | null,
+  ): T[] {
     const ts = this.now();
     const prevByKey = new Map(prev.map((i) => [keyOf(i), i]));
     const out: T[] = [];
@@ -105,14 +168,25 @@ export abstract class SyncStorageBase implements IStorageService {
       seen.add(k);
       const p = prevByKey.get(k);
       if (p && sameContent(p, item)) {
-        out.push({ ...item, updatedAt: p.updatedAt ?? ts, deletedAt: undefined });
+        // Sin cambio: conserva sello y autor previos (no re-firmar lo ajeno).
+        out.push({ ...item, updatedAt: p.updatedAt ?? ts, updatedBy: p.updatedBy, deletedAt: undefined });
       } else {
-        out.push({ ...item, updatedAt: ts, deletedAt: undefined });
+        out.push({ ...item, updatedAt: ts, updatedBy: this.deviceName, deletedAt: undefined });
       }
     }
     for (const [k, p] of prevByKey) {
       if (seen.has(k)) continue;
-      out.push(p.deletedAt ? p : { ...p, deletedAt: ts });
+      if (p.deletedAt) {
+        out.push(p);
+        continue;
+      }
+      // Solo tombstonea lo VISTO: si la UI nunca vio este ítem (llegó por
+      // merge en segundo plano), su ausencia del snapshot no es un borrado.
+      if (vistos && !vistos.has(k)) {
+        out.push(p);
+        continue;
+      }
+      out.push({ ...p, deletedAt: ts, updatedBy: this.deviceName });
     }
     return out;
   }
@@ -123,28 +197,36 @@ export abstract class SyncStorageBase implements IStorageService {
 
   // ── Persistencia (offline-first; agenda guardado al remoto) ──────────────
   loadProfessors(): Professor[] {
-    return this.live(this.local.loadProfessors() as SProfessor[]);
+    const vivos = this.live(this.local.loadProfessors() as SProfessor[]);
+    this.vistos.professors = new Set(vivos.map((p) => p.id));
+    return vivos;
   }
   saveProfessors(professors: Professor[]): void {
     const stamped = this.stampArray(
-      this.local.loadProfessors() as SProfessor[],
-      professors as SProfessor[],
+      (this.local.loadProfessors() as SProfessor[]).map((p) => this.normProfessor(p)),
+      (professors as SProfessor[]).map((p) => this.normProfessor(p)),
       (p) => p.id,
+      this.vistos.professors,
     );
     this.local.saveProfessors(stamped);
+    this.vistos.professors = new Set(this.live(stamped).map((p) => p.id));
     this.scheduleAutoPush();
   }
 
   loadScheduleBlocks(): ScheduleBlockData[] {
-    return this.live(this.local.loadScheduleBlocks() as SBlock[]);
+    const vivos = this.live(this.local.loadScheduleBlocks() as SBlock[]);
+    this.vistos.blocks = new Set(vivos.map((b) => b.id));
+    return vivos;
   }
   saveScheduleBlocks(blocks: ScheduleBlockData[]): void {
     const stamped = this.stampArray(
       this.local.loadScheduleBlocks() as SBlock[],
       blocks as SBlock[],
       (b) => b.id,
+      this.vistos.blocks,
     );
     this.local.saveScheduleBlocks(stamped);
+    this.vistos.blocks = new Set(this.live(stamped).map((b) => b.id));
     this.scheduleAutoPush();
   }
 
@@ -165,6 +247,7 @@ export abstract class SyncStorageBase implements IStorageService {
     const raw = this.local.loadAcademicLoad() as Record<string, SLoadVal>;
     const out: AcademicLoad = {};
     for (const [k, v] of Object.entries(raw)) if (!v.deletedAt) out[k] = v;
+    this.vistos.load = new Set(Object.keys(out));
     return out;
   }
   saveAcademicLoad(load: AcademicLoad): void {
@@ -175,33 +258,48 @@ export abstract class SyncStorageBase implements IStorageService {
       const p = prev[k];
       out[k] =
         p && sameContent(p, v)
-          ? { ...v, updatedAt: p.updatedAt ?? ts }
-          : { ...(v as SLoadVal), updatedAt: ts };
+          ? { ...v, updatedAt: p.updatedAt ?? ts, updatedBy: p.updatedBy }
+          : { ...(v as SLoadVal), updatedAt: ts, updatedBy: this.deviceName };
     }
     for (const [k, p] of Object.entries(prev)) {
       if (k in load) continue;
-      out[k] = p.deletedAt ? p : { ...p, deletedAt: ts };
+      if (p.deletedAt) {
+        out[k] = p;
+        continue;
+      }
+      // Solo tombstonea lo VISTO (ver stampArray/this.vistos): lo que llegó
+      // por merge en segundo plano y la UI aún no recargó se conserva vivo.
+      if (this.vistos.load && !this.vistos.load.has(k)) {
+        out[k] = p;
+        continue;
+      }
+      out[k] = { ...p, deletedAt: ts, updatedBy: this.deviceName };
     }
     this.local.saveAcademicLoad(out);
+    this.vistos.load = new Set(Object.entries(out).filter(([, v]) => !v.deletedAt).map(([k]) => k));
     this.scheduleAutoPush();
   }
 
   loadPensum(): Semester[] {
-    return this.stripPensum(this.local.loadPensum() as SSemester[]);
+    const vivos = this.stripPensum(this.local.loadPensum() as SSemester[]);
+    this.vistos.pensum = new Set(vivos.flatMap((s) => s.subjects.map((x) => x.code)));
+    return vivos;
   }
   savePensum(pensum: Semester[]): void {
     const prev = this.local.loadPensum() as SSemester[];
     const prevByCode = new Map<string, SSubject>();
-    for (const s of prev) for (const sub of s.subjects) prevByCode.set(sub.code, sub);
+    for (const s of prev) for (const sub of s.subjects) prevByCode.set(sub.code, this.normSubject(sub));
     const ts = this.now();
     const seen = new Set<string>();
     const stamped: SSemester[] = pensum.map((s) => ({
       number: s.number,
-      subjects: (s.subjects as SSubject[]).map((sub) => {
+      subjects: (s.subjects as SSubject[]).map((sub0) => {
+        const sub = this.normSubject(sub0);
         seen.add(sub.code);
         const p = prevByCode.get(sub.code);
-        if (p && sameContent(p, sub)) return { ...sub, updatedAt: p.updatedAt ?? ts, deletedAt: undefined };
-        return { ...sub, updatedAt: ts, deletedAt: undefined };
+        if (p && sameContent(p, sub))
+          return { ...sub, updatedAt: p.updatedAt ?? ts, updatedBy: p.updatedBy, deletedAt: undefined };
+        return { ...sub, updatedAt: ts, updatedBy: this.deviceName, deletedAt: undefined };
       }),
     }));
     for (const s of prev) {
@@ -212,11 +310,24 @@ export abstract class SyncStorageBase implements IStorageService {
           target = { number: s.number, subjects: [] };
           stamped.push(target);
         }
-        target.subjects.push(sub.deletedAt ? sub : { ...sub, deletedAt: ts });
+        if (sub.deletedAt) {
+          target.subjects.push(sub);
+          continue;
+        }
+        // Solo tombstonea lo VISTO (ver stampArray/this.vistos): lo mergeado
+        // en segundo plano que la UI aún no recargó se conserva vivo.
+        if (this.vistos.pensum && !this.vistos.pensum.has(sub.code)) {
+          target.subjects.push(sub);
+          continue;
+        }
+        target.subjects.push({ ...sub, deletedAt: ts, updatedBy: this.deviceName });
       }
     }
     stamped.sort((a, b) => a.number - b.number);
     this.local.savePensum(stamped);
+    this.vistos.pensum = new Set(
+      stamped.flatMap((s) => s.subjects.filter((x) => !x.deletedAt).map((x) => x.code)),
+    );
     this.scheduleAutoPush();
   }
   protected stripPensum(sems: SSemester[]): Semester[] {
@@ -285,7 +396,7 @@ export abstract class SyncStorageBase implements IStorageService {
         log.warn('[Sync] Pull previo al guardado falló; se pospone la subida (se mantiene local).');
         return { ok: false, error: 'No se pudo sincronizar antes de guardar' };
       }
-      if (sync.changed) this.onMerged?.();
+      if (sync.changed) this.onMerged?.(sync.summary);
       await this.pushRemote(this.localRaw());
       log.info('[Sync] Guardado al remoto OK.');
       return { ok: true };
@@ -296,13 +407,19 @@ export abstract class SyncStorageBase implements IStorageService {
     }
   }
 
-  /** Firma de lo que VE la UI (datos vivos), para detectar si un pull cambió algo. */
+  /** Firma de lo que VE la UI (datos vivos), para detectar si un pull cambió algo.
+   *  Lee DIRECTO del local sin pasar por los loadX() públicos: esta firma es
+   *  interna (no una lectura del renderer) y no debe marcar nada como "visto"
+   *  (this.vistos), o el merge en segundo plano quedaría tombstoneable. */
   private liveSignature(): string {
+    const raw = this.localRaw();
+    const loadVivo: AcademicLoad = {};
+    for (const [k, v] of Object.entries(raw.academicLoad)) if (!v.deletedAt) loadVivo[k] = v;
     return stableStringify({
-      p: this.loadProfessors(),
-      s: this.loadPensum(),
-      b: this.loadScheduleBlocks(),
-      l: this.loadAcademicLoad(),
+      p: this.live(raw.professors),
+      s: this.stripPensum(raw.pensum),
+      b: this.live(raw.scheduleBlocks),
+      l: loadVivo,
     });
   }
 
@@ -330,12 +447,28 @@ export abstract class SyncStorageBase implements IStorageService {
   }
 
   // ── Recibir (pull + merge por fila, automático al abrir y periódico) ─────
-  async syncNow(): Promise<{ ok: boolean; merged: string[]; changed: boolean }> {
+  async syncNow(): Promise<{
+    ok: boolean;
+    merged: string[];
+    changed: boolean;
+    summary?: RemoteChangeSummary;
+  }> {
     if (!this.isRemoteEnabled()) return { ok: false, merged: [], changed: false };
     const done: string[] = [];
     const before = this.liveSignature();
     try {
       const remote = await this.pullRemote();
+
+      // Resumen de lo ENTRANTE (aviso en vivo): se calcula ANTES de fusionar
+      // (después del merge local y remoto ya son iguales y no habría nada que
+      // contar). Si el preview fallara, el sync sigue normal sin resumen: un
+      // aviso jamás debe romper la sincronización.
+      let summary: RemoteChangeSummary | undefined;
+      try {
+        summary = summarizeIncoming(buildSyncPreview(this.localRaw(), remote, this.now()));
+      } catch (e) {
+        log.warn('[Sync] No se pudo calcular el resumen de cambios entrantes:', e);
+      }
 
       this.local.saveProfessors(
         mergeRaw(this.local.loadProfessors() as SProfessor[], remote.professors, (p) => p.id),
@@ -351,16 +484,42 @@ export abstract class SyncStorageBase implements IStorageService {
         mergeMaps(
           this.local.loadAcademicLoad() as Record<string, SLoadVal>,
           remote.academicLoad,
-          (v) => v.updatedAt ?? v.deletedAt ?? '',
+          // Sello EFECTIVO max(updatedAt, deletedAt) — no `updatedAt ?? deletedAt`:
+          // un tombstone local conserva su updatedAt viejo, y con la fórmula
+          // vieja perdía contra un remoto re-sellado intermedio (el borrado más
+          // nuevo se revertía, contradiciendo al preview, que ya usa el max).
+          stampOf,
         ),
       );
       done.push('academic-load');
-      this.local.savePensum(this.mergePensum(this.local.loadPensum() as SSemester[], remote.pensum));
+      // `subject.professors` es CACHÉ DERIVADA de la tabla de links
+      // (professor_subjects): la tabla es la verdad y pullRemote la reconstruye
+      // ya ordenada. El .exe NO mantiene esta caché al editar (los vínculos se
+      // editan en professor.subjects, que sube con su propio sello), así que en
+      // empate de sello el merge conservaría un fósil local para siempre
+      // ("subes" fantasma). Tras fusionar, se sobreescribe la caché con la
+      // vista remota SIN re-sellar (no es una edición del usuario): las
+      // ediciones offline pendientes viven en professor.subjects y regeneran
+      // los links al subir.
+      const cacheRemota = new Map<string, string[]>();
+      for (const s of remote.pensum)
+        for (const sub of s.subjects) if (sub.professors) cacheRemota.set(sub.code, sub.professors);
+      const pensumFusionado = this.mergePensum(
+        this.local.loadPensum() as SSemester[],
+        remote.pensum,
+      );
+      for (const s of pensumFusionado) {
+        for (const sub of s.subjects) {
+          const cache = cacheRemota.get(sub.code);
+          if (cache) sub.professors = [...cache].sort();
+        }
+      }
+      this.local.savePensum(pensumFusionado);
       done.push('pensum');
 
       const changed = this.liveSignature() !== before;
       log.info('[Sync] syncNow OK:', done.join(', '), changed ? '(cambios)' : '(sin cambios)');
-      return { ok: true, merged: done, changed };
+      return { ok: true, merged: done, changed, summary };
     } catch (e) {
       log.error('[Sync] syncNow FALLÓ (se mantiene local):', e);
       return { ok: false, merged: done, changed: false };

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   RefreshCw,
@@ -10,10 +10,13 @@ import {
   ArrowUpCircle,
   Trash2,
   CheckCircle2,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as Backend from '../../services/BackendService';
 import { useAppData } from '../../context/AppDataContext';
+import { tiempoRelativo } from '../../lib/tiempoRelativo';
 
 /** Estado de la vista previa dentro del diálogo de confirmación. */
 type PreviewState = Backend.SyncPreview | null | 'loading' | 'error';
@@ -30,6 +33,46 @@ const BTN_SECUNDARIO =
   'rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50';
 const BTN_PRIMARIO =
   'flex items-center gap-2 rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy';
+
+/** Abreviatura (singular) del dataset de origen: chip gris de cada ítem del preview. */
+const DATASET_CHIP: Record<string, string> = {
+  professors: 'Profesor',
+  subjects: 'Materia',
+  academicLoad: 'Carga',
+  scheduleBlocks: 'Bloque',
+};
+
+/** Ítem del preview + de qué dataset salió (para el chip, al agrupar por equipo). */
+type ItemConOrigen = Backend.SyncPreviewItem & { origen: string };
+
+interface GrupoEquipo {
+  device: string;
+  items: ItemConOrigen[];
+}
+
+/** Fila de un ítem dentro de un grupo por equipo: chip de dataset + label +
+ *  detail/"hace X" (el "por {equipo}" ya lo dice el encabezado del grupo). */
+function ItemPreviewRow({ item }: { item: ItemConOrigen }) {
+  const ui = KIND_UI[item.kind];
+  return (
+    <li className="flex items-start gap-2 text-sm text-gray-700">
+      <ui.Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${ui.text}`} />
+      <span>
+        <span className="mr-1.5 inline-block rounded bg-gray-100 px-1 py-px align-middle text-[10px] font-medium text-gray-500">
+          {item.origen}
+        </span>
+        {item.label}
+        {(item.detail || item.at) && (
+          <span className="block text-xs text-gray-400">
+            {item.detail}
+            {item.detail && item.at && ' · '}
+            {item.at && tiempoRelativo(item.at)}
+          </span>
+        )}
+      </span>
+    </li>
+  );
+}
 
 /** Chip de resumen ("3 nuevos", "1 se elimina", …) con icono y color por tipo. */
 function ResumenChip({
@@ -74,6 +117,9 @@ export function SyncButton() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [preview, setPreview] = useState<PreviewState>(null);
+  // Edición inline del nombre de este equipo (atribución por equipo).
+  const [editingDevice, setEditingDevice] = useState(false);
+  const [deviceDraft, setDeviceDraft] = useState('');
   // Evita que una respuesta vieja del preview pise una consulta más reciente.
   const previewReqId = useRef(0);
 
@@ -104,7 +150,22 @@ export function SyncButton() {
   const closeConfirm = () => {
     setConfirmOpen(false);
     setPreview(null);
+    setEditingDevice(false);
     previewReqId.current++;
+  };
+
+  /** Guarda el nombre editado del equipo (Enter o botón ✓). Vacío = cancelar. */
+  const saveDeviceName = async () => {
+    const nombre = deviceDraft.trim();
+    setEditingDevice(false);
+    if (!nombre || nombre === device) return;
+    try {
+      const res = await Backend.setDeviceName(nombre);
+      setDevice(res.name); // el nombre final lo decide el backend (trim/límite)
+      toast.success(`Este equipo ahora se llama «${res.name}».`);
+    } catch {
+      toast.error('No se pudo cambiar el nombre del equipo.');
+    }
   };
 
   // Ejecuta la sincronización real (tras confirmar en el diálogo).
@@ -144,6 +205,36 @@ export function SyncButton() {
     : 0;
   const alDia = okPreview !== null && totalCambios === 0;
   const conCambios = okPreview !== null && totalCambios > 0;
+
+  // Reagrupado POR MÁQUINA (primario): los ítems entrantes se agrupan por el equipo
+  // que los firmó (item.by; "(equipo desconocido)" si falta), y los "subes"
+  // (salientes de este equipo) van en un grupo aparte al final.
+  const { gruposEquipos, itemsSubes } = useMemo(() => {
+    const porEquipo = new Map<string, ItemConOrigen[]>();
+    const subes: ItemConOrigen[] = [];
+    if (preview !== null && typeof preview === 'object' && preview.ok) {
+      for (const sec of preview.sections) {
+        for (const item of sec.items) {
+          const conOrigen: ItemConOrigen = {
+            ...item,
+            origen: DATASET_CHIP[sec.dataset] ?? sec.title,
+          };
+          if (item.kind === 'subes') {
+            subes.push(conOrigen);
+          } else {
+            const dev = item.by || '(equipo desconocido)';
+            if (!porEquipo.has(dev)) porEquipo.set(dev, []);
+            porEquipo.get(dev)!.push(conOrigen);
+          }
+        }
+      }
+    }
+    const grupos: GrupoEquipo[] = [...porEquipo.entries()].map(([device, items]) => ({
+      device,
+      items,
+    }));
+    return { gruposEquipos: grupos, itemsSubes: subes };
+  }, [preview]);
 
   return (
     <div className="flex items-center gap-2">
@@ -233,35 +324,37 @@ export function SyncButton() {
                   </div>
 
                   <p className="mt-3 text-xs text-gray-500">
-                    Los que «se actualizan» reemplazan tu versión por una más reciente de otra
-                    PC. Si cancelas, estos cambios igual entrarán con la sincronización
-                    automática.
+                    Si cancelas, estos cambios igual entrarán con la sincronización automática.
                   </p>
 
                   <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                    {okPreview.sections.map((sec) => (
-                      <details key={sec.dataset} className="rounded-lg border border-gray-200">
-                        <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                          {sec.title} ({sec.items.length})
+                    {/* Un grupo por equipo que subió cambios (agrupado por item.by). */}
+                    {gruposEquipos.map((grupo) => (
+                      <details key={grupo.device} className="rounded-lg border border-gray-200">
+                        <summary className="cursor-pointer select-none px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          <span className="font-semibold">{grupo.device}</span> ({grupo.items.length})
                         </summary>
                         <ul className="space-y-1.5 border-t border-gray-100 px-3 py-2">
-                          {sec.items.map((item, i) => {
-                            const ui = KIND_UI[item.kind];
-                            return (
-                              <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                                <ui.Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${ui.text}`} />
-                                <span>
-                                  {item.label}
-                                  {item.detail && (
-                                    <span className="block text-xs text-gray-400">{item.detail}</span>
-                                  )}
-                                </span>
-                              </li>
-                            );
-                          })}
+                          {grupo.items.map((item, i) => (
+                            <ItemPreviewRow key={i} item={item} />
+                          ))}
                         </ul>
                       </details>
                     ))}
+                    {/* Lo saliente de este equipo, aparte al final. */}
+                    {itemsSubes.length > 0 && (
+                      <details className="rounded-lg border border-gray-200">
+                        <summary className="cursor-pointer select-none px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          <span className="font-semibold">Este equipo — vas a subir</span> (
+                          {itemsSubes.length})
+                        </summary>
+                        <ul className="space-y-1.5 border-t border-gray-100 px-3 py-2">
+                          {itemsSubes.map((item, i) => (
+                            <ItemPreviewRow key={i} item={item} />
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </div>
                 </>
               ) : (
@@ -285,7 +378,48 @@ export function SyncButton() {
 
               <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
                 <span className="flex items-center gap-1.5">
-                  <Monitor className="h-3.5 w-3.5" /> Equipo: <span className="font-medium text-gray-700">{deviceLabel}</span>
+                  <Monitor className="h-3.5 w-3.5" /> Equipo:{' '}
+                  {editingDevice ? (
+                    <span className="inline-flex items-center gap-1">
+                      <input
+                        autoFocus
+                        value={deviceDraft}
+                        maxLength={40}
+                        onChange={(e) => setDeviceDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void saveDeviceName();
+                          if (e.key === 'Escape') setEditingDevice(false);
+                        }}
+                        onBlur={() => setEditingDevice(false)}
+                        placeholder="Nombre del equipo"
+                        title="Enter guarda · Escape cancela"
+                        className="w-36 rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-700 focus:border-brand-accent focus:outline-none"
+                      />
+                      <button
+                        // preventDefault en mousedown: que el blur (= cancelar) no gane al click.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void saveDeviceName()}
+                        title="Guardar nombre"
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="font-medium text-gray-700">{deviceLabel}</span>
+                      <button
+                        onClick={() => {
+                          setDeviceDraft(device);
+                          setEditingDevice(true);
+                        }}
+                        title="Cambiar el nombre con el que este equipo firma sus cambios"
+                        className="text-gray-400 hover:text-brand-accent"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5" /> Última sincronización:{' '}

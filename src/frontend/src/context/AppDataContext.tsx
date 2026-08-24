@@ -12,6 +12,7 @@ import { seedAcademicLoadFromProfessors } from '../../../shared/src/logic/seedAc
 import { mergeAdminHours, itemsToPush, liveAdminHours } from '../../../shared/src/logic/adminHours';
 import * as Backend from '../services/BackendService';
 import { fetchAdminHours, pushAdminHours, subscribeAdminHours } from '../services/adminHoursClient';
+import { pushActivity } from './ActivityFeedContext';
 
 interface AppDataContextType {
   professors: Professor[];
@@ -66,7 +67,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     adminHoursRef.current = adminHours;
   }, [adminHours]);
+  // Nombre de este equipo (atribución): se consulta UNA vez al montar y las
+  // escrituras de horas admin lo estampan en `updatedBy` (viaja con el sello).
+  const deviceNameRef = useRef<string | null>(null);
+  useEffect(() => {
+    Backend.getDeviceName()
+      .then((n) => {
+        deviceNameRef.current = n;
+      })
+      .catch(() => {});
+  }, []);
   const persistAdminHours = useCallback((list: AdminHour[]) => {
+    // Actualizar el ref de forma SÍNCRONA (sin esperar al useEffect de arriba):
+    // syncAdminHours lee adminHoursRef.current tras su await y una hora agregada
+    // con addAdminHour durante el fetch debe estar ya visible ahí; si el ref
+    // llegara tarde, el merge la dejaría fuera y este mismo persist la pisaría.
+    adminHoursRef.current = list;
     setAdminHours(list);
     try {
       localStorage.setItem('farmabox.adminHours', JSON.stringify(list));
@@ -76,7 +92,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const addAdminHour = useCallback(
     (h: AdminHour) => {
-      const stamped = { ...h, updatedAt: new Date().toISOString(), deletedAt: null };
+      // Sello + firma del equipo: updatedBy viaja junto con updatedAt (regla de oro).
+      const stamped = {
+        ...h,
+        updatedAt: new Date().toISOString(),
+        deletedAt: null,
+        updatedBy: deviceNameRef.current,
+      };
       persistAdminHours([...adminHoursRef.current, stamped]);
       void pushAdminHours([stamped]); // best-effort; si falla, el sync periódico lo re-sube
     },
@@ -88,7 +110,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       let tombstoned: AdminHour | null = null;
       const list = adminHoursRef.current.map((x) => {
         if (x.id !== id) return x;
-        tombstoned = { ...x, updatedAt: now, deletedAt: now };
+        // El tombstone también es una edición → re-firma con este equipo.
+        tombstoned = { ...x, updatedAt: now, deletedAt: now, updatedBy: deviceNameRef.current };
         return tombstoned;
       });
       persistAdminHours(list);
@@ -100,6 +123,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const syncAdminHours = useCallback(async () => {
     const remote = await fetchAdminHours();
     if (!remote) return; // nube no disponible (tabla ausente / red) → seguir local
+    // IMPORTANTE: leer lo local DESPUÉS del await, justo antes de persistir.
+    // Ventana de carrera con addAdminHour: si se leyera antes del fetch, una hora
+    // agregada durante la espera quedaría fuera del merge y persistAdminHours la
+    // pisaría (y si su push best-effort falló por red, se perdería del todo).
     const local = adminHoursRef.current;
     const pending = itemsToPush(local, remote, new Date().toISOString());
     const merged = mergeAdminHours(mergeAdminHours(local, pending), remote);
@@ -256,8 +283,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Pull periódico multi-PC: cuando otra PC cambió algo, recargar en silencio.
+  // ÚNICO suscriptor a onRemoteDataChanged (el realtime web solo soporta uno):
+  // desde acá también se alimenta el panel "Actividad reciente" (pushActivity).
+  // SIN pop-ups: el único aviso es el badge del ActivityPanel (todo bajo demanda).
   useEffect(() => {
-    const unsub = Backend.onRemoteDataChanged(() => reload(true));
+    const unsub = Backend.onRemoteDataChanged((summary) => {
+      void reload(true); // EXACTAMENTE igual que antes: recarga silenciosa
+      if (!summary) return; // web o pull sin resumen → sin entrada en el feed
+      const { nuevos, actualizados, eliminados } = summary.counts;
+      if (nuevos + actualizados + eliminados === 0) return; // nada entrante
+      pushActivity(summary);
+    });
     return unsub;
   }, [reload]);
 

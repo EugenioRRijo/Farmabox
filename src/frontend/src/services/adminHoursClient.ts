@@ -23,10 +23,28 @@ export async function fetchAdminHours(): Promise<AdminHourSync[] | null> {
   return (data as AdminHourRow[]).map(rowToAdminHour);
 }
 
+// admin_hours.updated_by es columna nueva (atribución por equipo, migración 2.8).
+// Igual que el patrón de columnas opcionales de supabaseWeb: se prueba UNA vez y se
+// cachea; si la base no la tiene, se quita de las filas antes de subir (degradación).
+let updatedBySupported: boolean | null = null;
+async function stripUpdatedBy(rows: AdminHourRow[]): Promise<AdminHourRow[]> {
+  if (updatedBySupported === null && supabase) {
+    const { error } = await supabase.from('admin_hours').select('updated_by').limit(1);
+    updatedBySupported = !error;
+  }
+  if (updatedBySupported) return rows;
+  return rows.map((r) => {
+    const rest = { ...r };
+    delete rest.updated_by;
+    return rest;
+  });
+}
+
 /** Sube items (upsert por id). El trigger newest-wins de la base descarta sellos viejos. */
 export async function pushAdminHours(items: AdminHourSync[]): Promise<boolean> {
   if (!supabase || !items.length) return !!supabase;
-  const { error } = await supabase.from('admin_hours').upsert(items.map(adminHourToRow));
+  const rows = await stripUpdatedBy(items.map(adminHourToRow));
+  const { error } = await supabase.from('admin_hours').upsert(rows);
   return !error;
 }
 

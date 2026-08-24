@@ -12,6 +12,8 @@ import log from 'electron-log';
 
 export interface AppConfig {
   sharedDir?: string | null;
+  /** Nombre amigable del equipo (atribución multi-PC); null/ausente → os.hostname(). */
+  deviceName?: string | null;
 }
 
 function configPath(): string {
@@ -44,5 +46,18 @@ export function getSharedDir(): string | null {
 export function setSharedDir(dir: string | null): void {
   const cfg = loadConfig();
   cfg.sharedDir = dir && dir.trim() ? dir.trim() : null;
+  saveConfig(cfg);
+}
+
+/** Devuelve el nombre de equipo configurado (trim), o null si no hay. */
+export function getDeviceName(): string | null {
+  const n = loadConfig().deviceName;
+  return n && n.trim() ? n.trim() : null;
+}
+
+/** Persiste el nombre de equipo (null/'' lo borra → vuelve a os.hostname()). */
+export function setDeviceName(name: string | null): void {
+  const cfg = loadConfig();
+  cfg.deviceName = name && name.trim() ? name.trim() : null;
   saveConfig(cfg);
 }

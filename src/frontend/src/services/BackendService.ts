@@ -242,15 +242,61 @@ export async function pickSharedFolder(): Promise<{ path: string | null }> {
   return unwrap(configApi().pickFolder());
 }
 
+// ── Nombre del equipo (atribución por equipo, spec 2026-08-13) ─────────────
+/** Nombre amigable de este equipo, con el que se firman las escrituras.
+ *  - .exe: config persistida del main (default os.hostname()).
+ *  - web: localStorage `farmabox.deviceName` (default "Navegador"). */
+export async function getDeviceName(): Promise<string> {
+  if (ipc) return unwrap(ipc.config.getDeviceName());
+  return web.getWebDeviceName();
+}
+
+/** Cambia el nombre del equipo (trim, 1..40 chars; vacío → vuelve al default). */
+export async function setDeviceName(name: string): Promise<{ ok: boolean; name: string }> {
+  if (ipc) return unwrap(ipc.config.setDeviceName(name));
+  return { ok: true, name: web.setWebDeviceName(name) };
+}
+
+// ── Resumen de cambios entrantes (espejo del DTO del main) ─────────────────
+// Solo viene si el pull trajo ítems de otras PCs (nuevos/actualizados/eliminados).
+export interface RemoteChangeItem {
+  kind: 'nuevo' | 'actualizado' | 'eliminado';
+  label: string;
+  detail?: string;
+  at?: string; // ISO del sello de esa versión
+}
+export interface RemoteChangeDeviceGroup {
+  device: string; // "(equipo desconocido)" si la fila no trae updated_by
+  items: RemoteChangeItem[];
+  /** Cuántos ítems se omitieron por cap. Puede faltar (el main puede mandar en su
+   *  lugar un ítem sintético "… y N cambios más": se renderiza tal cual). */
+  truncados?: number;
+}
+export interface RemoteChangeSummary {
+  at: string; // ISO
+  devices: string[]; // únicos, "(equipo desconocido)" si la fila no trae updated_by
+  counts: { nuevos: number; actualizados: number; eliminados: number };
+  porDataset: { title: string; n: number }[]; // solo n>0, títulos humanos
+  /** Detalle por máquina (puede venir undefined con un main viejo → caer a conteos). */
+  porEquipo?: RemoteChangeDeviceGroup[];
+}
+
 /** Se dispara cuando otra PC cambia datos. Devuelve unsubscribe.
- *  - Escritorio (Electron): vía IPC 'data-changed' (pull periódico + realtime del main).
- *  - Web: suscripción directa a Supabase Realtime. */
-export function onRemoteDataChanged(callback: () => void): () => void {
+ *  - Escritorio (Electron): vía IPC 'data-changed' (pull periódico + realtime del main);
+ *    el payload trae el resumen de lo que entró (si el main pudo calcularlo).
+ *  - Web: suscripción directa a Supabase Realtime (sin resumen → cb sin argumento).
+ *  OJO: el realtime web solo soporta UN suscriptor (subscribeRealtime devuelve un no-op
+ *  para el segundo); centralizar la suscripción (hoy vive en AppDataContext). */
+export function onRemoteDataChanged(
+  callback: (summary?: RemoteChangeSummary) => void,
+): () => void {
   if (ipc && typeof ipc.onDataChanged === 'function') {
-    return ipc.onDataChanged(callback);
+    return ipc.onDataChanged((summary?: unknown) =>
+      callback((summary as RemoteChangeSummary | undefined) ?? undefined),
+    );
   }
   // Modo web: realtime directo a Supabase (el poll de 30 s queda como red de seguridad).
-  return web.subscribeRealtime(callback);
+  return web.subscribeRealtime(() => callback());
 }
 
 // ── Sincronización manual ("Sincronizar ahora") ────────────────────────────
@@ -263,7 +309,7 @@ export interface SyncResult {
 export interface SyncStatus {
   online: boolean;
   mode: 'cloud' | 'folder';
-  device?: string; // nombre del equipo (.exe: os.hostname(); web: "este navegador")
+  device?: string; // nombre amigable del equipo (.exe: config deviceName, fallback hostname; web: localStorage)
 }
 
 /** Fuerza subir lo pendiente + bajar cambios (.exe). En web no hay nada que subir
@@ -278,7 +324,7 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   return {
     online: typeof navigator !== 'undefined' ? navigator.onLine : true,
     mode: 'cloud',
-    device: 'este navegador',
+    device: web.getWebDeviceName(),
   };
 }
 
@@ -290,6 +336,11 @@ export interface SyncPreviewItem {
   kind: SyncPreviewKind;
   label: string;
   detail?: string;
+  /** Equipo que firmó la versión mostrada (updated_by): la remota para
+   *  nuevo/actualizado/eliminado, la local para subes. Ausente sin migración 2.8. */
+  by?: string;
+  /** updatedAt/deletedAt ISO de esa versión (para "hace 5 min"). */
+  at?: string;
 }
 
 export interface SyncPreviewSection {

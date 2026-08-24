@@ -11,7 +11,7 @@
  * Los labels legibles se construyen ACÁ (el main tiene todos los datasets para
  * resolver códigos → nombres); el renderer solo los muestra.
  */
-import type { Stamped } from './merge';
+import { stampOf, type Stamped } from './merge';
 import {
   sameContent,
   type RawDatasets,
@@ -30,6 +30,11 @@ export interface SyncPreviewItem {
   kind: SyncPreviewKind;
   label: string;
   detail?: string;
+  /** Equipo que firmó la versión mostrada (remota para nuevo/actualizado/eliminado,
+   *  local para subes). Ausente si el ítem no tiene atribución (datos viejos). */
+  by?: string;
+  /** Sello ISO de esa versión (updatedAt o deletedAt, según aplique). */
+  at?: string;
 }
 
 export interface SyncPreviewSection {
@@ -46,14 +51,35 @@ export interface SyncPreview {
   totals: { nuevos: number; actualizados: number; eliminados: number; subes: number };
 }
 
-// ── Clasificador (espejo de mergeRaw) ────────────────────────────────────────
-
-/** Timestamp efectivo de un ítem (copiado de merge.ts, que lo mantiene privado). */
-function stampOf(it: Stamped): string {
-  const u = it.updatedAt ?? '';
-  const d = it.deletedAt ?? '';
-  return u > d ? u : d;
+/**
+ * Resumen de cambios ENTRANTES de otras PCs (para el toast + panel "Actividad
+ * reciente"). Solo cuenta nuevo/actualizado/eliminado; los `subes` son salientes
+ * y quedan fuera. `undefined` cuando no entra nada (no molestar al usuario).
+ */
+export interface RemoteChangeSummary {
+  at: string; // ISO
+  devices: string[]; // únicos, "(equipo desconocido)" si el ítem no trae atribución
+  counts: { nuevos: number; actualizados: number; eliminados: number };
+  porDataset: { title: string; n: number }[]; // solo n>0, títulos humanos
+  /** Detalle QUIÉN subió QUÉ, agrupado por equipo (panel de actividad).
+   *  Orden: equipos con más items primero; dentro de cada equipo, items más
+   *  nuevos primero (por `at` desc; los sin sello van al final). */
+  porEquipo: {
+    device: string; // "(equipo desconocido)" si el ítem no trae atribución
+    items: {
+      kind: 'nuevo' | 'actualizado' | 'eliminado';
+      label: string;
+      detail?: string;
+      at?: string; // ISO del sello de esa versión
+    }[];
+    /** Cap defensivo: si el equipo superó MAX_ITEMS_POR_EQUIPO, acá va cuántos
+     *  items (los más viejos) quedaron FUERA de `items`. El renderer decide
+     *  cómo mostrarlo ("… y N cambios más"). Ausente si no se recortó nada. */
+    truncados?: number;
+  }[];
 }
+
+// ── Clasificador (espejo de mergeRaw) ────────────────────────────────────────
 
 /** Par local/remoto de un mismo ítem (misma clave). Cualquiera puede faltar. */
 interface Par<T> {
@@ -93,6 +119,14 @@ function clasificarPar<T extends Stamped>(local?: T, remote?: T): SyncPreviewKin
 function versionVisible<T>(kind: SyncPreviewKind, par: Par<T>): T {
   if (kind === 'nuevo' || kind === 'actualizado') return (par.remote ?? par.local) as T;
   return (par.local ?? par.remote) as T;
+}
+
+/** Versión cuya atribución (by/at) se muestra: la remota cuando el cambio ENTRA
+ *  (nuevo/actualizado/eliminado — incluye el borrado, cuyo autor está en el
+ *  tombstone remoto), la local cuando SUBE. */
+function versionAtribucion<T extends Stamped>(kind: SyncPreviewKind, par: Par<T>): T | undefined {
+  if (kind === 'subes') return par.local ?? par.remote;
+  return par.remote ?? par.local;
 }
 
 /** Une dos colecciones por clave en pares { local, remote } (orden: remoto, luego solo-local). */
@@ -233,7 +267,14 @@ function armarSeccion<T extends Stamped>(
     if (!kind) continue;
     const label = labelOf(versionVisible(kind, par));
     const detail = detailOf(kind, par);
-    items.push(detail ? { kind, label, detail } : { kind, label });
+    const item: SyncPreviewItem = { kind, label };
+    if (detail) item.detail = detail;
+    // Atribución "por {equipo} · {cuándo}": autor y sello de la versión mostrada.
+    const version = versionAtribucion(kind, par);
+    if (version?.updatedBy) item.by = version.updatedBy;
+    const at = version ? stampOf(version) : '';
+    if (at) item.at = at;
+    items.push(item);
   }
   return { dataset, title, items };
 }
@@ -332,4 +373,67 @@ export function buildSyncPreview(
   }
 
   return { ok: true, online: true, at: nowIso, sections, totals };
+}
+
+// ── Resumen de entrantes (aviso en vivo) ─────────────────────────────────────
+
+const EQUIPO_DESCONOCIDO = '(equipo desconocido)';
+
+/** Cap defensivo del detalle por equipo: evita payloads gigantes en la primera
+ *  sincronización de una PC nueva (que "recibe" todo como entrante). */
+const MAX_ITEMS_POR_EQUIPO = 30;
+
+/**
+ * Reduce un preview al resumen de cambios ENTRANTES de otras PCs (pura, sin IO).
+ * Los `subes` quedan fuera (son salientes, no actividad ajena). Devuelve
+ * `undefined` si no entra nada, para que el caller no muestre avisos vacíos.
+ */
+export function summarizeIncoming(preview: SyncPreview): RemoteChangeSummary | undefined {
+  const counts = { nuevos: 0, actualizados: 0, eliminados: 0 };
+  const devices: string[] = [];
+  const porDataset: { title: string; n: number }[] = [];
+  const itemsPorEquipo = new Map<string, RemoteChangeSummary['porEquipo'][number]['items']>();
+  for (const sec of preview.sections) {
+    let n = 0;
+    for (const it of sec.items) {
+      if (it.kind === 'subes') continue;
+      n++;
+      if (it.kind === 'nuevo') counts.nuevos++;
+      else if (it.kind === 'actualizado') counts.actualizados++;
+      else counts.eliminados++;
+      const device = it.by ?? EQUIPO_DESCONOCIDO;
+      if (!devices.includes(device)) devices.push(device);
+      let lista = itemsPorEquipo.get(device);
+      if (!lista) {
+        lista = [];
+        itemsPorEquipo.set(device, lista);
+      }
+      // Sin `by`: el equipo ya es la clave del grupo, repetirlo sería ruido.
+      const entrante: (typeof lista)[number] = { kind: it.kind, label: it.label };
+      if (it.detail) entrante.detail = it.detail;
+      if (it.at) entrante.at = it.at;
+      lista.push(entrante);
+    }
+    if (n > 0) porDataset.push({ title: sec.title, n });
+  }
+  if (counts.nuevos + counts.actualizados + counts.eliminados === 0) return undefined;
+
+  // Detalle por equipo: los de más actividad primero; dentro de cada equipo,
+  // los cambios más nuevos arriba (los sin sello quedan al final). Si un equipo
+  // supera el cap se recortan los MÁS VIEJOS y `truncados` dice cuántos.
+  const porEquipo: RemoteChangeSummary['porEquipo'] = [...itemsPorEquipo.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([device, lista]) => {
+      lista.sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''));
+      const entrada: RemoteChangeSummary['porEquipo'][number] = {
+        device,
+        items: lista.slice(0, MAX_ITEMS_POR_EQUIPO),
+      };
+      if (lista.length > MAX_ITEMS_POR_EQUIPO) {
+        entrada.truncados = lista.length - MAX_ITEMS_POR_EQUIPO;
+      }
+      return entrada;
+    });
+
+  return { at: preview.at, devices, counts, porDataset, porEquipo };
 }

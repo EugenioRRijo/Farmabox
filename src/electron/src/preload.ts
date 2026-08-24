@@ -67,6 +67,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStorage: () => invoke('config:getStorage'),
     setSharedDir: (dir: string | null) => invoke('config:setSharedDir', dir),
     pickFolder: () => invoke('config:pickFolder'),
+    getDeviceName: () => invoke('config:getDeviceName'),
+    setDeviceName: (name: string) => invoke('config:setDeviceName', name),
   },
 
   // ── Sincronización manual (botón "Sincronizar ahora") ────────────────
@@ -83,9 +85,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createBackup: () => invoke('maintenance:createBackup'),
   },
 
-  // ── Aviso de cambios traídos por el pull periódico (multi-PC) ─────────
-  onDataChanged: (callback: () => void) => {
-    const listener = (): void => callback();
+  // ── Aviso de cambios traídos por el sync (multi-PC). El payload es el
+  //    resumen de actividad (RemoteChangeSummary) o undefined si no se pudo
+  //    calcular; el frontend lo usa para el toast + panel "Actividad reciente".
+  onDataChanged: (callback: (summary?: unknown) => void) => {
+    const listener = (_e: unknown, summary?: unknown): void => callback(summary);
     ipcRenderer.on('data-changed', listener);
     return () => ipcRenderer.removeListener('data-changed', listener);
   },

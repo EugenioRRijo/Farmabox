@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-type Theme = 'light' | 'dark';
 type FontScale = 'normal' | 'large' | 'xlarge';
 
 interface SettingsContextType {
@@ -8,9 +7,6 @@ interface SettingsContextType {
   setAcademicPeriod: (period: string) => void;
   locationLabel: string;
   setLocationLabel: (label: string) => void;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
   compact: boolean;
   setCompact: (compact: boolean) => void;
   fontScale: FontScale;
@@ -23,7 +19,6 @@ interface SettingsContextType {
 const DEFAULTS = {
   academicPeriod: '2026-01',
   locationLabel: 'UBICACIÓN NIVEL FERIA PISO 2',
-  theme: 'light' as Theme,
   compact: false,
   fontScale: 'normal' as FontScale,
   reduceMotion: false,
@@ -38,12 +33,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [locationLabel, setLocationLabel] = useState(
     () => localStorage.getItem('locationLabel') || DEFAULTS.locationLabel,
   );
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') return saved;
-    // Compatibilidad con la clave antigua 'darkMode'
-    return localStorage.getItem('darkMode') === 'true' ? 'dark' : 'light';
-  });
   const [compact, setCompact] = useState<boolean>(
     () => localStorage.getItem('compactMode') === 'true',
   );
@@ -63,11 +52,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('locationLabel', locationLabel);
   }, [locationLabel]);
 
+  // El modo oscuro se eliminó de la app: limpiamos las claves viejas y la
+  // clase residual para que una PC que estaba en oscuro vuelva a claro sola.
   useEffect(() => {
-    localStorage.setItem('theme', theme);
-    localStorage.setItem('darkMode', String(theme === 'dark'));
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+    localStorage.removeItem('theme');
+    localStorage.removeItem('darkMode');
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('compactMode', String(compact));
@@ -86,12 +77,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('reduce-motion', reduceMotion);
   }, [reduceMotion]);
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
-
   const resetSettings = () => {
     setAcademicPeriod(DEFAULTS.academicPeriod);
     setLocationLabel(DEFAULTS.locationLabel);
-    setTheme(DEFAULTS.theme);
     setCompact(DEFAULTS.compact);
     setFontScale(DEFAULTS.fontScale);
     setReduceMotion(DEFAULTS.reduceMotion);
@@ -104,9 +92,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setAcademicPeriod,
         locationLabel,
         setLocationLabel,
-        theme,
-        setTheme,
-        toggleTheme,
         compact,
         setCompact,
         fontScale,

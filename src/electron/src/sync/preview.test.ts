@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildSyncPreview } from './preview';
+import { buildSyncPreview, summarizeIncoming } from './preview';
+import type { SyncPreview, SyncPreviewSection } from './preview';
 import type { RawDatasets, SProfessor, SBlock, SSemester } from '../services/SyncStorageBase';
 
 // Sellos de tiempo: T1 < T2 < T3.
@@ -73,7 +74,7 @@ function itemsBloques(preview: ReturnType<typeof buildSyncPreview>) {
 describe('buildSyncPreview — clasificador (8 casos de la tabla)', () => {
   it('1. solo remoto, vivo → nuevo', () => {
     const p = buildSyncPreview(datasets(), datasets({ professors: [prof()] }), NOW);
-    expect(items(p)).toEqual([{ kind: 'nuevo', label: 'Dra. Ana Pérez' }]);
+    expect(items(p)).toEqual([{ kind: 'nuevo', label: 'Dra. Ana Pérez', at: T1 }]);
     expect(p.totals).toEqual({ nuevos: 1, actualizados: 0, eliminados: 0, subes: 0 });
   });
 
@@ -89,7 +90,7 @@ describe('buildSyncPreview — clasificador (8 casos de la tabla)', () => {
 
   it('3. solo local, vivo → subes', () => {
     const p = buildSyncPreview(datasets({ professors: [prof()] }), datasets(), NOW);
-    expect(items(p)).toEqual([{ kind: 'subes', label: 'Dra. Ana Pérez' }]);
+    expect(items(p)).toEqual([{ kind: 'subes', label: 'Dra. Ana Pérez', at: T1 }]);
     expect(p.totals.subes).toBe(1);
   });
 
@@ -99,7 +100,7 @@ describe('buildSyncPreview — clasificador (8 casos de la tabla)', () => {
       datasets({ professors: [prof({ updatedAt: T1, deletedAt: T2 })] }),
       NOW,
     );
-    expect(items(p)).toEqual([{ kind: 'eliminado', label: 'Dra. Ana Pérez' }]);
+    expect(items(p)).toEqual([{ kind: 'eliminado', label: 'Dra. Ana Pérez', at: T2 }]);
     expect(p.totals.eliminados).toBe(1);
   });
 
@@ -114,6 +115,7 @@ describe('buildSyncPreview — clasificador (8 casos de la tabla)', () => {
         kind: 'actualizado',
         label: 'Dra. Ana P. de Gómez',
         detail: 'tu versión se reemplaza por una más reciente de otra PC',
+        at: T2,
       },
     ]);
     expect(p.totals.actualizados).toBe(1);
@@ -125,7 +127,7 @@ describe('buildSyncPreview — clasificador (8 casos de la tabla)', () => {
       datasets({ professors: [prof({ updatedAt: T3 })] }),
       NOW,
     );
-    expect(items(p)).toEqual([{ kind: 'nuevo', label: 'Dra. Ana Pérez' }]);
+    expect(items(p)).toEqual([{ kind: 'nuevo', label: 'Dra. Ana Pérez', at: T3 }]);
   });
 
   it('7. ambos, contenido igual (solo cambian sellos) → nada', () => {
@@ -144,14 +146,14 @@ describe('buildSyncPreview — clasificador (8 casos de la tabla)', () => {
       datasets({ professors: [prof({ fullName: 'Ana Remota', updatedAt: T1 })] }),
       NOW,
     );
-    expect(items(p1)).toEqual([{ kind: 'subes', label: 'Dra. Ana Local' }]);
+    expect(items(p1)).toEqual([{ kind: 'subes', label: 'Dra. Ana Local', at: T2 }]);
     // Empate exacto → también gana local (mismo criterio que mergeRaw).
     const p2 = buildSyncPreview(
       datasets({ professors: [prof({ fullName: 'Ana Local', updatedAt: T1 })] }),
       datasets({ professors: [prof({ fullName: 'Ana Remota', updatedAt: T1 })] }),
       NOW,
     );
-    expect(items(p2)).toEqual([{ kind: 'subes', label: 'Dra. Ana Local' }]);
+    expect(items(p2)).toEqual([{ kind: 'subes', label: 'Dra. Ana Local', at: T1 }]);
   });
 });
 
@@ -198,7 +200,7 @@ describe('buildSyncPreview — labels legibles', () => {
 
   it('materia: "{name} (Sem {n})" con el semestre del pensum aplanado', () => {
     const p = buildSyncPreview(datasets({ pensum: pensum('Botánica', 1, 'BOT1') }), datasets(), NOW);
-    expect(items(p)).toEqual([{ kind: 'subes', label: 'Botánica (Sem 1)' }]);
+    expect(items(p)).toEqual([{ kind: 'subes', label: 'Botánica (Sem 1)', at: T1 }]);
   });
 
   it('carga académica: label "Carga de {materia}" y detail con entra/sale legible', () => {
@@ -213,7 +215,12 @@ describe('buildSyncPreview — labels legibles', () => {
     );
     const carga = p.sections.find((s) => s.dataset === 'academicLoad');
     expect(carga?.items).toEqual([
-      { kind: 'nuevo', label: 'Carga de Farmacología I', detail: 'entra Dra. Ana Pérez (teoría)' },
+      {
+        kind: 'nuevo',
+        label: 'Carga de Farmacología I',
+        detail: 'entra Dra. Ana Pérez (teoría)',
+        at: T2,
+      },
     ]);
   });
 
@@ -267,5 +274,270 @@ describe('buildSyncPreview — totals y secciones', () => {
     );
     expect(p.sections).toEqual([]);
     expect(p.totals).toEqual({ nuevos: 0, actualizados: 0, eliminados: 0, subes: 0 });
+  });
+});
+
+describe('buildSyncPreview — atribución by/at por kind', () => {
+  it('nuevo: by/at de la versión REMOTA', () => {
+    const p = buildSyncPreview(
+      datasets(),
+      datasets({ professors: [prof({ updatedAt: T2, updatedBy: 'PC Laboratorio' })] }),
+      NOW,
+    );
+    expect(items(p)).toEqual([
+      { kind: 'nuevo', label: 'Dra. Ana Pérez', by: 'PC Laboratorio', at: T2 },
+    ]);
+  });
+
+  it('actualizado: by/at de la versión REMOTA (no la local)', () => {
+    const p = buildSyncPreview(
+      datasets({ professors: [prof({ fullName: 'Ana Vieja', updatedAt: T1, updatedBy: 'PC-A' })] }),
+      datasets({ professors: [prof({ fullName: 'Ana Nueva', updatedAt: T2, updatedBy: 'PC-B' })] }),
+      NOW,
+    );
+    expect(items(p)[0]).toMatchObject({ kind: 'actualizado', by: 'PC-B', at: T2 });
+  });
+
+  it('eliminado: by del tombstone remoto y at = deletedAt', () => {
+    const p = buildSyncPreview(
+      datasets({ professors: [prof({ updatedAt: T1, updatedBy: 'PC-A' })] }),
+      datasets({ professors: [prof({ updatedAt: T1, deletedAt: T2, updatedBy: 'PC-B' })] }),
+      NOW,
+    );
+    expect(items(p)[0]).toMatchObject({ kind: 'eliminado', by: 'PC-B', at: T2 });
+  });
+
+  it('subes: by/at de la versión LOCAL (aunque el remoto tenga otra firma)', () => {
+    const p = buildSyncPreview(
+      datasets({ professors: [prof({ fullName: 'Ana Local', updatedAt: T2, updatedBy: 'PC-A' })] }),
+      datasets({ professors: [prof({ fullName: 'Ana Remota', updatedAt: T1, updatedBy: 'PC-B' })] }),
+      NOW,
+    );
+    expect(items(p)[0]).toMatchObject({ kind: 'subes', by: 'PC-A', at: T2 });
+  });
+
+  it('ítem sin atribución (datos viejos, sin migración 2.8) → sin by, con at', () => {
+    const p = buildSyncPreview(datasets(), datasets({ professors: [prof({ updatedAt: T1 })] }), NOW);
+    expect(items(p)[0].by).toBeUndefined();
+    expect(items(p)[0].at).toBe(T1);
+  });
+});
+
+describe('summarizeIncoming — resumen de entrantes (aviso en vivo)', () => {
+  /** SyncPreview mínimo a partir de secciones ya armadas (totals no se usan). */
+  function previewDe(sections: SyncPreviewSection[]): SyncPreview {
+    return {
+      ok: true,
+      online: true,
+      at: NOW,
+      sections,
+      totals: { nuevos: 0, actualizados: 0, eliminados: 0, subes: 0 },
+    };
+  }
+
+  it('agrupa devices únicos y cuenta por kind; porDataset con títulos humanos', () => {
+    const s = summarizeIncoming(
+      previewDe([
+        {
+          dataset: 'professors',
+          title: 'Profesores',
+          items: [
+            { kind: 'nuevo', label: 'a', by: 'PC-B', at: T1 },
+            { kind: 'actualizado', label: 'b', by: 'PC-B', at: T2 },
+          ],
+        },
+        {
+          dataset: 'scheduleBlocks',
+          title: 'Bloques de horario',
+          items: [{ kind: 'eliminado', label: 'c', by: 'PC-C', at: T2 }],
+        },
+      ]),
+    );
+    expect(s).toEqual({
+      at: NOW,
+      devices: ['PC-B', 'PC-C'],
+      counts: { nuevos: 1, actualizados: 1, eliminados: 1 },
+      porDataset: [
+        { title: 'Profesores', n: 2 },
+        { title: 'Bloques de horario', n: 1 },
+      ],
+      porEquipo: [
+        {
+          device: 'PC-B',
+          items: [
+            { kind: 'actualizado', label: 'b', at: T2 },
+            { kind: 'nuevo', label: 'a', at: T1 },
+          ],
+        },
+        { device: 'PC-C', items: [{ kind: 'eliminado', label: 'c', at: T2 }] },
+      ],
+    });
+  });
+
+  it('ítems sin by → "(equipo desconocido)" una sola vez, agrupados en porEquipo', () => {
+    const s = summarizeIncoming(
+      previewDe([
+        {
+          dataset: 'professors',
+          title: 'Profesores',
+          items: [
+            { kind: 'nuevo', label: 'a' },
+            { kind: 'nuevo', label: 'b' },
+            { kind: 'actualizado', label: 'c', by: 'PC-B' },
+          ],
+        },
+      ]),
+    );
+    expect(s?.devices).toEqual(['(equipo desconocido)', 'PC-B']);
+    expect(s?.porEquipo).toEqual([
+      {
+        device: '(equipo desconocido)',
+        items: [
+          { kind: 'nuevo', label: 'a' },
+          { kind: 'nuevo', label: 'b' },
+        ],
+      },
+      { device: 'PC-B', items: [{ kind: 'actualizado', label: 'c' }] },
+    ]);
+  });
+
+  it('porEquipo ordena por actividad (más items primero) aunque el equipo aparezca después', () => {
+    const s = summarizeIncoming(
+      previewDe([
+        {
+          dataset: 'professors',
+          title: 'Profesores',
+          items: [
+            { kind: 'eliminado', label: 'primero', by: 'PC-C', at: T1 },
+            { kind: 'nuevo', label: 'a', by: 'PC-B', at: T1 },
+            { kind: 'nuevo', label: 'b', by: 'PC-B', at: T2 },
+          ],
+        },
+      ]),
+    );
+    expect(s?.devices).toEqual(['PC-C', 'PC-B']); // orden de aparición
+    expect(s?.porEquipo.map((e) => e.device)).toEqual(['PC-B', 'PC-C']); // por cantidad desc
+  });
+
+  it('dentro de cada equipo los items van por at desc (los sin sello al final) y el detail viaja', () => {
+    const s = summarizeIncoming(
+      previewDe([
+        {
+          dataset: 'scheduleBlocks',
+          title: 'Bloques de horario',
+          items: [
+            { kind: 'nuevo', label: 'viejo', by: 'PC-B', at: T1 },
+            { kind: 'actualizado', label: 'nuevo', by: 'PC-B', at: T3, detail: 'antes: X → ahora: Y' },
+            { kind: 'eliminado', label: 'sin sello', by: 'PC-B' },
+            { kind: 'nuevo', label: 'medio', by: 'PC-B', at: T2 },
+          ],
+        },
+      ]),
+    );
+    expect(s?.porEquipo).toEqual([
+      {
+        device: 'PC-B',
+        items: [
+          { kind: 'actualizado', label: 'nuevo', detail: 'antes: X → ahora: Y', at: T3 },
+          { kind: 'nuevo', label: 'medio', at: T2 },
+          { kind: 'nuevo', label: 'viejo', at: T1 },
+          { kind: 'eliminado', label: 'sin sello' },
+        ],
+      },
+    ]);
+  });
+
+  it('cap defensivo: más de 30 items por equipo → 30 más nuevos + truncados con el resto', () => {
+    // 33 items del mismo equipo con sellos crecientes (i=32 es el más nuevo).
+    const muchos = Array.from({ length: 33 }, (_, i) => ({
+      kind: 'nuevo' as const,
+      label: `item ${i}`,
+      by: 'PC-B',
+      at: `2026-05-01T00:00:${String(i).padStart(2, '0')}.000Z`,
+    }));
+    const s = summarizeIncoming(
+      previewDe([{ dataset: 'professors', title: 'Profesores', items: muchos }]),
+    );
+    const equipo = s?.porEquipo[0];
+    expect(equipo?.items).toHaveLength(30);
+    expect(equipo?.truncados).toBe(3);
+    expect(equipo?.items[0].label).toBe('item 32'); // el más nuevo primero
+    expect(equipo?.items[29].label).toBe('item 3'); // se recortaron los 3 más viejos
+    expect(s?.counts.nuevos).toBe(33); // counts NO se recortan, solo el detalle
+  });
+
+  it('sin cap no hay campo truncados', () => {
+    const s = summarizeIncoming(
+      previewDe([
+        {
+          dataset: 'professors',
+          title: 'Profesores',
+          items: [{ kind: 'nuevo', label: 'a', by: 'PC-B', at: T1 }],
+        },
+      ]),
+    );
+    expect(s?.porEquipo[0].truncados).toBeUndefined();
+  });
+
+  it('los subes quedan fuera: no cuentan en counts ni en porDataset', () => {
+    const s = summarizeIncoming(
+      previewDe([
+        {
+          dataset: 'professors',
+          title: 'Profesores',
+          items: [
+            { kind: 'subes', label: 'mío', by: 'PC-A' },
+            { kind: 'nuevo', label: 'ajeno', by: 'PC-B' },
+          ],
+        },
+        {
+          dataset: 'subjects',
+          title: 'Materias',
+          items: [{ kind: 'subes', label: 'solo mío' }],
+        },
+      ]),
+    );
+    expect(s).toEqual({
+      at: NOW,
+      devices: ['PC-B'],
+      counts: { nuevos: 1, actualizados: 0, eliminados: 0 },
+      porDataset: [{ title: 'Profesores', n: 1 }],
+      porEquipo: [{ device: 'PC-B', items: [{ kind: 'nuevo', label: 'ajeno' }] }],
+    });
+  });
+
+  it('sin entrantes (solo subes o preview vacío) → undefined', () => {
+    expect(summarizeIncoming(previewDe([]))).toBeUndefined();
+    expect(
+      summarizeIncoming(
+        previewDe([
+          {
+            dataset: 'professors',
+            title: 'Profesores',
+            items: [{ kind: 'subes', label: 'mío' }],
+          },
+        ]),
+      ),
+    ).toBeUndefined();
+  });
+
+  it('de punta a punta: buildSyncPreview → summarizeIncoming', () => {
+    const p = buildSyncPreview(
+      datasets({ pensum: pensum('Botánica', 1, 'BOT1') }), // solo local → subes (fuera)
+      datasets({ professors: [prof({ updatedAt: T2, updatedBy: 'PC Laboratorio' })] }),
+      NOW,
+    );
+    expect(summarizeIncoming(p)).toEqual({
+      at: NOW,
+      devices: ['PC Laboratorio'],
+      counts: { nuevos: 1, actualizados: 0, eliminados: 0 },
+      porDataset: [{ title: 'Profesores', n: 1 }],
+      porEquipo: [
+        {
+          device: 'PC Laboratorio',
+          items: [{ kind: 'nuevo', label: 'Dra. Ana Pérez', at: T2 }],
+        },
+      ],
+    });
   });
 });

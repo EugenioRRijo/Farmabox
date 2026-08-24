@@ -9,7 +9,7 @@ interface SemesterSelectorProps {
 export function SemesterSelector({ selectedSemester, onSelect, semesters }: SemesterSelectorProps) {
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
+      <h2 className="text-xl font-bold mb-4 text-gray-800">
         Selecciona un Semestre
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
@@ -22,7 +22,7 @@ export function SemesterSelector({ selectedSemester, onSelect, semesters }: Seme
               ${
                 selectedSemester === sem.number
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                  : 'bg-white text-gray-700'
               }
             `}
           >

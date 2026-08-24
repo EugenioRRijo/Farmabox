@@ -16,7 +16,7 @@ import { autoUpdater } from 'electron-updater';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
 import type { SyncStorageBase } from './services/SyncStorageBase';
-import { getSharedDir, setSharedDir } from './config/appConfig';
+import { getSharedDir, setSharedDir, getDeviceName, setDeviceName } from './config/appConfig';
 import { ProfessorService } from './services/ProfessorService';
 import { SubjectService } from './services/SubjectService';
 import { ScheduleService } from './services/ScheduleService';
@@ -181,6 +181,12 @@ function setupAutoUpdater(): void {
   autoUpdater.checkForUpdates().catch((e) => log.error('[Updater] checkForUpdates falló:', e));
 }
 
+// ── Nombre amigable del equipo (atribución "quién subió qué") ────────────────
+/** El configurado por el usuario, o el hostname (que nunca falla) si no hay. */
+function deviceNameEfectivo(): string {
+  return getDeviceName() ?? os.hostname();
+}
+
 // ── Pull periódico: trae cambios de otras PCs durante la sesión ──────────────
 // Red de seguridad por si el realtime no conecta (red/cuota). Con realtime activo,
 // los cambios llegan en ~1 s; sin él, este pull los trae a lo sumo cada 60 s.
@@ -192,7 +198,7 @@ function setupPeriodicSync(): void {
       .then((r) => {
         if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
           log.info('[Sync] Pull periódico trajo cambios → avisando al renderer.');
-          mainWindow.webContents.send('data-changed');
+          mainWindow.webContents.send('data-changed', r.summary);
         }
       })
       .catch((e) => log.error('[Sync] Pull periódico falló:', e));
@@ -213,7 +219,7 @@ function onRealtimeChange(): void {
       .then((r) => {
         if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
           log.info('[Realtime] Cambio remoto → bajado y fusionado; avisando al renderer.');
-          mainWindow.webContents.send('data-changed');
+          mainWindow.webContents.send('data-changed', r.summary);
         }
       })
       .catch((e) => log.error('[Realtime] syncNow falló:', e));
@@ -230,7 +236,7 @@ function registerSyncIpc(): void {
       await store.flush(); // sube lo pendiente
       const r = await store.syncNow(); // baja + fusiona
       if (r.changed && mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('data-changed');
+        mainWindow.webContents.send('data-changed', r.summary);
       }
       return { data: { ok: r.ok, changed: r.changed, online: true, at: new Date().toISOString() } };
     } catch (e) {
@@ -264,9 +270,36 @@ function registerSyncIpc(): void {
 
   ipcMain.handle('sync:status', () => {
     const online = !!store && store.isRemoteEnabled();
-    // `device`: nombre real del equipo (para el aviso de "Sincronizar"). os.hostname()
-    // nunca falla; si viniera vacío, el frontend cae a un texto genérico.
-    return { data: { online, mode: getSharedDir() ? 'folder' : 'cloud', device: os.hostname() } };
+    // `device`: nombre amigable configurado por el usuario (atribución multi-PC);
+    // fallback os.hostname(), que nunca falla. Si viniera vacío, el frontend cae
+    // a un texto genérico.
+    return { data: { online, mode: getSharedDir() ? 'folder' : 'cloud', device: deviceNameEfectivo() } };
+  });
+
+  // ── Nombre del equipo (firma de las escrituras de esta PC) ────────────────
+  ipcMain.handle('config:getDeviceName', () => {
+    try {
+      return { data: deviceNameEfectivo() };
+    } catch (e) {
+      log.error('[IPC config:getDeviceName]', e);
+      return { error: 'No se pudo leer el nombre del equipo' };
+    }
+  });
+  ipcMain.handle('config:setDeviceName', (_e, name: unknown) => {
+    try {
+      const limpio = typeof name === 'string' ? name.trim() : '';
+      if (limpio.length > 40) {
+        return { error: 'El nombre no puede superar los 40 caracteres' };
+      }
+      setDeviceName(limpio || null); // vacío → borra la clave (vuelve al hostname)
+      const efectivo = deviceNameEfectivo();
+      // El sellado usa el nombre nuevo al instante (solo escrituras futuras).
+      store?.setDeviceName(efectivo);
+      return { data: { ok: true, name: efectivo } };
+    } catch (e) {
+      log.error('[IPC config:setDeviceName]', e);
+      return { error: 'No se pudo guardar el nombre del equipo' };
+    }
   });
 }
 
@@ -301,10 +334,14 @@ function registerMaintenanceIpc(): void {
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
   store = buildStorage();
-  // Si el merge previo a un guardado trae cambios de otra PC, avisar al renderer.
-  store.setOnMerged(() => {
+  // Nombre con el que esta PC firma sus escrituras (updatedBy): el configurado
+  // por el usuario, o el hostname si no hay.
+  store.setDeviceName(deviceNameEfectivo());
+  // Si el merge previo a un guardado trae cambios de otra PC, avisar al renderer
+  // (con el resumen de lo entrante para el toast + panel de actividad).
+  store.setOnMerged((summary) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('data-changed');
+      mainWindow.webContents.send('data-changed', summary);
     }
   });
   const services = buildServices(store);

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Moon, Sun, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User } from 'lucide-react';
+import { Database, Save, RotateCcw, Upload, ShieldAlert, Monitor, Calendar, Minimize2, Type, Zap, Mail, GraduationCap, User } from 'lucide-react';
 import * as BackendService from '../../services/BackendService';
 import { useSettings } from '@/context/SettingsContext';
 
@@ -11,8 +11,6 @@ export function SettingsPage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
-    theme,
-    toggleTheme,
     compact,
     setCompact,
     academicPeriod,
@@ -151,34 +149,6 @@ export function SettingsPage() {
 
               <div className="flex items-center justify-between py-4 border-b border-gray-100">
                 <div className="flex items-center gap-3">
-                  {theme === 'dark' ? (
-                    <Moon className="w-5 h-5 text-blue-600" />
-                  ) : (
-                    <Sun className="w-5 h-5 text-amber-500" />
-                  )}
-                  <div>
-                    <p className="font-medium text-gray-900">Tema {theme === 'dark' ? 'oscuro' : 'claro'}</p>
-                    <p className="text-sm text-gray-500">Cambia entre modo claro y oscuro.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={toggleTheme}
-                  role="switch"
-                  aria-checked={theme === 'dark'}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between py-4 border-b border-gray-100">
-                <div className="flex items-center gap-3">
                   <Minimize2 className="w-5 h-5 text-gray-500" />
                   <div>
                     <p className="font-medium text-gray-900">Modo compacto</p>
@@ -299,7 +269,7 @@ export function SettingsPage() {
                 <div>
                   <p className="font-medium text-gray-900">Restablecer preferencias</p>
                   <p className="text-sm text-gray-500">
-                    Vuelve tema, tamaño del texto, animaciones, modo compacto y período a los valores por defecto.
+                    Vuelve tamaño del texto, animaciones, modo compacto y período a los valores por defecto.
                   </p>
                 </div>
                 <button

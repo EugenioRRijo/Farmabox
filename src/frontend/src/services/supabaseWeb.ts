@@ -25,6 +25,32 @@ import {
 
 const now = (): string => new Date().toISOString();
 
+// ── Nombre del equipo en modo WEB (atribución por equipo, spec 2026-08-13) ──
+// La web firma sus escrituras con un nombre guardado en localStorage; en el .exe
+// esto NO se usa (allá firma el main con la config deviceName / os.hostname()).
+const DEVICE_NAME_KEY = 'farmabox.deviceName';
+const DEVICE_NAME_DEFAULT = 'Navegador';
+
+export function getWebDeviceName(): string {
+  try {
+    return localStorage.getItem(DEVICE_NAME_KEY)?.trim() || DEVICE_NAME_DEFAULT;
+  } catch {
+    return DEVICE_NAME_DEFAULT;
+  }
+}
+
+/** Guarda el nombre (trim, máx. 40 chars; vacío → vuelve al default). Devuelve el nombre final. */
+export function setWebDeviceName(name: string): string {
+  const trimmed = name.trim().slice(0, 40);
+  try {
+    if (trimmed) localStorage.setItem(DEVICE_NAME_KEY, trimmed);
+    else localStorage.removeItem(DEVICE_NAME_KEY);
+  } catch {
+    /* almacenamiento no disponible: no se persiste (las firmas usarán el default) */
+  }
+  return trimmed || DEVICE_NAME_DEFAULT;
+}
+
 // ── Estado "visto por este cliente" (anti-pisado del guardado por set) ───────
 // El guardado web recibe el SET completo, pero re-sellar todo y tombstonear lo
 // ausente pisa el trabajo de otras PCs. Recordamos lo que este cliente vio en su
@@ -101,6 +127,30 @@ async function stripBlockAula(rows: Record<string, unknown>[]): Promise<Record<s
   });
 }
 
+// updated_by (atribución por equipo, migración 2.8) es columna nueva en varias tablas.
+// Helper genérico: se prueba UNA vez por tabla y se cachea; sin migración se omite la
+// columna (degradación: todo sigue funcionando, solo sin atribución).
+const updatedByPorTabla: Record<string, boolean> = {};
+async function tableHasUpdatedBy(table: string): Promise<boolean> {
+  if (!(table in updatedByPorTabla)) {
+    const { error } = await requireSupabase().from(table).select('updated_by').limit(1);
+    updatedByPorTabla[table] = !error;
+  }
+  return updatedByPorTabla[table];
+}
+/** Quita `updated_by` de las filas si la tabla aún no tiene la columna. */
+async function stripUpdatedBy(
+  table: string,
+  rows: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  if (await tableHasUpdatedBy(table)) return rows;
+  return rows.map((r) => {
+    const rest = { ...r };
+    delete rest.updated_by;
+    return rest;
+  });
+}
+
 // subjects.aula es columna nueva (aula de teoría). Si la base todavía no la tiene, se
 // omite en las escrituras para no romper el guardado (se prueba una vez y se cachea).
 let subjectAulaSupported: boolean | null = null;
@@ -159,13 +209,15 @@ function profRow(p: Professor): Record<string, unknown> {
     profession: p.profession ?? null,
     type: p.type,
     updated_at: now(),
+    updated_by: getWebDeviceName(), // firma del equipo: viaja con el sello (regla de oro)
     deleted_at: null,
   };
 }
 
 async function setProfessorLinks(profId: string, subjectCodes: string[]): Promise<void> {
   const sb = requireSupabase();
-  await sb.from('professor_subjects').delete().eq('professor_id', profId);
+  const { error: delError } = await sb.from('professor_subjects').delete().eq('professor_id', profId);
+  if (delError) throw delError; // no tragar el fallo: los enlaces viejos seguirían vivos
   if (subjectCodes.length) {
     const rows = subjectCodes.map((c) => ({ professor_id: profId, subject_code: c }));
     const { error } = await sb.from('professor_subjects').insert(rows);
@@ -189,7 +241,9 @@ export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Prof
     subjects: data.subjects ?? prev?.subjects ?? [],
     type: data.type ?? prev?.type ?? 'both',
   };
-  const { error } = await sb.from('professors').upsert(await stripProf([profRow(prof)]));
+  const { error } = await sb
+    .from('professors')
+    .upsert(await stripProf(await stripUpdatedBy('professors', [profRow(prof)])));
   if (error) throw error;
   await setProfessorLinks(prof.id, prof.subjects ?? []);
   return prof;
@@ -198,14 +252,14 @@ export async function createProfessor(data: Omit<Professor, 'id'>): Promise<Prof
 export async function updateProfessor(id: string, data: Partial<Professor>): Promise<Professor> {
   const sb = requireSupabase();
   // PATCH parcial: solo los campos enviados (no pisar profesión/cédula/etc. existentes).
-  const patch: Record<string, unknown> = { updated_at: now() };
+  const patch: Record<string, unknown> = { updated_at: now(), updated_by: getWebDeviceName() };
   if (data.fullName !== undefined) patch.full_name = data.fullName;
   if (data.title !== undefined) patch.title = data.title;
   if (data.email !== undefined) patch.email = data.email ?? null;
   if (data.cedula !== undefined) patch.cedula = data.cedula ?? null;
   if (data.profession !== undefined) patch.profession = data.profession ?? null;
   if (data.type !== undefined) patch.type = data.type;
-  const safePatch = (await stripProf([patch]))[0];
+  const safePatch = (await stripProf(await stripUpdatedBy('professors', [patch])))[0];
   const { error } = await sb.from('professors').update(safePatch).eq('id', id);
   if (error) throw error;
   if (data.subjects) await setProfessorLinks(id, data.subjects);
@@ -214,12 +268,20 @@ export async function updateProfessor(id: string, data: Partial<Professor>): Pro
 
 export async function deleteProfessor(id: string): Promise<void> {
   const sb = requireSupabase();
-  await sb.from('professor_subjects').delete().eq('professor_id', id);
-  await sb.from('academic_load').delete().eq('professor_id', id);
+  const { error: linksError } = await sb.from('professor_subjects').delete().eq('professor_id', id);
+  if (linksError) throw linksError;
+  const { error: loadError } = await sb.from('academic_load').delete().eq('professor_id', id);
+  if (loadError) throw loadError;
   // Liberar las clases: el bloque se conserva pero queda sin profesor (evita
   // bloques "fantasma" que disparan un falso choque al reconstruir el horario).
-  await sb.from('schedule_blocks').update({ professor_id: null, updated_at: now() }).eq('professor_id', id);
-  const { error } = await sb.from('professors').update({ deleted_at: now() }).eq('id', id);
+  // Ambas escrituras re-sellan → van firmadas con el equipo (si hay migración 2.8).
+  const freeBlocks: Record<string, unknown> = { professor_id: null, updated_at: now() };
+  if (await tableHasUpdatedBy('schedule_blocks')) freeBlocks.updated_by = getWebDeviceName();
+  const { error: blocksError } = await sb.from('schedule_blocks').update(freeBlocks).eq('professor_id', id);
+  if (blocksError) throw blocksError;
+  const tomb: Record<string, unknown> = { deleted_at: now() };
+  if (await tableHasUpdatedBy('professors')) tomb.updated_by = getWebDeviceName();
+  const { error } = await sb.from('professors').update(tomb).eq('id', id);
   if (error) throw error;
 }
 
@@ -227,9 +289,13 @@ export async function deleteProfessor(id: string): Promise<void> {
  *  a TODOS los profesores vivos. Antes sembraba 45 profesores hardcodeados. */
 export async function resetProfessors(): Promise<Professor[]> {
   const sb = requireSupabase();
-  await sb.from('professor_subjects').delete().not('professor_id', 'is', null);
-  await sb.from('academic_load').delete().not('professor_id', 'is', null);
-  const { error } = await sb.from('professors').update({ deleted_at: now() }).is('deleted_at', null);
+  const { error: linksError } = await sb.from('professor_subjects').delete().not('professor_id', 'is', null);
+  if (linksError) throw linksError;
+  const { error: loadError } = await sb.from('academic_load').delete().not('professor_id', 'is', null);
+  if (loadError) throw loadError;
+  const tomb: Record<string, unknown> = { deleted_at: now() };
+  if (await tableHasUpdatedBy('professors')) tomb.updated_by = getWebDeviceName();
+  const { error } = await sb.from('professors').update(tomb).is('deleted_at', null);
   if (error) throw error;
   return [];
 }
@@ -260,7 +326,8 @@ export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Prom
     profs.push(prof);
   }
   if (profs.length) {
-    const { error } = await sb.from('professors').upsert(await stripProf(profs.map((p) => profRow(p))));
+    const rows = await stripProf(await stripUpdatedBy('professors', profs.map((p) => profRow(p))));
+    const { error } = await sb.from('professors').upsert(rows);
     if (error) throw error;
     for (const p of profs) await setProfessorLinks(p.id, p.subjects ?? []);
   }
@@ -309,18 +376,21 @@ function subjRow(s: PensumSubject, semester: number): Record<string, unknown> {
     aula: s.aula ?? null,
     prerequisites: s.prerequisites ?? [],
     updated_at: now(),
+    updated_by: getWebDeviceName(), // firma del equipo: viaja con el sello (regla de oro)
     deleted_at: null,
   };
 }
 
 export async function addSubject(data: PensumSubject & { semester: number }): Promise<PensumSubject> {
   const sb = requireSupabase();
-  const { error } = await sb.from('subjects').upsert(await stripAula(subjRow(data, data.semester)));
+  const row = (await stripUpdatedBy('subjects', [subjRow(data, data.semester)]))[0];
+  const { error } = await sb.from('subjects').upsert(await stripAula(row));
   if (error) throw error;
   const profs = data.professors ?? [];
   if (profs.length) {
     const rows = profs.map((pid) => ({ professor_id: pid, subject_code: data.code }));
-    await sb.from('professor_subjects').upsert(rows);
+    const { error: linksError } = await sb.from('professor_subjects').upsert(rows);
+    if (linksError) throw linksError;
   }
   return data;
 }
@@ -330,7 +400,7 @@ export async function updateSubject(
   data: Partial<PensumSubject & { semester: number }>,
 ): Promise<PensumSubject> {
   const sb = requireSupabase();
-  const patch: Record<string, unknown> = { updated_at: now() };
+  const patch: Record<string, unknown> = { updated_at: now(), updated_by: getWebDeviceName() };
   if (data.name !== undefined) patch.name = data.name;
   if (data.credits !== undefined) patch.credits = data.credits;
   if (data.hasLab !== undefined) patch.has_lab = data.hasLab;
@@ -340,14 +410,16 @@ export async function updateSubject(
   if (data.labNumber !== undefined) patch.lab_number = data.labNumber;
   if (data.aula !== undefined) patch.aula = data.aula;
   if (data.prerequisites !== undefined) patch.prerequisites = data.prerequisites;
-  const { error } = await sb.from('subjects').update(await stripAula(patch)).eq('code', code);
+  const safePatch = (await stripUpdatedBy('subjects', [patch]))[0];
+  const { error } = await sb.from('subjects').update(await stripAula(safePatch)).eq('code', code);
   if (error) throw error;
   return { ...(data as PensumSubject), code };
 }
 
 export async function updateSubjectProfessors(subjectCode: string, professorIds: string[]): Promise<void> {
   const sb = requireSupabase();
-  await sb.from('professor_subjects').delete().eq('subject_code', subjectCode);
+  const { error: delError } = await sb.from('professor_subjects').delete().eq('subject_code', subjectCode);
+  if (delError) throw delError; // no tragar el fallo: los enlaces viejos seguirían vivos
   if (professorIds.length) {
     const rows = professorIds.map((pid) => ({ professor_id: pid, subject_code: subjectCode }));
     const { error } = await sb.from('professor_subjects').insert(rows);
@@ -357,9 +429,13 @@ export async function updateSubjectProfessors(subjectCode: string, professorIds:
 
 export async function deleteSubject(code: string): Promise<void> {
   const sb = requireSupabase();
-  await sb.from('professor_subjects').delete().eq('subject_code', code);
-  await sb.from('academic_load').delete().eq('subject_code', code);
-  const { error } = await sb.from('subjects').update({ deleted_at: now() }).eq('code', code);
+  const { error: linksError } = await sb.from('professor_subjects').delete().eq('subject_code', code);
+  if (linksError) throw linksError;
+  const { error: loadError } = await sb.from('academic_load').delete().eq('subject_code', code);
+  if (loadError) throw loadError;
+  const tomb: Record<string, unknown> = { deleted_at: now() };
+  if (await tableHasUpdatedBy('subjects')) tomb.updated_by = getWebDeviceName();
+  const { error } = await sb.from('subjects').update(tomb).eq('code', code);
   if (error) throw error;
 }
 
@@ -383,7 +459,7 @@ export async function bulkUpsertSubjects(
       return subjRow(sub, Number(raw.semester) || 1);
     });
   if (rows.length) {
-    const { error } = await sb.from('subjects').upsert(rows);
+    const { error } = await sb.from('subjects').upsert(await stripUpdatedBy('subjects', rows));
     if (error) throw error;
   }
   return getSubjects();
@@ -422,8 +498,11 @@ export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
   const { added, removed } = diffKeySets(seenLoadKeys, [...parts.keys()]);
   if (added.length) {
     const ts = now();
-    const rows = added.map((k) => ({ ...parts.get(k)!, updated_at: ts }));
-    const { error } = await sb.from('academic_load').upsert(rows);
+    // Solo las filas NUEVAS llevan sello + firma del equipo (las intactas no se tocan).
+    const rows = added.map((k) => ({ ...parts.get(k)!, updated_at: ts, updated_by: getWebDeviceName() }));
+    const { error } = await sb
+      .from('academic_load')
+      .upsert(await stripUpdatedBy('academic_load', rows));
     if (error) throw error;
   }
   // Lo removido se conoce solo por la clave; sus partes se reconstruyen del último
@@ -497,18 +576,21 @@ export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<v
       lab_group_id: b.labGroupId ?? null,
       aula: b.aula ?? null,
       updated_at: ts,
+      updated_by: getWebDeviceName(), // solo filas CAMBIADAS: la firma viaja con el sello
       deleted_at: null,
     }));
-    const stripped = await stripBlockAula(await stripBlockSemester(rows));
+    const stripped = await stripBlockAula(
+      await stripBlockSemester(await stripUpdatedBy('schedule_blocks', rows)),
+    );
     const { error } = await sb.from('schedule_blocks').upsert(stripped);
     if (error) throw error;
   }
   if (removedIds.length) {
-    // updated_at fresco: el tombstone es una edición y compite en el newest-wins.
-    const { error } = await sb
-      .from('schedule_blocks')
-      .update({ deleted_at: ts, updated_at: ts })
-      .in('id', removedIds);
+    // updated_at fresco: el tombstone es una edición y compite en el newest-wins
+    // (y como toda edición, va firmada con el equipo si hay migración 2.8).
+    const tomb: Record<string, unknown> = { deleted_at: ts, updated_at: ts };
+    if (await tableHasUpdatedBy('schedule_blocks')) tomb.updated_by = getWebDeviceName();
+    const { error } = await sb.from('schedule_blocks').update(tomb).in('id', removedIds);
     if (error) throw error;
   }
   // Lo visto pasa a ser el estado que acabamos de dejar.
@@ -548,12 +630,19 @@ export async function createLog(action: string, details: string): Promise<LogEnt
 export async function restoreData(data: BackupData): Promise<void> {
   const sb = requireSupabase();
   if (data.professors) {
-    await sb.from('professors').upsert(await stripProf(data.professors.map((p) => profRow(p))));
+    const rows = await stripProf(
+      await stripUpdatedBy('professors', data.professors.map((p) => profRow(p))),
+    );
+    const { error: profError } = await sb.from('professors').upsert(rows);
+    if (profError) throw profError;
     for (const p of data.professors) await setProfessorLinks(p.id, p.subjects ?? []);
   }
   if (data.pensum) {
     const rows = data.pensum.flatMap((sem) => sem.subjects.map((s) => subjRow(s, sem.number)));
-    if (rows.length) await sb.from('subjects').upsert(rows);
+    if (rows.length) {
+      const { error: subjError } = await sb.from('subjects').upsert(await stripUpdatedBy('subjects', rows));
+      if (subjError) throw subjError;
+    }
   }
   if (data.academicLoad) await saveAcademicLoad(data.academicLoad);
   if (data.scheduleBlocks) await saveScheduleBlocks(data.scheduleBlocks);

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui';
 import { MESSAGES } from '@/constants';
 import { SyncButton } from './SyncButton';
 import { SyncStatusBadge } from './SyncStatusBadge';
+import { ActivityPanel } from './ActivityPanel';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -49,6 +50,7 @@ export function Header({ onSearch }: HeaderProps) {
         )}
 
         <SyncStatusBadge />
+        <ActivityPanel />
         <SyncButton />
       </div>
     </motion.header>

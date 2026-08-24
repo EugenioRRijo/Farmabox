@@ -18,9 +18,11 @@ export interface AdminHourSync {
   duration: number; // franjas de 45 min
   updatedAt?: string | null; // ISO; ausente = item legado local
   deletedAt?: string | null; // ISO; tombstone
+  updatedBy?: string | null; // equipo que firmó la última edición (atribución, migración 2.8)
 }
 
-/** Fila tal cual en Supabase (snake_case), tabla `admin_hours`. */
+/** Fila tal cual en Supabase (snake_case), tabla `admin_hours`.
+ *  `updated_by` es opcional: sin migración 2.8 la columna no existe (degradación). */
 export interface AdminHourRow {
   id: string;
   professor_id: string;
@@ -30,6 +32,7 @@ export interface AdminHourRow {
   duration: number;
   updated_at: string | null;
   deleted_at: string | null;
+  updated_by?: string | null;
 }
 
 export function rowToAdminHour(r: AdminHourRow): AdminHourSync {
@@ -42,6 +45,7 @@ export function rowToAdminHour(r: AdminHourRow): AdminHourSync {
     duration: r.duration,
     updatedAt: r.updated_at,
     deletedAt: r.deleted_at,
+    updatedBy: r.updated_by ?? null,
   };
 }
 
@@ -55,6 +59,7 @@ export function adminHourToRow(a: AdminHourSync): AdminHourRow {
     duration: a.duration,
     updated_at: a.updatedAt ?? null,
     deleted_at: a.deletedAt ?? null,
+    updated_by: a.updatedBy ?? null,
   };
 }
 

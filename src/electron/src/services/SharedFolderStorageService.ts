@@ -13,7 +13,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import log from 'electron-log';
-import { mergeRaw, mergeMaps } from '../sync/merge';
+import { mergeRaw, mergeMaps, stampOf } from '../sync/merge';
 import {
   SyncStorageBase,
   type RawDatasets,
@@ -94,11 +94,9 @@ export class SharedFolderStorageService extends SyncStorageBase {
       professors: mergeRaw(cur.professors, raw.professors, (p) => p.id),
       scheduleBlocks: mergeRaw(cur.scheduleBlocks, raw.scheduleBlocks, (b) => b.id),
       logs: mergeRaw(cur.logs, raw.logs, (l) => l.id),
-      academicLoad: mergeMaps(
-        cur.academicLoad,
-        raw.academicLoad,
-        (v) => v.updatedAt ?? v.deletedAt ?? '',
-      ),
+      // Sello EFECTIVO max(updatedAt, deletedAt) — ver syncNow(): un tombstone
+      // con updatedAt viejo no debe perder contra un update intermedio.
+      academicLoad: mergeMaps(cur.academicLoad, raw.academicLoad, stampOf),
       pensum: this.mergePensum(cur.pensum, raw.pensum),
     };
     this.writeJSON('professors.json', merged.professors);

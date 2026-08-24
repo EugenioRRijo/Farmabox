@@ -15,10 +15,17 @@ export interface Stamped {
   updatedAt?: string;
   /** ISO 8601 si el ítem fue borrado (tombstone). */
   deletedAt?: string;
+  /** Nombre del equipo que hizo la última modificación (atribución multi-PC).
+   *  Viaja CON el sello: se estampa donde se estampa updatedAt/deletedAt, nunca
+   *  al push. mergeRaw copia ítems completos → la atribución del ganador viaja sola. */
+  updatedBy?: string;
 }
 
-/** Timestamp efectivo de un ítem (el más reciente entre update y delete). */
-function stampOf(it: Stamped): string {
+/** Timestamp efectivo de un ítem (el más reciente entre update y delete).
+ *  Exportado: todo el que compare sellos debe usar ESTA fórmula (max), no
+ *  `updatedAt ?? deletedAt` — un tombstone que conserva un updatedAt viejo
+ *  perdería contra una edición intermedia y el borrado se revertiría. */
+export function stampOf(it: Stamped): string {
   const u = it.updatedAt ?? '';
   const d = it.deletedAt ?? '';
   return u > d ? u : d;

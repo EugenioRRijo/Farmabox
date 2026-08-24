@@ -20,7 +20,7 @@ const base = (over: Partial<AdminHourSync> = {}): AdminHourSync => ({
 });
 
 describe('rowToAdminHour / adminHourToRow', () => {
-  it('convierte ida y vuelta sin perder campos', () => {
+  it('convierte ida y vuelta sin perder campos (incluye updated_by)', () => {
     const row: AdminHourRow = {
       id: 'admin-x',
       professor_id: 'prof-9',
@@ -30,6 +30,7 @@ describe('rowToAdminHour / adminHourToRow', () => {
       duration: 3,
       updated_at: '2026-08-12T10:00:00.000Z',
       deleted_at: null,
+      updated_by: 'PC Laboratorio',
     };
     const item = rowToAdminHour(row);
     expect(item).toEqual({
@@ -41,14 +42,31 @@ describe('rowToAdminHour / adminHourToRow', () => {
       duration: 3,
       updatedAt: '2026-08-12T10:00:00.000Z',
       deletedAt: null,
+      updatedBy: 'PC Laboratorio',
     });
     expect(adminHourToRow(item)).toEqual(row);
+  });
+
+  it('una fila SIN columna updated_by (base sin migración 2.8) mapea updatedBy null', () => {
+    const row: AdminHourRow = {
+      id: 'admin-y',
+      professor_id: 'prof-1',
+      role: 'Servicio Comunitario',
+      day: 0,
+      start_hour: 3,
+      duration: 2,
+      updated_at: null,
+      deleted_at: null,
+      // sin updated_by: la columna no existe en la base vieja
+    };
+    expect(rowToAdminHour(row).updatedBy).toBeNull();
   });
 
   it('un item local legado (sin sellos) produce una fila con nulls', () => {
     const row = adminHourToRow(base());
     expect(row.updated_at).toBeNull();
     expect(row.deleted_at).toBeNull();
+    expect(row.updated_by).toBeNull();
   });
 });
 

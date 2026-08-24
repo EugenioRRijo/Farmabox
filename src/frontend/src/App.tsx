@@ -16,6 +16,7 @@ import { SuggestionBox } from '@/components/suggestions/SuggestionBox';
 import { Toaster } from 'react-hot-toast';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { AppDataProvider, useAppData } from '@/context/AppDataContext';
+import { ActivityFeedProvider } from '@/context/ActivityFeedContext';
 
 
 function AppContent() {
@@ -135,9 +136,13 @@ function App() {
     <HashRouter>
       <SettingsProvider>
         <MotionWrapper>
-          <AppDataProvider>
-            <AppContent />
-          </AppDataProvider>
+          {/* El feed de actividad va por fuera de AppData: AppDataContext le empuja
+              entradas vía el store de módulo (pushActivity), sin ciclo de providers. */}
+          <ActivityFeedProvider>
+            <AppDataProvider>
+              <AppContent />
+            </AppDataProvider>
+          </ActivityFeedProvider>
         </MotionWrapper>
       </SettingsProvider>
     </HashRouter>
