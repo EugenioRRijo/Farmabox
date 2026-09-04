@@ -23,3 +23,6 @@ src/frontend/vite.config.d.ts
 #   2) node scripts/encrypt-secrets.cjs   → genera secrets.enc
 **/secrets.plain.json
 **/secrets.enc
+
+# Worktrees de trabajo aislado (no se commitean)
+.worktrees/
