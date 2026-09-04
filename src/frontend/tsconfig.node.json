@@ -4,7 +4,17 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    /* Un proyecto `composite` NO puede desactivar el emit, así que hay que
+       mandarlo fuera del árbol de fuentes. Sin esto, `tsc -b` (lo que corre el
+       editor al construir por referencias) escribía `vite.config.js` y
+       `vite.config.d.ts` AL LADO de `vite.config.ts`. Vite prefiere el `.js`, y
+       ese `.js` mezcla `import` de ESM con `__dirname` —que en ESM no existe—
+       así que el dev server y el build empiezan a fallar sin motivo aparente.
+       Por eso `.gitignore` ya los tenía listados: el problema se conocía, pero
+       se tapaba ignorándolos en vez de evitar que se generaran. */
+    "outDir": "../../node_modules/.tmp/tsconfig-node-frontend",
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig-node-frontend.tsbuildinfo"
   },
   "include": ["vite.config.ts"]
 }
