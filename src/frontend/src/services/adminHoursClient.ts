@@ -14,13 +14,34 @@ import {
   type AdminHourSync,
   type AdminHourRow,
 } from '../../../shared/src/logic/adminHours';
+import { fetchAllPages } from '../../../shared/src/logic/paginate';
 
-/** Baja TODO (incluye tombstones: hacen falta para el merge). null = nube no disponible. */
+/**
+ * Baja TODO (incluye tombstones: hacen falta para el merge). null = nube no disponible.
+ *
+ * PAGINADO a propósito: esta tabla NO filtra tombstones, así que crece para siempre y
+ * tarde o temprano pasa las 1000 filas donde PostgREST corta. Sin paginar, el merge
+ * vería una nube truncada y trataría lo que falta como inexistente → horas borradas
+ * que reviven y ediciones que se pierden (el mismo corte del incidente de
+ * `schedule_blocks`, cerrado en el escritorio con `pullAll`).
+ */
 export async function fetchAdminHours(): Promise<AdminHourSync[] | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('admin_hours').select('*');
-  if (error || !data) return null; // tabla ausente / RLS / red → seguir local
-  return (data as AdminHourRow[]).map(rowToAdminHour);
+  const sb = supabase;
+  try {
+    const rows = await fetchAllPages<AdminHourRow>(async (from, to) => {
+      const { data, error } = await sb
+        .from('admin_hours')
+        .select('*')
+        .order('id', { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return (data ?? []) as AdminHourRow[];
+    });
+    return rows.map(rowToAdminHour);
+  } catch {
+    return null; // tabla ausente / RLS / red → seguir local
+  }
 }
 
 // admin_hours.updated_by es columna nueva (atribución por equipo, migración 2.8).

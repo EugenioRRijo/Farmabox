@@ -22,8 +22,35 @@ import {
   diffKeySets,
   blockFingerprint,
 } from '../../../shared/src/logic/webSetDiff';
+import { fetchAllPages } from '../../../shared/src/logic/paginate';
 
 const now = (): string => new Date().toISOString();
+
+/** Fila cruda de Supabase. El proyecto no genera tipos de la base, así que las
+ *  columnas se leen sueltas — es lo mismo que devolvía `select('*')` antes. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RawRow = Record<string, any>;
+
+/**
+ * Lectura COMPLETA de una tabla, paginada. PostgREST corta en 1000 filas y un
+ * `select('*')` a secas devolvía una nube truncada sin avisar (el escritorio ya lo
+ * cerró con `CloudStorageService.pullAll`; esto es lo mismo para el camino web).
+ * `orderCols` tiene que ser determinista o `.range()` repite o saltea filas.
+ */
+async function selectAll<T = RawRow>(
+  table: string,
+  orderCols: string[],
+  opts: { liveOnly?: boolean; columns?: string } = {},
+): Promise<T[]> {
+  return fetchAllPages<T>(async (from, to) => {
+    let q = requireSupabase().from(table).select(opts.columns ?? '*');
+    if (opts.liveOnly) q = q.is('deleted_at', null);
+    for (const col of orderCols) q = q.order(col, { ascending: true });
+    const { data, error } = await q.range(from, to);
+    if (error) throw error;
+    return (data ?? []) as T[];
+  });
+}
 
 // ── Nombre del equipo en modo WEB (atribución por equipo, spec 2026-08-13) ──
 // La web firma sus escrituras con un nombre guardado en localStorage; en el .exe
@@ -167,9 +194,11 @@ async function stripAula(obj: Record<string, unknown>): Promise<Record<string, u
 
 // ── Helpers de lectura ──────────────────────────────────────────────────────
 async function fetchLinks(): Promise<{ byProf: Map<string, string[]>; bySubject: Map<string, string[]> }> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from('professor_subjects').select('professor_id,subject_code');
-  if (error) throw error;
+  const data = await selectAll<{ professor_id: string; subject_code: string }>(
+    'professor_subjects',
+    ['subject_code', 'professor_id'],
+    { columns: 'professor_id,subject_code' },
+  );
   const byProf = new Map<string, string[]>();
   const bySubject = new Map<string, string[]>();
   for (const l of data ?? []) {
@@ -183,9 +212,7 @@ async function fetchLinks(): Promise<{ byProf: Map<string, string[]>; bySubject:
 
 // ── Profesores ──────────────────────────────────────────────────────────────
 export async function getProfessors(): Promise<Professor[]> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from('professors').select('*').is('deleted_at', null);
-  if (error) throw error;
+  const data = await selectAll('professors', ['id'], { liveOnly: true });
   const { byProf } = await fetchLinks();
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -336,9 +363,7 @@ export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Prom
 
 // ── Materias / Pensum ───────────────────────────────────────────────────────
 export async function getSubjects(): Promise<Semester[]> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from('subjects').select('*').is('deleted_at', null);
-  if (error) throw error;
+  const data = await selectAll('subjects', ['code'], { liveOnly: true });
   const { bySubject } = await fetchLinks();
   const bySem = new Map<number, PensumSubject[]>();
   for (const r of data ?? []) {
@@ -467,9 +492,11 @@ export async function bulkUpsertSubjects(
 
 // ── Carga académica ─────────────────────────────────────────────────────────
 export async function getAcademicLoad(): Promise<AcademicLoad> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from('academic_load').select('*');
-  if (error) throw error;
+  const data = await selectAll('academic_load', [
+    'subject_code',
+    'professor_id',
+    'role',
+  ]);
   seenLoadKeys.clear();
   const out: AcademicLoad = {};
   for (const r of data ?? []) {
@@ -526,9 +553,9 @@ export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
 
 // ── Bloques de horario ──────────────────────────────────────────────────────
 export async function getScheduleBlocks(): Promise<ScheduleBlockData[]> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from('schedule_blocks').select('*').is('deleted_at', null);
-  if (error) throw error;
+  const data = await selectAll('schedule_blocks', ['id'], {
+    liveOnly: true,
+  });
   const mapped = (data ?? []).map((r) => ({
     id: r.id,
     subjectCode: r.subject_code ?? '',
