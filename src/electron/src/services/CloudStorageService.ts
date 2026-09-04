@@ -19,6 +19,7 @@ import {
   type SLoadVal,
   type SSemester,
 } from './SyncStorageBase';
+import { nextLogCursor } from '../sync/logCursor';
 import type { IStorageService } from './IStorageService';
 import type { Professor } from '@scheduler/shared';
 
@@ -426,13 +427,17 @@ export class CloudStorageService extends SyncStorageBase {
    * logs con ~5000 llegaban en 1000 justas), y el merge/preview marcaba como
    * "subes" fantasma ítems locales que SÍ existían en la nube.
    */
-  private async pullAll(table: string): Promise<Record<string, unknown>[]> {
+  private async pullAll(
+    table: string,
+    desde?: { columna: string; sello: string },
+  ): Promise<Record<string, unknown>[]> {
     if (!this.client) throw new Error('Nube no configurada');
     const PAGE = 1000;
     const orderCols = CloudStorageService.PULL_ORDER[table] ?? ['id'];
     const todas: Record<string, unknown>[] = [];
     for (let from = 0; ; from += PAGE) {
       let query = this.client.from(table).select('*');
+      if (desde) query = query.gt(desde.columna, desde.sello);
       for (const col of orderCols) query = query.order(col, { ascending: true });
       const { data, error } = await query.range(from, from + PAGE - 1);
       if (error) throw error;
@@ -443,17 +448,34 @@ export class CloudStorageService extends SyncStorageBase {
     return todas;
   }
 
+  /**
+   * Cursor del pull incremental de LOGS (en memoria, por sesión: el primer pull
+   * tras abrir la app siempre es completo). Ver sync/logCursor.ts para el porqué.
+   */
+  private logsCursor: string | null = null;
+
   protected async pullRemote(): Promise<RawDatasets> {
     if (!this.client) throw new Error('Nube no configurada');
     // Paginado vía pullAll (no select('*') directo): ver comentario del helper.
+    // `logs` es la única tabla que se baja INCREMENTALMENTE: es un registro de
+    // auditoría (solo se agrega, nunca se edita ni se borra) y pesaba el 63% del
+    // pull. Las demás siguen completas a propósito: professor_subjects y
+    // academic_load alimentan el delete-loop de pushRemote (`vistoEnPull`), que
+    // borra por AUSENCIA y necesita el set entero; professors, subjects y
+    // schedule_blocks alimentan el preview de sincronización, que marcaría todo
+    // lo local como "subes" si el remoto llegara parcial.
     const [profRows, subjRows, linkRows, loadRows, blockRows, logRows] = await Promise.all([
       this.pullAll('professors'),
       this.pullAll('subjects'),
       this.pullAll('professor_subjects'),
       this.pullAll('academic_load'),
       this.pullAll('schedule_blocks'),
-      this.pullAll('logs'),
+      this.pullAll(
+        'logs',
+        this.logsCursor ? { columna: 'timestamp', sello: this.logsCursor } : undefined,
+      ),
     ]);
+    this.logsCursor = nextLogCursor(logRows as unknown as { timestamp?: string }[], this.logsCursor);
     const links = linkRows as unknown as LinkRow[];
     const subjectsByProf = new Map<string, string[]>();
     const profsBySubject = new Map<string, string[]>();

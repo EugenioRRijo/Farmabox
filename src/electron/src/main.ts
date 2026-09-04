@@ -189,7 +189,17 @@ function deviceNameEfectivo(): string {
 
 // ── Pull periódico: trae cambios de otras PCs durante la sesión ──────────────
 // Red de seguridad por si el realtime no conecta (red/cuota). Con realtime activo,
-// los cambios llegan en ~1 s; sin él, este pull los trae a lo sumo cada 60 s.
+// los cambios llegan en ~1 s; sin él, este pull los trae a lo sumo cada 5 min.
+//
+// Por qué 5 min y no 60 s: cada pull descarga las tablas sincronizadas, y a 60 s
+// eso proyectaba ~20 GB/mes por PC contra el límite de 5 GB del plan free de
+// Supabase (la organización ya se pasó una vez). Como el realtime está activo
+// desde la migración 2.3, este intervalo NO es el camino normal por el que llegan
+// los cambios: es el respaldo para cuando el websocket no conecta. Quintuplicarlo
+// baja el gasto 5× y en el peor caso (realtime caído) los cambios tardan minutos
+// en vez de segundos, algo aceptable para un horario académico.
+const PERIODIC_SYNC_MS = 5 * 60 * 1000;
+
 function setupPeriodicSync(): void {
   setInterval(() => {
     if (!store || !store.isRemoteEnabled()) return;
@@ -202,7 +212,7 @@ function setupPeriodicSync(): void {
         }
       })
       .catch((e) => log.error('[Sync] Pull periódico falló:', e));
-  }, 60000); // cada 60 s
+  }, PERIODIC_SYNC_MS);
 }
 
 // ── Realtime: reacciona a cambios de otras PCs casi al instante (#7) ─────────
