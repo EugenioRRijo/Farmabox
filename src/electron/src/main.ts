@@ -8,11 +8,13 @@
  *   4. Splash screen con logo + ventana principal
  *   5. Ciclo de vida + sincronización (inicio y cierre de sesión)
  */
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'path';
 import os from 'os';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
+import { esperarActualizacion } from './updater/updateGate';
+import { crearVentanaActualizacion } from './updater/updateWindow';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
 import type { SyncStorageBase } from './services/SyncStorageBase';
@@ -146,39 +148,66 @@ function createWindow(): void {
   });
 }
 
-// ── Auto-actualización (electron-updater + GitHub Releases) ──────────────────
-function setupAutoUpdater(): void {
-  if (IS_DEV) return; // solo en la app instalada (empaquetada)
+// ── Actualización OBLIGATORIA al abrir ──────────────────────────────────────
+/**
+ * Corre ANTES que cualquier otra cosa del arranque. Si hay versión nueva, la
+ * baja mostrando solo una ventana de progreso que no se puede cerrar, y
+ * reinicia para instalarla. La app no llega a construir servicios ni a
+ * sincronizar hasta que esté al día.
+ *
+ * Por qué tan estricto: una versión vieja de Farmabox agotó la cuota de
+ * Supabase de toda la organización (subía todas las filas en cada push y cada
+ * reescritura emitía un mensaje Realtime a cada PC). Mientras UNA máquina siga
+ * atrasada, el problema vuelve. Y el diálogo anterior tenía "Más tarde", que en
+ * la práctica significaba "nunca": esta misma PC estuvo en la 2.3.14 un mes.
+ *
+ * Por qué antes de `syncNow()`: el arranque sincronizaba ANTES de chequear
+ * updates, así que la versión vieja alcanzaba a escribir en la nube igual.
+ *
+ * NUNCA deja a nadie afuera: sin internet, con error o si la descarga se cuelga,
+ * devuelve el control y la app abre normal (ver updateGate).
+ */
+async function actualizacionObligatoria(): Promise<void> {
+  if (IS_DEV) return; // en desarrollo no hay updates que buscar
   autoUpdater.logger = log;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('update-available', (info) => {
-    log.info('[Updater] Actualización disponible:', info.version);
-  });
-  autoUpdater.on('update-not-available', () => {
-    log.info('[Updater] La app está al día.');
-  });
-  autoUpdater.on('error', (err) => {
-    log.error('[Updater] Error:', err == null ? 'desconocido' : err.message);
-  });
-  autoUpdater.on('update-downloaded', (info) => {
-    const choice = dialog.showMessageBoxSync({
-      type: 'info',
-      buttons: ['Reiniciar ahora', 'Más tarde'],
-      defaultId: 0,
-      cancelId: 1,
-      title: 'Actualización disponible',
-      message: `Farmabox ${info.version} está lista para instalarse.`,
-      detail: 'Se aplicará al reiniciar la aplicación.',
-    });
-    if (choice === 0) {
-      isQuitting = true; // saltea el diálogo de "subir antes de salir"
-      autoUpdater.quitAndInstall();
-    }
-  });
+  const win = crearVentanaActualizacion();
+  const avisar = (canal: string, dato?: unknown): void => {
+    if (!win.isDestroyed()) win.webContents.send(canal, dato);
+  };
 
-  autoUpdater.checkForUpdates().catch((e) => log.error('[Updater] checkForUpdates falló:', e));
+  try {
+    const resultado = await esperarActualizacion(autoUpdater, {
+      // Sin novedades del updater en 90 s (o 90 s sin avanzar la descarga) ⇒
+      // no hacer esperar más a la persona. El timeout se renueva con cada
+      // evento de progreso, así que una descarga lenta no se corta.
+      timeoutMs: 90_000,
+      onVersion: (v) => {
+        log.info('[Updater] Actualización obligatoria a', v);
+        avisar('gate:version', v);
+      },
+      onProgreso: (p) => avisar('gate:progreso', p),
+    });
+    log.info('[Updater] Resultado del portón:', resultado);
+
+    if (resultado === 'descargada') {
+      avisar('gate:instalando');
+      isQuitting = true; // saltea el diálogo de "subir antes de salir"
+      // Dar un instante para que se vea "Instalando…" antes de cerrar.
+      await new Promise((r) => setTimeout(r, 800));
+      autoUpdater.quitAndInstall(true, true);
+      // quitAndInstall cierra la app; lo de abajo no se ejecuta.
+      return;
+    }
+  } catch (e) {
+    log.error('[Updater] El portón falló; se continúa sin actualizar:', e);
+  } finally {
+    if (!win.isDestroyed()) {
+      win.destroy(); // closable:false no impide destroy()
+    }
+  }
 }
 
 // ── Nombre amigable del equipo (atribución "quién subió qué") ────────────────
@@ -343,6 +372,11 @@ function registerMaintenanceIpc(): void {
 // ── Ciclo de vida ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   log.info('App ready. Initializing services...');
+
+  // PRIMERO de todo: si hay versión nueva, actualizar y reiniciar. Nada de lo
+  // que sigue (servicios, sync, ventana) debe correr con una versión atrasada.
+  await actualizacionObligatoria();
+
   store = buildStorage();
   // Nombre con el que esta PC firma sus escrituras (updatedBy): el configurado
   // por el usuario, o el hostname si no hay.
@@ -378,8 +412,7 @@ app.whenReady().then(async () => {
 
   createWindow();
 
-  // Chequear actualizaciones (solo en la app instalada).
-  setupAutoUpdater();
+  // (La actualización ya se resolvió arriba, antes de tocar la nube.)
 
   // Traer cambios de otras PCs cada minuto (red de seguridad si el realtime no conecta).
   setupPeriodicSync();
