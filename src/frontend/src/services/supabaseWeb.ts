@@ -40,10 +40,12 @@ type RawRow = Record<string, any>;
 async function selectAll<T = RawRow>(
   table: string,
   orderCols: string[],
-  opts: { liveOnly?: boolean; columns?: string } = {},
+  opts: { liveOnly?: boolean; columns?: string } = {}
 ): Promise<T[]> {
   return fetchAllPages<T>(async (from, to) => {
-    let q = requireSupabase().from(table).select(opts.columns ?? '*');
+    let q = requireSupabase()
+      .from(table)
+      .select(opts.columns ?? '*');
     if (opts.liveOnly) q = q.is('deleted_at', null);
     for (const col of orderCols) q = q.order(col, { ascending: true });
     const { data, error } = await q.range(from, to);
@@ -93,7 +95,11 @@ const seenLoadKeys = new Set<string>(); // "subject_code professor_id role"
 let realtimeChannel: RealtimeChannel | null = null;
 export function subscribeRealtime(onChange: () => void): () => void {
   if (!supabase || realtimeChannel) return () => {};
-  const tables = ['professors', 'subjects', 'professor_subjects', 'academic_load', 'schedule_blocks', 'logs'];
+  // `logs`, `professor_subjects` y `academic_load` quedan FUERA del tiempo real:
+  // los logs son historial (nadie los mira en vivo) y los vinculos cambian junto
+  // con profesores/materias, que si estan suscritas — notificar las tres cosas por
+  // separado triplicaba los mensajes del mismo evento. Siguen llegando por el pull.
+  const tables = ['professors', 'subjects', 'schedule_blocks'];
   const ch = supabase.channel('farmabox-web-sync');
   for (const table of tables) {
     ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange());
@@ -126,7 +132,9 @@ async function stripProf(rows: Record<string, unknown>[]): Promise<Record<string
 
 // schedule_blocks.semester también es columna nueva (tabla semesters + FK).
 let blockSemesterSupported: boolean | null = null;
-async function stripBlockSemester(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+async function stripBlockSemester(
+  rows: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
   if (blockSemesterSupported === null) {
     const { error } = await requireSupabase().from('schedule_blocks').select('semester').limit(1);
     blockSemesterSupported = !error;
@@ -168,7 +176,7 @@ async function tableHasUpdatedBy(table: string): Promise<boolean> {
 /** Quita `updated_by` de las filas si la tabla aún no tiene la columna. */
 async function stripUpdatedBy(
   table: string,
-  rows: Record<string, unknown>[],
+  rows: Record<string, unknown>[]
 ): Promise<Record<string, unknown>[]> {
   if (await tableHasUpdatedBy(table)) return rows;
   return rows.map((r) => {
@@ -193,11 +201,14 @@ async function stripAula(obj: Record<string, unknown>): Promise<Record<string, u
 }
 
 // ── Helpers de lectura ──────────────────────────────────────────────────────
-async function fetchLinks(): Promise<{ byProf: Map<string, string[]>; bySubject: Map<string, string[]> }> {
+async function fetchLinks(): Promise<{
+  byProf: Map<string, string[]>;
+  bySubject: Map<string, string[]>;
+}> {
   const data = await selectAll<{ professor_id: string; subject_code: string }>(
     'professor_subjects',
     ['subject_code', 'professor_id'],
-    { columns: 'professor_id,subject_code' },
+    { columns: 'professor_id,subject_code' }
   );
   const byProf = new Map<string, string[]>();
   const bySubject = new Map<string, string[]>();
@@ -243,7 +254,10 @@ function profRow(p: Professor): Record<string, unknown> {
 
 async function setProfessorLinks(profId: string, subjectCodes: string[]): Promise<void> {
   const sb = requireSupabase();
-  const { error: delError } = await sb.from('professor_subjects').delete().eq('professor_id', profId);
+  const { error: delError } = await sb
+    .from('professor_subjects')
+    .delete()
+    .eq('professor_id', profId);
   if (delError) throw delError; // no tragar el fallo: los enlaces viejos seguirían vivos
   if (subjectCodes.length) {
     const rows = subjectCodes.map((c) => ({ professor_id: profId, subject_code: c }));
@@ -304,7 +318,10 @@ export async function deleteProfessor(id: string): Promise<void> {
   // Ambas escrituras re-sellan → van firmadas con el equipo (si hay migración 2.8).
   const freeBlocks: Record<string, unknown> = { professor_id: null, updated_at: now() };
   if (await tableHasUpdatedBy('schedule_blocks')) freeBlocks.updated_by = getWebDeviceName();
-  const { error: blocksError } = await sb.from('schedule_blocks').update(freeBlocks).eq('professor_id', id);
+  const { error: blocksError } = await sb
+    .from('schedule_blocks')
+    .update(freeBlocks)
+    .eq('professor_id', id);
   if (blocksError) throw blocksError;
   const tomb: Record<string, unknown> = { deleted_at: now() };
   if (await tableHasUpdatedBy('professors')) tomb.updated_by = getWebDeviceName();
@@ -316,9 +333,15 @@ export async function deleteProfessor(id: string): Promise<void> {
  *  a TODOS los profesores vivos. Antes sembraba 45 profesores hardcodeados. */
 export async function resetProfessors(): Promise<Professor[]> {
   const sb = requireSupabase();
-  const { error: linksError } = await sb.from('professor_subjects').delete().not('professor_id', 'is', null);
+  const { error: linksError } = await sb
+    .from('professor_subjects')
+    .delete()
+    .not('professor_id', 'is', null);
   if (linksError) throw linksError;
-  const { error: loadError } = await sb.from('academic_load').delete().not('professor_id', 'is', null);
+  const { error: loadError } = await sb
+    .from('academic_load')
+    .delete()
+    .not('professor_id', 'is', null);
   if (loadError) throw loadError;
   const tomb: Record<string, unknown> = { deleted_at: now() };
   if (await tableHasUpdatedBy('professors')) tomb.updated_by = getWebDeviceName();
@@ -338,7 +361,9 @@ export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Prom
     const matchId = findProfessorIdByIdentity(acc, raw);
     const prev = matchId ? acc.find((e) => e.id === matchId) : undefined;
     const prof: Professor = {
-      id: matchId ?? (raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${seq++}`),
+      id:
+        matchId ??
+        (raw.id && String(raw.id).trim() ? String(raw.id).trim() : `prof-${Date.now()}-${seq++}`),
       fullName: raw.fullName ?? prev?.fullName ?? 'Sin nombre',
       title: raw.title ?? prev?.title ?? 'Prof.',
       email: raw.email ?? prev?.email,
@@ -353,7 +378,12 @@ export async function bulkUpsertProfessors(incoming: Partial<Professor>[]): Prom
     profs.push(prof);
   }
   if (profs.length) {
-    const rows = await stripProf(await stripUpdatedBy('professors', profs.map((p) => profRow(p))));
+    const rows = await stripProf(
+      await stripUpdatedBy(
+        'professors',
+        profs.map((p) => profRow(p))
+      )
+    );
     const { error } = await sb.from('professors').upsert(rows);
     if (error) throw error;
     for (const p of profs) await setProfessorLinks(p.id, p.subjects ?? []);
@@ -406,7 +436,9 @@ function subjRow(s: PensumSubject, semester: number): Record<string, unknown> {
   };
 }
 
-export async function addSubject(data: PensumSubject & { semester: number }): Promise<PensumSubject> {
+export async function addSubject(
+  data: PensumSubject & { semester: number }
+): Promise<PensumSubject> {
   const sb = requireSupabase();
   const row = (await stripUpdatedBy('subjects', [subjRow(data, data.semester)]))[0];
   const { error } = await sb.from('subjects').upsert(await stripAula(row));
@@ -422,7 +454,7 @@ export async function addSubject(data: PensumSubject & { semester: number }): Pr
 
 export async function updateSubject(
   code: string,
-  data: Partial<PensumSubject & { semester: number }>,
+  data: Partial<PensumSubject & { semester: number }>
 ): Promise<PensumSubject> {
   const sb = requireSupabase();
   const patch: Record<string, unknown> = { updated_at: now(), updated_by: getWebDeviceName() };
@@ -436,14 +468,23 @@ export async function updateSubject(
   if (data.aula !== undefined) patch.aula = data.aula;
   if (data.prerequisites !== undefined) patch.prerequisites = data.prerequisites;
   const safePatch = (await stripUpdatedBy('subjects', [patch]))[0];
-  const { error } = await sb.from('subjects').update(await stripAula(safePatch)).eq('code', code);
+  const { error } = await sb
+    .from('subjects')
+    .update(await stripAula(safePatch))
+    .eq('code', code);
   if (error) throw error;
   return { ...(data as PensumSubject), code };
 }
 
-export async function updateSubjectProfessors(subjectCode: string, professorIds: string[]): Promise<void> {
+export async function updateSubjectProfessors(
+  subjectCode: string,
+  professorIds: string[]
+): Promise<void> {
   const sb = requireSupabase();
-  const { error: delError } = await sb.from('professor_subjects').delete().eq('subject_code', subjectCode);
+  const { error: delError } = await sb
+    .from('professor_subjects')
+    .delete()
+    .eq('subject_code', subjectCode);
   if (delError) throw delError; // no tragar el fallo: los enlaces viejos seguirían vivos
   if (professorIds.length) {
     const rows = professorIds.map((pid) => ({ professor_id: pid, subject_code: subjectCode }));
@@ -454,7 +495,10 @@ export async function updateSubjectProfessors(subjectCode: string, professorIds:
 
 export async function deleteSubject(code: string): Promise<void> {
   const sb = requireSupabase();
-  const { error: linksError } = await sb.from('professor_subjects').delete().eq('subject_code', code);
+  const { error: linksError } = await sb
+    .from('professor_subjects')
+    .delete()
+    .eq('subject_code', code);
   if (linksError) throw linksError;
   const { error: loadError } = await sb.from('academic_load').delete().eq('subject_code', code);
   if (loadError) throw loadError;
@@ -465,7 +509,7 @@ export async function deleteSubject(code: string): Promise<void> {
 }
 
 export async function bulkUpsertSubjects(
-  incoming: (Partial<PensumSubject> & { code: string; semester: number | string })[],
+  incoming: (Partial<PensumSubject> & { code: string; semester: number | string })[]
 ): Promise<Semester[]> {
   const sb = requireSupabase();
   const rows = incoming
@@ -492,11 +536,7 @@ export async function bulkUpsertSubjects(
 
 // ── Carga académica ─────────────────────────────────────────────────────────
 export async function getAcademicLoad(): Promise<AcademicLoad> {
-  const data = await selectAll('academic_load', [
-    'subject_code',
-    'professor_id',
-    'role',
-  ]);
+  const data = await selectAll('academic_load', ['subject_code', 'professor_id', 'role']);
   seenLoadKeys.clear();
   const out: AcademicLoad = {};
   for (const r of data ?? []) {
@@ -526,7 +566,11 @@ export async function saveAcademicLoad(load: AcademicLoad): Promise<void> {
   if (added.length) {
     const ts = now();
     // Solo las filas NUEVAS llevan sello + firma del equipo (las intactas no se tocan).
-    const rows = added.map((k) => ({ ...parts.get(k)!, updated_at: ts, updated_by: getWebDeviceName() }));
+    const rows = added.map((k) => ({
+      ...parts.get(k)!,
+      updated_at: ts,
+      updated_by: getWebDeviceName(),
+    }));
     const { error } = await sb
       .from('academic_load')
       .upsert(await stripUpdatedBy('academic_load', rows));
@@ -607,7 +651,7 @@ export async function saveScheduleBlocks(blocks: ScheduleBlockData[]): Promise<v
       deleted_at: null,
     }));
     const stripped = await stripBlockAula(
-      await stripBlockSemester(await stripUpdatedBy('schedule_blocks', rows)),
+      await stripBlockSemester(await stripUpdatedBy('schedule_blocks', rows))
     );
     const { error } = await sb.from('schedule_blocks').upsert(stripped);
     if (error) throw error;
@@ -646,9 +690,7 @@ export async function getLogs(): Promise<LogEntry[]> {
 export async function createLog(action: string, details: string): Promise<LogEntry> {
   const sb = requireSupabase();
   const log: LogEntry = { id: `log-${Date.now()}`, action, details, timestamp: now() };
-  const { error } = await sb
-    .from('logs')
-    .insert({ ...log, updated_at: now(), deleted_at: null });
+  const { error } = await sb.from('logs').insert({ ...log, updated_at: now(), deleted_at: null });
   if (error) throw error;
   return log;
 }
@@ -658,7 +700,10 @@ export async function restoreData(data: BackupData): Promise<void> {
   const sb = requireSupabase();
   if (data.professors) {
     const rows = await stripProf(
-      await stripUpdatedBy('professors', data.professors.map((p) => profRow(p))),
+      await stripUpdatedBy(
+        'professors',
+        data.professors.map((p) => profRow(p))
+      )
     );
     const { error: profError } = await sb.from('professors').upsert(rows);
     if (profError) throw profError;
@@ -667,7 +712,9 @@ export async function restoreData(data: BackupData): Promise<void> {
   if (data.pensum) {
     const rows = data.pensum.flatMap((sem) => sem.subjects.map((s) => subjRow(s, sem.number)));
     if (rows.length) {
-      const { error: subjError } = await sb.from('subjects').upsert(await stripUpdatedBy('subjects', rows));
+      const { error: subjError } = await sb
+        .from('subjects')
+        .upsert(await stripUpdatedBy('subjects', rows));
       if (subjError) throw subjError;
     }
   }

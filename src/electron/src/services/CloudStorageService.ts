@@ -20,6 +20,7 @@ import {
   type SSemester,
 } from './SyncStorageBase';
 import { nextLogCursor } from '../sync/logCursor';
+import { soloCambiadas, indexarRemoto, type RemotoIndexado } from '../sync/pushFilter';
 import type { IStorageService } from './IStorageService';
 import type { Professor } from '@scheduler/shared';
 
@@ -119,6 +120,7 @@ function ensureWebSocket(): void {
 
 export class CloudStorageService extends SyncStorageBase {
   private client: SupabaseClient | null = null;
+
   private colSupported: Record<string, boolean> = {}; // columnas nuevas: omitir si la base aún no las tiene
 
   /** Claves de links y de carga VISTAS en el último pullRemote (el del mismo
@@ -130,6 +132,27 @@ export class CloudStorageService extends SyncStorageBase {
    *  visto se deja quieto y el próximo pull lo baja y lo fusiona.
    *  `null` = nunca hubo pull en esta sesión → no se borra nada. */
   private vistoEnPull: { links: Set<string>; carga: Set<string> } | null = null;
+
+  /**
+   * Deja solo las filas que hay que subir de verdad: las nuevas y las que
+   * cambiaron respecto del último pull. Sin esto, cada push reescribía las
+   * ~7.865 filas de la base aunque no hubiera cambiado nada, y cada reescritura
+   * emitía un mensaje Realtime por PC conectada (11,47 M contra un tope de
+   * 2,2 M). Si todavía no hubo pull en esta sesión, sube todo. Ver
+   * sync/pushFilter.ts.
+   */
+  private soloNuevas(
+    table: string,
+    rows: Record<string, unknown>[],
+    keyOf: (r: Record<string, unknown>) => string,
+  ): Record<string, unknown>[] {
+    const antes = rows.length;
+    const salida = soloCambiadas(rows, keyOf, this.remotoDelPull?.[table] ?? null);
+    if (salida.length !== antes) {
+      log.info(`[Sync] ${table}: se suben ${salida.length}/${antes} filas (el resto no cambió).`);
+    }
+    return salida;
+  }
 
   /** Quita una columna de las filas si todavía no existe en la tabla (para no romper el upsert). */
   private async stripCol(
@@ -181,14 +204,14 @@ export class CloudStorageService extends SyncStorageBase {
    *  de seguridad y no se rompe nada. */
   startRealtime(onChange: () => void): void {
     if (!this.client || this.realtimeChannel) return;
-    const tables = ['professors', 'subjects', 'professor_subjects', 'academic_load', 'schedule_blocks', 'logs'];
+    // `logs`, `professor_subjects` y `academic_load` quedan FUERA del tiempo real:
+    // los logs son historial (nadie los mira en vivo) y los vinculos cambian junto
+    // con profesores/materias, que si estan suscritas — notificar las tres cosas por
+    // separado triplicaba los mensajes del mismo evento. Siguen llegando por el pull.
+    const tables = ['professors', 'subjects', 'schedule_blocks'];
     const ch = this.client.channel('farmabox-sync');
     for (const table of tables) {
-      ch.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        () => onChange(),
-      );
+      ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange());
     }
     ch.subscribe((status) => log.info('[Realtime] Estado de la suscripción:', status));
     this.realtimeChannel = ch;
@@ -238,8 +261,11 @@ export class CloudStorageService extends SyncStorageBase {
       );
       // Atribución por equipo: se omite si falta la columna (migración 2.8).
       rows = await this.stripCol('professors', 'updated_by', rows);
-      const { error } = await this.client.from('professors').upsert(rows);
-      if (error) throw error;
+      rows = this.soloNuevas('professors', rows, (r) => String(r.id));
+      if (rows.length) {
+        const { error } = await this.client.from('professors').upsert(rows);
+        if (error) throw error;
+      }
     }
 
     // 2. Materias (incluye tombstoned).
@@ -266,8 +292,11 @@ export class CloudStorageService extends SyncStorageBase {
       );
       // Atribución por equipo: se omite si falta la columna (migración 2.8).
       rows = await this.stripCol('subjects', 'updated_by', rows);
-      const { error } = await this.client.from('subjects').upsert(rows);
-      if (error) throw error;
+      rows = this.soloNuevas('subjects', rows, (r) => String(r.code));
+      if (rows.length) {
+        const { error } = await this.client.from('subjects').upsert(rows);
+        if (error) throw error;
+      }
     }
 
     // 3. professor_subjects: reconstruir desde la unión de ambos lados (solo vivos).
@@ -287,8 +316,15 @@ export class CloudStorageService extends SyncStorageBase {
     }
     // Upsert lo nuevo (la tabla NUNCA queda vacía) y borrar solo lo que sobra.
     if (links.length) {
-      const { error } = await this.client.from('professor_subjects').upsert(links);
-      if (error) throw error;
+      const nuevos = this.soloNuevas(
+        'professor_subjects',
+        links as unknown as Record<string, unknown>[],
+        (r) => `${String(r.professor_id)} ${String(r.subject_code)}`,
+      );
+      if (nuevos.length) {
+        const { error } = await this.client.from('professor_subjects').upsert(nuevos);
+        if (error) throw error;
+      }
     }
     {
       const keep = new Set(links.map((l) => `${l.professor_id} ${l.subject_code}`));
@@ -323,10 +359,22 @@ export class CloudStorageService extends SyncStorageBase {
       const by = v.updatedBy ?? null;
       for (const pid of v.theory ?? [])
         if (liveProfIds.has(pid))
-          loadInsert.push({ subject_code: code, professor_id: pid, role: 'theory', updated_at: ts, updated_by: by });
+          loadInsert.push({
+            subject_code: code,
+            professor_id: pid,
+            role: 'theory',
+            updated_at: ts,
+            updated_by: by,
+          });
       for (const pid of v.lab ?? [])
         if (liveProfIds.has(pid))
-          loadInsert.push({ subject_code: code, professor_id: pid, role: 'lab', updated_at: ts, updated_by: by });
+          loadInsert.push({
+            subject_code: code,
+            professor_id: pid,
+            role: 'lab',
+            updated_at: ts,
+            updated_by: by,
+          });
     }
     // Upsert lo nuevo y borrar solo lo que sobra (nunca queda vacía a medio camino).
     if (loadInsert.length) {
@@ -336,8 +384,15 @@ export class CloudStorageService extends SyncStorageBase {
         'updated_by',
         loadInsert as unknown as Record<string, unknown>[],
       );
-      const { error } = await this.client.from('academic_load').upsert(rows);
-      if (error) throw error;
+      const cambiadas = this.soloNuevas(
+        'academic_load',
+        rows,
+        (r) => `${String(r.subject_code)} ${String(r.professor_id)} ${String(r.role)}`,
+      );
+      if (cambiadas.length) {
+        const { error } = await this.client.from('academic_load').upsert(cambiadas);
+        if (error) throw error;
+      }
     }
     {
       const keep = new Set(loadInsert.map((l) => `${l.subject_code} ${l.professor_id} ${l.role}`));
@@ -388,8 +443,11 @@ export class CloudStorageService extends SyncStorageBase {
       rows = await this.stripCol('schedule_blocks', 'aula', rows);
       // Atribución por equipo: se omite si falta la columna (migración 2.8).
       rows = await this.stripCol('schedule_blocks', 'updated_by', rows);
-      const { error } = await this.client.from('schedule_blocks').upsert(rows);
-      if (error) throw error;
+      rows = this.soloNuevas('schedule_blocks', rows, (r) => String(r.id));
+      if (rows.length) {
+        const { error } = await this.client.from('schedule_blocks').upsert(rows);
+        if (error) throw error;
+      }
     }
 
     // 6. Logs (incluye tombstoned).
@@ -401,9 +459,16 @@ export class CloudStorageService extends SyncStorageBase {
       updated_at: l.updatedAt ?? this.now(),
       deleted_at: l.deletedAt ?? null,
     }));
-    if (logRows.length) {
-      const { error } = await this.client.from('logs').upsert(logRows);
-      if (error) throw error;
+    {
+      // Los logs son append-only: basta con subir los que la nube todavia no tiene.
+      const nuevos = this.logIdsRemotos
+        ? logRows.filter((l) => !this.logIdsRemotos!.has(l.id))
+        : logRows;
+      if (nuevos.length) {
+        const { error } = await this.client.from('logs').upsert(nuevos);
+        if (error) throw error;
+        for (const l of nuevos) this.logIdsRemotos?.add(l.id);
+      }
     }
   }
 
@@ -454,6 +519,20 @@ export class CloudStorageService extends SyncStorageBase {
    */
   private logsCursor: string | null = null;
 
+  /**
+   * Filas tal como vinieron en el ÚLTIMO pull, indexadas por clave, para no
+   * re-subir lo que no cambió. `null` = todavía no hubo pull en esta sesión ⇒
+   * el push sube todo (fail-safe). Ver sync/pushFilter.ts para el porqué.
+   *
+   * `logs` queda fuera a propósito: se baja incrementalmente, así que el índice
+   * estaría incompleto y haría re-subir logs viejos creyéndolos nuevos. Los logs
+   * se filtran contra el set de ids que ya existen en la nube (ver pushRemote).
+   */
+  private remotoDelPull: Record<string, RemotoIndexado> | null = null;
+
+  /** Ids de logs que ya existían en la nube en el último pull completo. */
+  private logIdsRemotos: Set<string> | null = null;
+
   protected async pullRemote(): Promise<RawDatasets> {
     if (!this.client) throw new Error('Nube no configurada');
     // Paginado vía pullAll (no select('*') directo): ver comentario del helper.
@@ -475,7 +554,32 @@ export class CloudStorageService extends SyncStorageBase {
         this.logsCursor ? { columna: 'timestamp', sello: this.logsCursor } : undefined,
       ),
     ]);
-    this.logsCursor = nextLogCursor(logRows as unknown as { timestamp?: string }[], this.logsCursor);
+    this.logsCursor = nextLogCursor(
+      logRows as unknown as { timestamp?: string }[],
+      this.logsCursor,
+    );
+
+    // Índice de lo que hay en la nube AHORA, para que el push no re-suba filas
+    // idénticas (cada re-subida idéntica emitía un mensaje Realtime por PC:
+    // 11,47 M de mensajes contra un límite de 2,2 M). Ver sync/pushFilter.ts.
+    this.remotoDelPull = {
+      professors: indexarRemoto(profRows, (r) => String(r.id)),
+      subjects: indexarRemoto(subjRows, (r) => String(r.code)),
+      professor_subjects: indexarRemoto(
+        linkRows,
+        (r) => `${String(r.professor_id)} ${String(r.subject_code)}`,
+      ),
+      academic_load: indexarRemoto(
+        loadRows,
+        (r) => `${String(r.subject_code)} ${String(r.professor_id)} ${String(r.role)}`,
+      ),
+      schedule_blocks: indexarRemoto(blockRows, (r) => String(r.id)),
+    };
+    // Los logs se piden incrementalmente, así que este set solo CRECE con lo que
+    // se va viendo; nunca se reemplaza (si se reemplazara, un pull incremental
+    // vacío haría re-subir los 5.126 logs viejos).
+    if (!this.logIdsRemotos) this.logIdsRemotos = new Set<string>();
+    for (const r of logRows) this.logIdsRemotos.add(String(r.id));
     const links = linkRows as unknown as LinkRow[];
     const subjectsByProf = new Map<string, string[]>();
     const profsBySubject = new Map<string, string[]>();
