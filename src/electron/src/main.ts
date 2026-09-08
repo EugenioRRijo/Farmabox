@@ -178,12 +178,24 @@ async function actualizacionObligatoria(): Promise<void> {
     if (!win.isDestroyed()) win.webContents.send(canal, dato);
   };
 
+  // Escape de la persona: el botón "Continuar sin actualizar" (aparece a los
+  // 15 s) y también cerrar la ventana a mano. Cualquiera de los dos deja pasar.
+  const escape = new AbortController();
+  const saltar = (): void => escape.abort();
+  ipcMain.once('gate:saltar', saltar);
+  win.once('close', saltar);
+
   try {
     const resultado = await esperarActualizacion(autoUpdater, {
-      // Sin novedades del updater en 90 s (o 90 s sin avanzar la descarga) ⇒
-      // no hacer esperar más a la persona. El timeout se renueva con cada
-      // evento de progreso, así que una descarga lenta no se corta.
+      // Sin novedades del updater en 90 s ⇒ seguir. Se renueva con el progreso
+      // para no cortar una descarga lenta a la mitad...
       timeoutMs: 90_000,
+      // ...pero con un TECHO ABSOLUTO que no se renueva nunca. Sin esto, un
+      // updater que emite progreso en bucle mantenía la ventana abierta para
+      // siempre — fue lo que trabó PCs en la v2.3.23. Pasados 4 minutos, la app
+      // abre igual y la actualización se retoma en el próximo arranque.
+      maxTotalMs: 4 * 60_000,
+      señal: escape.signal,
       onVersion: (v) => {
         log.info('[Updater] Actualización obligatoria a', v);
         avisar('gate:version', v);
@@ -204,9 +216,8 @@ async function actualizacionObligatoria(): Promise<void> {
   } catch (e) {
     log.error('[Updater] El portón falló; se continúa sin actualizar:', e);
   } finally {
-    if (!win.isDestroyed()) {
-      win.destroy(); // closable:false no impide destroy()
-    }
+    ipcMain.removeListener('gate:saltar', saltar);
+    if (!win.isDestroyed()) win.destroy();
   }
 }
 

@@ -24,7 +24,9 @@ export type ResultadoGate =
   | 'sin-actualizacion' // está al día → seguir
   | 'descargada' // hay update lista → reiniciar e instalar
   | 'error' // updater falló / sin red → seguir
-  | 'timeout'; // tardó demasiado → seguir
+  | 'timeout' // se quedó sin novedades → seguir
+  | 'techo' // superó el máximo absoluto → seguir
+  | 'cancelado'; // la persona eligió seguir sin actualizar
 
 /** La parte de `autoUpdater` que este módulo necesita (para poder testearlo). */
 export interface UpdaterMinimo {
@@ -33,8 +35,21 @@ export interface UpdaterMinimo {
 }
 
 export interface OpcionesGate {
-  /** Cuánto esperar sin novedades antes de rendirse y dejar pasar. */
+  /** Cuánto esperar SIN NOVEDADES antes de rendirse y dejar pasar. */
   timeoutMs: number;
+  /**
+   * Techo ABSOLUTO: máximo total que la ventana puede retener a la persona,
+   * pase lo que pase. NO se renueva con el progreso.
+   *
+   * Esto faltaba en la v2.3.23 y dejó PCs trabadas: el `timeoutMs` se renovaba
+   * con cada evento de descarga, así que una conexión lenta (o un updater que
+   * reintenta en bucle) mantenía la ventana abierta indefinidamente. Sumado a
+   * que la ventana era `closable:false` y `alwaysOnTop`, la persona quedaba
+   * encerrada sin forma de salir.
+   */
+  maxTotalMs?: number;
+  /** Permite que la persona elija seguir sin actualizar (botón de escape). */
+  señal?: AbortSignal;
   /** Progreso de descarga, 0-100 (entero). */
   onProgreso?: (porcentaje: number) => void;
   /** Versión encontrada, apenas se sabe. */
@@ -55,13 +70,35 @@ export function esperarActualizacion(
   return new Promise<ResultadoGate>((resolve) => {
     let listo = false;
     let temporizador: ReturnType<typeof setTimeout>;
+    let techo: ReturnType<typeof setTimeout> | undefined;
+
+    let soltarEscape: (() => void) | undefined;
 
     const terminar = (r: ResultadoGate): void => {
       if (listo) return; // el primer resultado manda
       listo = true;
       clearTimeout(temporizador);
+      if (techo) clearTimeout(techo);
+      soltarEscape?.();
       resolve(r);
     };
+
+    // Escape de la persona: si ya venía abortada, ni empezamos.
+    if (opts.señal) {
+      if (opts.señal.aborted) {
+        resolve('cancelado');
+        return;
+      }
+      const alAbortar = (): void => terminar('cancelado');
+      opts.señal.addEventListener('abort', alAbortar, { once: true });
+      soltarEscape = () => opts.señal?.removeEventListener('abort', alAbortar);
+    }
+
+    // Techo ABSOLUTO: no se renueva nunca. Es la garantía de que nadie queda
+    // encerrado, aunque el updater emita progreso para siempre.
+    if (opts.maxTotalMs !== undefined) {
+      techo = setTimeout(() => terminar('techo'), opts.maxTotalMs);
+    }
 
     const renovarTimeout = (): void => {
       clearTimeout(temporizador);

@@ -102,4 +102,51 @@ describe('esperarActualizacion — el portón de actualización obligatoria', ()
     u.emit('update-downloaded', { version: '2.3.23' });
     expect(await p).toBe('descargada');
   });
+
+  // ── Lo que faltaba y dejó PCs trabadas en la ventana de "Actualizando" ──────
+  it('el techo absoluto corta aunque el progreso siga renovando el timeout', async () => {
+    const u = fakeUpdater();
+    const p = esperarActualizacion(u as never, { timeoutMs: 50, maxTotalMs: 120 });
+    // progreso indefinido: sin techo absoluto esto no terminaria NUNCA
+    const latido = setInterval(() => u.emit('download-progress', { percent: 1 }), 20);
+    const r = await p;
+    clearInterval(latido);
+    expect(r).toBe('techo');
+  });
+
+  it('el techo NO se dispara si la descarga termina antes', async () => {
+    const u = fakeUpdater();
+    const p = esperarActualizacion(u as never, { timeoutMs: 50, maxTotalMs: 500 });
+    u.emit('download-progress', { percent: 50 });
+    u.emit('update-downloaded', { version: '2.3.24' });
+    expect(await p).toBe('descargada');
+  });
+
+  it('si la persona elige seguir sin actualizar, deja pasar', async () => {
+    const u = fakeUpdater();
+    const ac = new AbortController();
+    const p = esperarActualizacion(u as never, { timeoutMs: 5000, señal: ac.signal });
+    u.emit('download-progress', { percent: 10 });
+    ac.abort();
+    expect(await p).toBe('cancelado');
+  });
+
+  it('una señal ya abortada deja pasar de inmediato', async () => {
+    const u = fakeUpdater();
+    const ac = new AbortController();
+    ac.abort();
+    expect(await esperarActualizacion(u as never, { timeoutMs: 5000, señal: ac.signal })).toBe(
+      'cancelado',
+    );
+  });
+
+  it('cancelar despues de resolver no cambia el resultado', async () => {
+    const u = fakeUpdater();
+    const ac = new AbortController();
+    const p = esperarActualizacion(u as never, { timeoutMs: 5000, señal: ac.signal });
+    u.emit('update-downloaded', { version: '2.3.24' });
+    const r = await p;
+    ac.abort();
+    expect(r).toBe('descargada');
+  });
 });
