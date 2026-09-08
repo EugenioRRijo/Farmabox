@@ -15,6 +15,7 @@ import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import { esperarActualizacion } from './updater/updateGate';
 import { crearVentanaActualizacion } from './updater/updateWindow';
+import { debeCerrarSinVentanas } from './updater/arranque';
 import { StorageService } from './services/StorageService';
 import { CloudStorageService } from './services/CloudStorageService';
 import type { SyncStorageBase } from './services/SyncStorageBase';
@@ -38,6 +39,9 @@ let store: SyncStorageBase | null = null;
 let keepalive: SupabaseKeepaliveService | null = null;
 let backup: BackupService | null = null;
 let isQuitting = false;
+/** true hasta que la ventana principal existe. Impide que el hueco sin
+ *  ventanas del arranque (portón de actualización) cierre la app. */
+let arrancando = true;
 const IS_DEV = !app.isPackaged || process.env.NODE_ENV === 'development';
 const VITE_DEV_URL = 'http://localhost:5173';
 
@@ -422,6 +426,7 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+  arrancando = false; // ya hay ventana principal: a partir de acá, cerrarlas sí cierra la app
 
   // (La actualización ya se resolvió arriba, antes de tocar la nube.)
 
@@ -451,7 +456,12 @@ app.on('before-quit', async (e) => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // `arrancando` es clave: entre que el portón de actualización destruye su
+  // ventana y que se crea la principal, la app queda SIN ventanas por un
+  // instante. Sin este guard, Electron emitía 'window-all-closed' en ese hueco
+  // y la app se cerraba sola antes de abrir (bug "se actualiza y se cierra"
+  // de la v2.3.23/2.3.24). Ver updater/arranque.ts.
+  if (debeCerrarSinVentanas({ arrancando, plataforma: process.platform })) {
     app.quit();
   }
 });

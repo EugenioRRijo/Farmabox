@@ -1,6 +1,6 @@
 {
   "name": "@scheduler/shared",
-  "version": "2.3.24",
+  "version": "2.3.25",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

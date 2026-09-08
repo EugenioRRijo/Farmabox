@@ -1,7 +1,7 @@
 {
   "name": "farmabox",
   "private": true,
-  "version": "2.3.24",
+  "version": "2.3.25",
   "description": "Farmabox — Sistema de Gestión de Horarios Académicos (USM, Facultad de Farmacia), offline-first",
   "author": "Eugenio Rijo (Servicio Comunitario USM)",
   "workspaces": [
